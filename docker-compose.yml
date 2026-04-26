@@ -34,10 +34,11 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       LXP_VERIFY_URL: ${LXP_VERIFY_URL}
     command: >
+      sh -c "python manage.py collectstatic --noinput &&
       gunicorn hero_path.wsgi:application
       -b 0.0.0.0:8000
       --workers 3
-      --timeout 60
+      --timeout 60"
 
   celery:
     build: .

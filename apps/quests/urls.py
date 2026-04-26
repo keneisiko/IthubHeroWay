@@ -6,6 +6,7 @@ from .views import (
     QuestCompleteView,
     QuestProgressUpdateView,
     QuestRewardHistoryView,
+    SelfReportCreateView,
 )
 
 urlpatterns = [
@@ -14,5 +15,6 @@ urlpatterns = [
     path("quests/rewards/history/", QuestRewardHistoryView.as_view(), name="quests-reward-history"),
     path("quests/<str:code>/progress/", QuestProgressUpdateView.as_view(), name="quests-progress-update"),
     path("quests/<str:code>/complete/", QuestCompleteView.as_view(), name="quests-complete"),
+    path("quests/<str:code>/self-report/", SelfReportCreateView.as_view(), name="quests-self-report"),
 ]
 

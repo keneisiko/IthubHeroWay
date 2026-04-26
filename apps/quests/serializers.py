@@ -46,6 +46,10 @@ class CompleteQuestSerializer(serializers.Serializer):
     proof_payload = serializers.JSONField(required=False)
 
 
+class SelfReportCreateSerializer(serializers.Serializer):
+    comment = serializers.CharField(min_length=10, trim_whitespace=True)
+
+
 class QuestRewardTransactionSerializer(serializers.ModelSerializer):
     quest_code = serializers.CharField(source="quest.code", read_only=True)
     quest_title = serializers.CharField(source="quest.title", read_only=True)

@@ -1,0 +1,19 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+  <div class="dashboard-role-nav">
+    {% if request.user.is_superuser or request.user.role == "admin" %}
+      <a class="role-link" href="/admin/quests/selfreportproof/?status__exact=pending">Все ожидающие самоотчёты</a>
+    {% endif %}
+    {% if request.user.is_superuser or request.user.role == "curator" %}
+      <a class="role-link" href="/admin/curator/">Дашборд куратора</a>
+    {% endif %}
+    {% if request.user.is_superuser or request.user.role == "tutor" %}
+      <a class="role-link" href="/admin/tutor/">Дашборд тьютора</a>
+    {% endif %}
+    {% if request.user.is_superuser or request.user.role == "hq" %}
+      <a class="role-link" href="/admin/hq/">Дашборд штаба</a>
+    {% endif %}
+  </div>
+  {{ block.super }}
+{% endblock %}

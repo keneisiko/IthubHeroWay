@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>Дашборд штаба</h2>
+<div class="dash-grid">
+  <div class="dash-card">
+    <h3>Распределение всех студентов</h3>
+    <canvas id="zonesChart"></canvas>
+  </div>
+  <div class="dash-card">
+    <h3>Быстрые действия</h3>
+    <a class="role-link" href="/admin/quests/seasonalevent/">Создать командный квест / операцию</a>
+  </div>
+</div>
+<div class="dash-card">
+  <h3>Сезонные операции</h3>
+  <table class="admin-table">
+    <tr><th>Название</th><th>Статус</th><th>Прогресс</th></tr>
+    {% for e in seasonal_events %}
+      <tr>
+        <td>{{ e.title }}</td>
+        <td>{% if e.is_active %}<span style="color:#22c55e;">Активна</span>{% else %}Черновик{% endif %}</td>
+        <td>{{ e.progress_percent }}%</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3">Нет сезонных операций.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const zoneCounts = {{ zone_counts|safe }};
+new Chart(document.getElementById("zonesChart"), {
+  type: "doughnut",
+  data: {
+    labels: ["Красная","Оранжевая","Жёлтая","Зелёная","Платиновая","Золотая"],
+    datasets: [{ data: [zoneCounts.red, zoneCounts.orange, zoneCounts.yellow, zoneCounts.green, zoneCounts.platinum, zoneCounts.gold] }]
+  }
+});
+</script>
+{% endblock %}

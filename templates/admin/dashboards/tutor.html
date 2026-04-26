@@ -1,0 +1,48 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>Дашборд тьютора</h2>
+<div class="dash-grid">
+  <div class="dash-card">
+    <h3>Ожидают проверки ({{ pending_self_reports_count }})</h3>
+    <ul>
+      {% for p in pending_self_reports %}
+        <li><strong>{{ p.user.callsign }}</strong> → {{ p.quest.title }} ({{ p.created_at }})</li>
+      {% empty %}
+        <li>Нет самоотчётов на проверку</li>
+      {% endfor %}
+    </ul>
+    <a class="role-link" href="/admin/quests/selfreportproof/?status__exact=pending">Перейти к самоотчётам</a>
+  </div>
+  <div class="dash-card">
+    <h3>Зоны риска (2-4 курс)</h3>
+    <canvas id="zonesChart"></canvas>
+  </div>
+  <div class="dash-card">
+    <h3>Быстрые действия</h3>
+    <a class="role-link" href="/admin/accounts/user/">Отправить восстановительный квест</a>
+    <a class="role-link" href="/admin/accounts/user/">Начислить бонус</a>
+  </div>
+</div>
+<div class="dash-card">
+  <h3>Красная зона (&lt;100)</h3>
+  <table class="admin-table">
+    <tr><th>Позывной</th><th>Рейтинг</th><th>Отряд</th></tr>
+    {% for user in red_zone_users %}
+      <tr style="background:#fee2e2;"><td>{{ user.callsign }}</td><td>{{ user.rating_current }}</td><td>{{ user.squad }}</td></tr>
+    {% empty %}
+      <tr><td colspan="3">Нет студентов в красной зоне</td></tr>
+    {% endfor %}
+  </table>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const zoneCounts = {{ zone_counts|safe }};
+new Chart(document.getElementById("zonesChart"), {
+  type: "pie",
+  data: {
+    labels: ["Красная","Оранжевая","Жёлтая","Зелёная","Платиновая","Золотая"],
+    datasets: [{ data: [zoneCounts.red, zoneCounts.orange, zoneCounts.yellow, zoneCounts.green, zoneCounts.platinum, zoneCounts.gold] }]
+  }
+});
+</script>
+{% endblock %}

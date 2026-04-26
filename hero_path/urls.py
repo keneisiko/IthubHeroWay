@@ -3,8 +3,12 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django_prometheus import exports
 from apps.operations.health_views import HealthView, ReadyView
+from apps.operations.admin_views import curator_dashboard, hq_dashboard, tutor_dashboard
 
 urlpatterns = [
+    path("admin/curator/", curator_dashboard, name="admin-curator-dashboard"),
+    path("admin/tutor/", tutor_dashboard, name="admin-tutor-dashboard"),
+    path("admin/hq/", hq_dashboard, name="admin-hq-dashboard"),
     path("admin/", admin.site.urls),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

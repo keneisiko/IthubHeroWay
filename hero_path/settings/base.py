@@ -11,6 +11,7 @@ DEBUG = True
 ALLOWED_HOSTS: list[str] = ["*"]
 
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -39,6 +40,7 @@ MIDDLEWARE = [
     "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -53,7 +55,7 @@ ROOT_URLCONF = "hero_path.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -107,6 +109,8 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "static"
+STATICFILES_DIRS = [BASE_DIR / "staticfiles"] if (BASE_DIR / "staticfiles").exists() else []
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -141,6 +145,44 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS: list[str] = [
     "http://localhost:3000",
 ]
+
+JAZZMIN_SETTINGS = {
+    "site_title": "IThub Admin",
+    "site_header": "IThub Hero Path",
+    "site_brand": "Hero Path",
+    "welcome_sign": "Панель управления Path of Hero",
+    "copyright": "IThub",
+    "theme": "darkly",
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "order_with_respect_to": [
+        "accounts",
+        "quests",
+        "progress",
+        "badges",
+        "shop",
+        "social",
+    ],
+    "custom_links": {
+        "accounts": [
+            {"name": "Кураторский дашборд", "url": "admin-curator-dashboard", "icon": "fas fa-user-check"},
+            {"name": "Дашборд тьютора", "url": "admin-tutor-dashboard", "icon": "fas fa-user-graduate"},
+            {"name": "Дашборд штаба", "url": "admin-hq-dashboard", "icon": "fas fa-flag"},
+        ],
+    },
+    "icons": {
+        "accounts.User": "fas fa-users",
+        "accounts.Squad": "fas fa-people-group",
+        "quests.Quest": "fas fa-scroll",
+        "quests.SeasonalEvent": "fas fa-calendar-days",
+        "quests.SquadLeaderboardSnapshot": "fas fa-ranking-star",
+        "progress.RatingLog": "fas fa-chart-line",
+        "shop.ShopItem": "fas fa-store",
+        "badges.Badge": "fas fa-award",
+        "social.Duel": "fas fa-hand-fist",
+    },
+    "custom_css": "admin/css/custom_admin.css",
+}
 
 # Cache TTLs (seconds)
 LEADERBOARD_CACHE_TTL = 300  # 5 minutes

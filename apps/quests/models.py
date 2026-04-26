@@ -7,6 +7,8 @@ class QuestType(models.TextChoices):
     WEEKLY = "weekly", "Weekly"
     EVENT = "event", "Event"
     LONG = "long", "Long"
+    SELF_REPORT = "self_report", "Self report"
+    MIXED = "mixed", "Mixed"
 
 
 class Quest(models.Model):
@@ -75,4 +77,76 @@ class QuestRewardTransaction(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id}:{self.quest_id} (+{self.coins_delta}c, +{self.rating_delta}r)"
+
+
+class SeasonalEvent(models.Model):
+    code = models.CharField(max_length=64, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    progress_percent = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=False)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["is_active"]),
+            models.Index(fields=["started_at", "ended_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.code}: {self.title}"
+
+
+class SquadLeaderboardSnapshot(models.Model):
+    squad = models.ForeignKey("accounts.Squad", on_delete=models.CASCADE, related_name="leaderboard_snapshots")
+    avg_rating = models.FloatField(default=0)
+    agents_count = models.PositiveIntegerField(default=0)
+    captured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["-captured_at"]),
+            models.Index(fields=["squad", "-captured_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.squad_id}:{self.avg_rating}"
+
+
+class SelfReportProofStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+
+
+class SelfReportProof(models.Model):
+    quest = models.ForeignKey(Quest, on_delete=models.CASCADE, related_name="self_report_proofs")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="self_report_proofs")
+    quest_progress = models.OneToOneField(
+        UserQuestProgress, on_delete=models.CASCADE, related_name="self_report_proof"
+    )
+    comment = models.TextField()
+    status = models.CharField(
+        max_length=16, choices=SelfReportProofStatus.choices, default=SelfReportProofStatus.PENDING, db_index=True
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="self_report_reviews",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["user", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id}:{self.quest_id}:{self.status}"
 

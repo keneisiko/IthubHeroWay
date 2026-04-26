@@ -7,11 +7,19 @@ from rest_framework.response import Response
 from apps.accounts.permissions import IsKnownRole
 from apps.progress.models import RatingChangeSource
 from apps.progress.services.rewards import apply_rating_delta_with_cap, remaining_daily_coin_budget
-from .models import Quest, QuestRewardTransaction, UserQuestProgress
+from .models import (
+    Quest,
+    QuestRewardTransaction,
+    QuestType,
+    SelfReportProof,
+    SelfReportProofStatus,
+    UserQuestProgress,
+)
 from .serializers import (
     CompleteQuestSerializer,
     QuestSerializer,
     QuestRewardTransactionSerializer,
+    SelfReportCreateSerializer,
     UpdateQuestProgressSerializer,
     UserQuestProgressSerializer,
 )
@@ -124,4 +132,49 @@ class QuestRewardHistoryView(generics.ListAPIView):
         return QuestRewardTransaction.objects.filter(user=self.request.user).select_related("quest").order_by(
             "-granted_at"
         )
+
+
+class SelfReportCreateView(views.APIView):
+    permission_classes = [IsKnownRole]
+
+    def post(self, request, code: str) -> Response:
+        serializer = SelfReportCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        now = timezone.now()
+        quest = generics.get_object_or_404(Quest, code=code, is_active=True)
+        if quest.quest_type not in {QuestType.SELF_REPORT, QuestType.MIXED}:
+            return Response({"detail": "Quest does not accept self-reports."}, status=status.HTTP_400_BAD_REQUEST)
+        if quest.start_at and quest.start_at > now:
+            return Response({"detail": "Quest is not started yet."}, status=status.HTTP_400_BAD_REQUEST)
+        if quest.end_at and quest.end_at < now:
+            return Response({"detail": "Quest is already ended."}, status=status.HTTP_400_BAD_REQUEST)
+
+        progress, _ = UserQuestProgress.objects.get_or_create(user=request.user, quest=quest)
+        if progress.is_completed:
+            return Response({"detail": "Quest is already completed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_count = SelfReportProof.objects.filter(user=request.user, created_at__gte=day_start).count()
+        if today_count >= 3:
+            return Response({"detail": "Daily self-report limit reached (3/day)."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        last = SelfReportProof.objects.filter(user=request.user).order_by("-created_at").first()
+        if last and (now - last.created_at).total_seconds() < 5 * 60:
+            return Response({"detail": "Too frequent. Try again later."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        proof, created = SelfReportProof.objects.get_or_create(
+            quest=quest,
+            user=request.user,
+            quest_progress=progress,
+            defaults={"comment": serializer.validated_data["comment"], "status": SelfReportProofStatus.PENDING},
+        )
+        if not created:
+            # Update comment only while pending.
+            if proof.status == SelfReportProofStatus.PENDING:
+                proof.comment = serializer.validated_data["comment"]
+                proof.save(update_fields=["comment"])
+            return Response({"status": proof.status, "proof_id": proof.id}, status=status.HTTP_200_OK)
+
+        return Response({"status": "pending", "proof_id": proof.id}, status=status.HTTP_201_CREATED)
 
