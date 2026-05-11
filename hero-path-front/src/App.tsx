@@ -1,0 +1,34 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import Header from './components/Header'
+import Sidebar from './components/Sidebar'
+import Dashboard from './pages/Dashboard'
+import Profile from './pages/Profile'
+import Leaderboard from './pages/Leaderboard'
+import Squads from './pages/Squads'
+import Shop from './pages/Shop'
+import Quests from './pages/Quests'
+import './App.css'
+
+function App() {
+  return (
+    <div className="app-shell">
+      <Header />
+      <div className="app-content">
+        <main className="page-content">
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile/:username?" element={<Profile />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/quests" element={<Quests />} />
+            <Route path="/squads" element={<Squads />} />
+          </Routes>
+        </main>
+        <Sidebar />
+      </div>
+    </div>
+  )
+}
+
+export default App

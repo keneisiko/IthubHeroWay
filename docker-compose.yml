@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: hero_path
+      POSTGRES_USER: hero_path
+      POSTGRES_PASSWORD: hero_path
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_SETTINGS_MODULE: hero_path.settings.base
+      POSTGRES_HOST: db
+      POSTGRES_DB: hero_path
+      POSTGRES_USER: hero_path
+      POSTGRES_PASSWORD: hero_path
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      LXP_VERIFY_URL: ${LXP_VERIFY_URL}
+    command: >
+      gunicorn hero_path.wsgi:application
+      -b 0.0.0.0:8000
+      --workers 3
+      --timeout 60
+
+  celery:
+    build: .
+    depends_on:
+      - db
+      - redis
+    environment:
+      DJANGO_SETTINGS_MODULE: hero_path.settings.base
+      POSTGRES_HOST: db
+      POSTGRES_DB: hero_path
+      POSTGRES_USER: hero_path
+      POSTGRES_PASSWORD: hero_path
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      LXP_VERIFY_URL: ${LXP_VERIFY_URL}
+    volumes:
+      - .:/app
+    command: celery -A hero_path worker -l INFO
+
+  celery-beat:
+    build: .
+    depends_on:
+      - db
+      - redis
+    environment:
+      DJANGO_SETTINGS_MODULE: hero_path.settings.base
+      POSTGRES_HOST: db
+      POSTGRES_DB: hero_path
+      POSTGRES_USER: hero_path
+      POSTGRES_PASSWORD: hero_path
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      LXP_VERIFY_URL: ${LXP_VERIFY_URL}
+    volumes:
+      - .:/app
+    command: celery -A hero_path beat -l INFO
+
+volumes:
+  pgdata:
+

@@ -1,0 +1,13 @@
+services:
+  web:
+    build:
+      context: .
+      network: host
+  celery:
+    build:
+      context: .
+      network: host
+  celery-beat:
+    build:
+      context: .
+      network: host
