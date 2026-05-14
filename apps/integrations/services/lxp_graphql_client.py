@@ -140,26 +140,62 @@ class LXPGraphQLClient:
     def login(self) -> str:
         if not self.bot_email or not self.bot_password:
             raise LXPAuthError("LXP_BOT_EMAIL/LXP_BOT_PASSWORD are not configured")
-
+    
         if self.use_browser_token_bot:
             return self.login_via_browser()
-
-        mutation = """
-        mutation Login($email: String!, $password: String!) {
-          login(email: $email, password: $password) {
-            token
-            accessToken
-            access_token
-          }
+    
+        # Правильная query для LXP (SignIn)
+        query = """
+        query SignIn($input: SignInInput!) {
+            signIn(input: $input) {
+                accessToken
+                refreshToken
+                user {
+                    id
+                    email
+                }
+            }
         }
         """
-        res = self._post(mutation, {"email": self.bot_email, "password": self.bot_password}, token=None, timeout=20)
-        if res.errors:
-            raise LXPAuthError(f"GraphQL login errors: {res.errors}")
-        login_data = (res.data or {}).get("login") or {}
-        token = login_data.get("token") or login_data.get("accessToken") or login_data.get("access_token")
+        
+        variables = {
+            "input": {
+                "email": self.bot_email,
+                "password": self.bot_password
+            }
+        }
+        
+        payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": "SignIn"
+        }
+        
+        response = requests.post(
+            self.endpoint,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=20
+        )
+        
+        result = response.json()
+        
+        # Проверка на ошибки GraphQL
+        if result.get('errors'):
+            raise LXPAuthError(f"GraphQL login errors: {result['errors']}")
+        
+        # Токен лежит в data.signIn.accessToken
+        sign_in_data = result.get('data', {}).get('signIn', {})
+        token = sign_in_data.get('accessToken')
+        
         if not token:
-            raise LXPAuthError("Token not found in login response")
+            raise LXPAuthError(f"Token not found in login response: {result}")
+        
+        # Сохраняем refresh token, если нужно
+        refresh_token = sign_in_data.get('refreshToken')
+        if refresh_token:
+            cache.set(f"{self.TOKEN_CACHE_KEY}_refresh", refresh_token, timeout=self.token_ttl_seconds * 2)
+        
         cache.set(self.TOKEN_CACHE_KEY, token, timeout=self.token_ttl_seconds)
         return token
 
