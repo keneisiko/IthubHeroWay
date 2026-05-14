@@ -32,7 +32,7 @@ def parse_hik_event_time(value) -> datetime:
         ts = float(value)
         if ts > 1e12:
             ts /= 1000.0
-        return datetime.fromtimestamp(ts, tz=timezone.utc)
+        return datetime.fromtimestamp(ts, tz=timezone.UTS)
     if isinstance(value, str):
         s = value.strip()
         if s.isdigit():
