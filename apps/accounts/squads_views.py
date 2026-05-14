@@ -26,7 +26,7 @@ class SquadMeView(views.APIView):
 
         squad = Squad.objects.get(pk=user.squad_id)
         members_qs = (
-            User.objects.filter(squad_id=squad.id)
+            User.objects.filter(squad_id=squad.id, telegram_link__is_active=True)
             .select_related("track")
         )
 
@@ -43,7 +43,12 @@ class SquadMeView(views.APIView):
 
         # Squad place in leaderboard by average rating.
         squads_stats = (
-            Squad.objects.annotate(avg_rating=Avg("members__rating_current", filter=Q(members__role="agent")))
+            Squad.objects.annotate(
+                avg_rating=Avg(
+                    "members__rating_current",
+                    filter=Q(members__role="agent", members__telegram_link__is_active=True),
+                )
+            )
             .order_by("-avg_rating", "id")
         )
         squad_place = 1
@@ -118,7 +123,7 @@ class SquadMembersView(generics.ListAPIView):
         user: User = request.user
         squad = generics.get_object_or_404(Squad, code=code)
 
-        qs = User.objects.filter(squad=squad).select_related("track")
+        qs = User.objects.filter(squad=squad, telegram_link__is_active=True).select_related("track")
 
         search = request.query_params.get("search")
         if search:
@@ -153,8 +158,11 @@ class SquadLeaderboardView(views.APIView):
 
         squads = (
             Squad.objects.annotate(
-                agents_count=Count("members", filter=Q(members__role="agent")),
-                avg_rating=Avg("members__rating_current", filter=Q(members__role="agent")),
+                agents_count=Count("members", filter=Q(members__role="agent", members__telegram_link__is_active=True)),
+                avg_rating=Avg(
+                    "members__rating_current",
+                    filter=Q(members__role="agent", members__telegram_link__is_active=True),
+                ),
             )
             .order_by("-avg_rating", "id")[:limit]
         )

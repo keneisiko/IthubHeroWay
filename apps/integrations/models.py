@@ -34,3 +34,40 @@ class ExternalEvent(models.Model):
             models.Index(fields=["source", "-processed_at"]),
         ]
 
+
+class LXPSnapshot(models.Model):
+    """Снимок данных из LXP на определённую дату."""
+
+    date = models.DateField(unique=True)
+    data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date"]
+
+    def __str__(self) -> str:
+        return f"LXPSnapshot({self.date})"
+
+
+class HikEvent(models.Model):
+    """Сырое событие доступа из HikCentral / Hik-Connect."""
+
+    event_id = models.CharField(max_length=128, unique=True, db_index=True)
+    student_code = models.CharField(max_length=100, blank=True)
+    event_time = models.DateTimeField()
+    event_type = models.CharField(max_length=50, blank=True)
+    door_name = models.CharField(max_length=200, blank=True)
+    raw_data = models.JSONField(default=dict, blank=True)
+    processed = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-event_time"]
+        indexes = [
+            models.Index(fields=["student_code", "event_time"]),
+            models.Index(fields=["processed", "event_time"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Hik({self.student_code}:{self.event_id})"
+

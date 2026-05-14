@@ -41,7 +41,11 @@ def _rating_dynamics(users_qs, days=7):
 def curator_dashboard(request):
     if not (request.user.is_superuser or request.user.role == Role.CURATOR):
         raise PermissionDenied("Role access denied")
-    users_qs = User.objects.filter(squad_id=request.user.squad_id, role=Role.AGENT) if request.user.squad_id else User.objects.none()
+    users_qs = (
+        User.objects.filter(squad_id=request.user.squad_id, role=Role.AGENT, telegram_link__is_active=True)
+        if request.user.squad_id
+        else User.objects.none()
+    )
     pending_qs = (
         SelfReportProof.objects.filter(
             status=SelfReportProofStatus.PENDING, user__squad_id=request.user.squad_id
@@ -64,7 +68,12 @@ def curator_dashboard(request):
 def tutor_dashboard(request):
     if not (request.user.is_superuser or request.user.role == Role.TUTOR):
         raise PermissionDenied("Role access denied")
-    users_qs = User.objects.filter(squad__course__gte=2, squad__course__lte=4, role=Role.AGENT)
+    users_qs = User.objects.filter(
+        squad__course__gte=2,
+        squad__course__lte=4,
+        role=Role.AGENT,
+        telegram_link__is_active=True,
+    )
     pending_qs = (
         SelfReportProof.objects.filter(
             status=SelfReportProofStatus.PENDING, user__squad__course__gte=2, user__squad__course__lte=4
@@ -88,7 +97,7 @@ def tutor_dashboard(request):
 def hq_dashboard(request):
     if not (request.user.is_superuser or request.user.role == Role.HQ):
         raise PermissionDenied("Role access denied")
-    users_qs = User.objects.filter(role=Role.AGENT)
+    users_qs = User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
     context = {
         "zone_counts": _zone_counts(users_qs),
         "red_zone_users": users_qs.filter(rating_current__lt=100).order_by("rating_current")[:20],

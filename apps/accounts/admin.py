@@ -63,7 +63,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         "is_active",
     )
     list_filter = ("role", "squad", "is_active", "date_joined")
-    search_fields = ("username", "callsign", "first_name", "last_name", "email")
+    search_fields = ("username", "callsign", "first_name", "last_name", "email", "hik_card_code")
     ordering = ("-rating_current", "username")
     actions = ("grant_event_bonus", "create_recovery_quest")
     fieldsets = BaseUserAdmin.fieldsets + (
@@ -81,6 +81,9 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
                     "level",
                     "rating_current",
                     "unclosed_ct_count",
+                    "lxp_user_id",
+                    "hik_card_code",
+                    "hik_person_id",
                 )
             },
         ),

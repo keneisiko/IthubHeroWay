@@ -1,6 +1,9 @@
 from pathlib import Path
+import json
 import os
 from datetime import timedelta
+
+from .rating_coefficients import QUESTS_REWARDS, RATING_DRIVE, RATING_KP, RATING_LIMITS
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -190,10 +193,70 @@ PROFILE_CACHE_TTL = 60       # 1 minute
 
 # Integrations
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
 LXP_VERIFY_URL = os.getenv("LXP_VERIFY_URL", "")
 YOUGILE_API_URL = os.getenv("YOUGILE_API_URL", "")
 YOUGILE_API_TOKEN = os.getenv("YOUGILE_API_TOKEN", "")
 LXP_API_TOKEN = os.getenv("LXP_API_TOKEN", "")
+
+LXP_GRAPHQL_ENDPOINT = os.getenv("LXP_GRAPHQL_ENDPOINT", "")
+LXP_BOT_EMAIL = os.getenv("LXP_BOT_EMAIL", "")
+LXP_BOT_PASSWORD = os.getenv("LXP_BOT_PASSWORD", "")
+LXP_TOKEN_TTL_SECONDS = int(os.getenv("LXP_TOKEN_TTL_HOURS", "23")) * 60 * 60
+LXP_USE_BROWSER_TOKEN_BOT = os.getenv("LXP_USE_BROWSER_TOKEN_BOT", "0").lower() in {"1", "true", "yes"}
+LXP_WEB_BASE_URL = os.getenv("LXP_WEB_BASE_URL", "https://newlxp.ru")
+LXP_WEB_LOGIN_URL = os.getenv("LXP_WEB_LOGIN_URL", LXP_WEB_BASE_URL)
+LXP_BROWSER_GRAPHQL_HOST = os.getenv("LXP_BROWSER_GRAPHQL_HOST", "api.newlxp.ru")
+LXP_BROWSER_HEADLESS = os.getenv("LXP_BROWSER_HEADLESS", "1").lower() in {"1", "true", "yes"}
+LXP_BROWSER_TIMEOUT_MS = int(os.getenv("LXP_BROWSER_TIMEOUT_MS", "60000"))
+
+# Ограничения объёма снимка LXP (цепочка getMe → группы → дисциплины → studentDiscipline)
+LXP_SNAPSHOT_MAX_SUBORGS = int(os.getenv("LXP_SNAPSHOT_MAX_SUBORGS", "20"))
+LXP_SNAPSHOT_MAX_GROUPS = int(os.getenv("LXP_SNAPSHOT_MAX_GROUPS", "50"))
+LXP_SNAPSHOT_DISCIPLINES_PER_QUERY = int(os.getenv("LXP_SNAPSHOT_DISCIPLINES_PER_QUERY", "8"))
+
+# HikCentral / Hik-Connect OpenAPI (Artemis), подпись x-ca-signature
+HIK_HOST = os.getenv("HIK_HOST", "").strip()
+HIK_PORT = int(os.getenv("HIK_PORT", "443"))
+HIK_APP_KEY = os.getenv("HIK_APP_KEY", "").strip()
+HIK_APP_SECRET = os.getenv("HIK_APP_SECRET", "").strip()
+HIK_REQUEST_TIMEOUT = int(os.getenv("HIK_REQUEST_TIMEOUT", "30"))
+HIK_MAX_RETRIES = int(os.getenv("HIK_MAX_RETRIES", "3"))
+HIK_SSL_VERIFY = os.getenv("HIK_SSL_VERIFY", "1").lower() in {"1", "true", "yes"}
+HIK_ARTEMIS_EVENT_RECORDS_PATH = os.getenv(
+    "HIK_ARTEMIS_EVENT_RECORDS_PATH",
+    "/artemis/api/event/v1/eventRecords/pages",
+).strip()
+HIK_SIGNATURE_DASH_HEADERS = os.getenv("HIK_SIGNATURE_DASH_HEADERS", "1").lower() in {"1", "true", "yes"}
+HIK_SIGNATURE_HEADERS = os.getenv(
+    "HIK_SIGNATURE_HEADERS",
+    "x-ca-key,x-ca-nonce,x-ca-timestamp",
+)
+HIK_ARTEMIS_PERSON_PATH = os.getenv("HIK_ARTEMIS_PERSON_PATH", "").strip()
+HIK_FETCH_LOOKBACK_HOURS = int(os.getenv("HIK_FETCH_LOOKBACK_HOURS", "2"))
+HIK_PAGE_SIZE = int(os.getenv("HIK_PAGE_SIZE", "100"))
+HIK_PROCESS_BATCH = int(os.getenv("HIK_PROCESS_BATCH", "8000"))
+HIK_FETCH_ENABLED = (
+    bool(HIK_HOST and HIK_APP_KEY and HIK_APP_SECRET)
+    and os.getenv("HIK_FETCH_ENABLED", "1").lower() in {"1", "true", "yes"}
+)
+
+def _hk_extra():
+    raw = os.getenv("HIK_EVENT_QUERY_EXTRA_JSON", "").strip()
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
+
+HIK_EVENT_QUERY_EXTRA = _hk_extra()
+# Формат времени в теле запроса к HikCentral (зависит от версии платформы).
+HIK_ARTEMIS_TIME_FORMAT = os.getenv(
+    "HIK_ARTEMIS_TIME_FORMAT",
+    "%Y-%m-%dT%H:%M:%S.000",
+)
 
 SENTRY_DSN = os.getenv("SENTRY_DSN", "")
 if SENTRY_DSN:
@@ -213,7 +276,17 @@ CELERY_TIMEZONE = TIME_ZONE
 
 from celery.schedules import crontab
 
+# LXP: TTL токена задаётся LXP_TOKEN_TTL_SECONDS (~23 ч) и совпадает с Redis TTL кеша.
+# refresh-lxp-token за 15 мин до снимка; fetch дополнительно вызывает refresh синхронно в начале задачи.
 CELERY_BEAT_SCHEDULE = {
+    "fetch-lxp-snapshot-daily": {
+        "task": "apps.integrations.tasks.fetch_lxp_snapshot",
+        "schedule": crontab(hour=2, minute=0),
+    },
+    "refresh-lxp-token": {
+        "task": "apps.integrations.tasks.refresh_lxp_token",
+        "schedule": crontab(hour=1, minute=45),
+    },
     "recalculate_rating_daily": {
         "task": "apps.progress.tasks.recalculate_rating_daily",
         "schedule": crontab(hour=6, minute=0),
@@ -241,6 +314,14 @@ CELERY_BEAT_SCHEDULE = {
     "curator_report_monday": {
         "task": "apps.notifications.tasks.curator_report_monday",
         "schedule": crontab(hour=9, minute=0, day_of_week="mon"),
+    },
+    "fetch-hik-events-hourly": {
+        "task": "apps.integrations.tasks.fetch_hik_events",
+        "schedule": crontab(minute=5),
+    },
+    "process-hik-events-daily": {
+        "task": "apps.integrations.tasks.process_hik_events_daily",
+        "schedule": crontab(hour=20, minute=0),
     },
 }
 

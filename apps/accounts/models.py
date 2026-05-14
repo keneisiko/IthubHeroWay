@@ -44,6 +44,29 @@ class User(AbstractUser):
     level = models.PositiveIntegerField(default=1)
     rating_current = models.PositiveIntegerField(default=300, db_index=True)
     unclosed_ct_count = models.PositiveSmallIntegerField(default=0)
+    lxp_user_id = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text="Идентификатор пользователя в LXP (GraphQL user.id), для связи со снимком",
+    )
+    hik_card_code = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text="Код карты / personCode для HikCentral (привязка проходов к пользователю)",
+    )
+    hik_person_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Идентификатор лица в HikCentral при наличии",
+    )
 
     class Meta:
         indexes = [

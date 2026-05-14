@@ -27,30 +27,40 @@ Backend for gamification platform "Path of Hero" built with Django + DRF.
 
 ## Environment variables
 
-Create `.env` in project root:
+Скопируйте [.env.example](.env.example) в `.env` и заполните значения. В продакшене секреты передавайте из хранилища (Vault, CI secrets, переменные платформы), не коммитьте `.env`.
 
-```env
-# DB
-POSTGRES_DB=hero_path
-POSTGRES_USER=hero_path
-POSTGRES_PASSWORD=hero_path
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
+Ключевые группы: PostgreSQL, Redis, Telegram, LXP (GraphQL и опционально браузерный токен), HikCentral (`HIK_*`), YouGile, Sentry.
 
-# Redis / Celery
-REDIS_URL=redis://redis:6379/0
+## LXP: операции (Celery, алерты, рейтинг)
 
-# Integrations
-TELEGRAM_BOT_TOKEN=replace_with_real_token
-LXP_VERIFY_URL=
-LXP_API_TOKEN=
-YOUGILE_API_URL=
-YOUGILE_API_TOKEN=
+- **Расписание** (`CELERY_BEAT_SCHEDULE`, часовой пояс проекта — `TIME_ZONE`): задача `refresh-lxp-token` в **01:45**, снимок `fetch-lxp-snapshot` в **02:00**. Перед сбором снимка токен дополнительно обновляется синхронно внутри задачи.
+- **Связь с LXP**: у пользователя поле `lxp_user_id` (проставляется при `import_lxp_students` или `backfill_lxp_user_ids`).
+- **Рейтинг из снимка**: после сохранения `LXPSnapshot` вызывается `recalculate_rating_for_date` (маппинг и коэффициенты — [docs/RATING_FROM_LXP.md](docs/RATING_FROM_LXP.md)).
+- **Каталог запросов GraphQL**: [docs/LXP_GRAPHQL_CATALOG.md](docs/LXP_GRAPHQL_CATALOG.md).
+- **Проверка Telegram-алерта админу** (должно вернуть `(True, 'ok')` при корректных `TELEGRAM_*`):
 
-# Observability (optional)
-SENTRY_DSN=
-SENTRY_TRACES_SAMPLE_RATE=0.05
+```bash
+docker compose exec web python manage.py shell -c "from apps.integrations.services.telegram_notify import send_admin_alert; print(send_admin_alert('[LXP][TEST] ping'))"
 ```
+
+**Backfill `lxp_user_id`** для уже импортированных пользователей:
+
+```bash
+docker compose exec web python manage.py backfill_lxp_user_ids --email-domain nalchik.ithub.ru
+```
+
+## HikCentral: проходы (турникеты)
+
+- Документация: [docs/HIKCENTRAL.md](docs/HIKCENTRAL.md).
+- В админке у пользователя задайте **`hik_card_code`** (совпадает с `personCode` / номер карты из Hik).
+- Celery Beat: **`fetch-hik-events-hourly`** (каждый час с `:05`) и **`process-hik-events-daily`** (`process_hik_events_daily` — догрузка большой очереди в 20:00; основная обработка также вызывается из `fetch_hik_events`).
+- Ручной запуск выгрузки:
+
+```bash
+docker compose exec web python manage.py sync_hik_events
+```
+
+События с маппингом сохраняются в **`ExternalEvent`** (`source=hik`). Учёт опозданий от расписания и автоприменение штрафов рейтинга к опоре «Ритм» — отдельный этап.
 
 ## Full run (Docker)
 
@@ -75,7 +85,7 @@ docker compose exec web python manage.py createsuperuser
 4) Run tests:
 
 ```bash
-docker compose exec web python manage.py test apps.accounts.tests apps.social.tests apps.integrations.tests
+docker compose exec web python manage.py test apps.accounts.tests apps.social.tests apps.integrations apps.progress
 ```
 
 ## Full run (without Docker)
@@ -148,3 +158,61 @@ Bot commands:
 - `/daily_quests` - show active daily quests
 - `/profile` - show linked profile
 
+Super user
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+ученики только Нальчик
+```bash
+docker compose exec web python manage.py import_lxp_students --email-domain nalchik.ithub.ru
+```
+
+сброс пользователей (кроме staff/superuser) и повторный импорт Нальчика
+```bash
+docker compose exec web python manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); U.objects.filter(is_superuser=False,is_staff=False).delete(); print('deleted')"
+docker compose exec web python manage.py import_lxp_students --email-domain nalchik.ithub.ru
+```
+
+тг бот
+```bash
+docker compose exec web python manage.py run_telegram_bot
+```
+
+### Успеваемость в БД (LXP → `LXPSnapshot` + пользователи)
+
+1. Импорт учеников и `lxp_user_id`:
+```bash
+docker compose exec web python manage.py import_lxp_students --email-domain nalchik.ithub.ru
+docker compose exec web python manage.py backfill_lxp_user_ids --email-domain nalchik.ithub.ru
+```
+
+2. При необходимости токен бота браузера (если включён `LXP_USE_BROWSER_TOKEN_BOT`):
+```bash
+docker compose exec web python manage.py fetch_lxp_browser_token --debug
+```
+
+3. Снять успеваемость и записать JSON в базу (`LXPSnapshot`), затем применить к рейтингу у тех, у кого **активирован Telegram**:
+
+```bash
+docker compose exec web python manage.py pull_lxp_performance
+```
+
+Для **стейджа без реальных активаций Telegram** можно один раз добавить синтетические привязки агентам с `lxp_user_id`:
+```bash
+docker compose exec web python manage.py pull_lxp_performance --synthetic-telegram-agents
+```
+
+Только сохранить снимок без `RatingLog` / рейтинга: `--skip-rating`. Как по расписанию Celery (вчера): `--yesterday`.
+
+LXP токен вручную + старый вызов через shell
+```bash
+docker compose exec web python manage.py fetch_lxp_browser_token --debug
+docker compose exec web python manage.py shell -c "from apps.integrations.tasks import fetch_lxp_snapshot; print(fetch_lxp_snapshot())"
+docker compose exec web python manage.py shell -c "from apps.integrations.models import LXPSnapshot; s=LXPSnapshot.objects.order_by('-date').first(); print(s.date if s else None); print((s.data or {}).get('meta') if s else None)"
+```
+
+посмотреть успеваемость из последнего snapshot (sample)
+```bash
+docker compose exec web python manage.py shell -c "from apps.integrations.models import LXPSnapshot; import json; s=LXPSnapshot.objects.order_by('-date').first(); d=s.data if s else {}; print((d.get('meta') if d else None)); grades=d.get('grades',{}).get('data',{}); print('grades_count', len(grades)); print('grades_sample', json.dumps(dict(list(grades.items())[:3]), ensure_ascii=False))"
+```

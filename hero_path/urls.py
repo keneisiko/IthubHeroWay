@@ -17,6 +17,7 @@ urlpatterns = [
     path("", include("django_prometheus.urls")),
     path("metrics/", exports.ExportToDjangoView, name="prometheus-metrics"),
     path("api/v1/", include("apps.accounts.urls")),  # профиль, auth, dashboard
+    path("api/v1/", include("apps.authapp.urls")),
     path("api/v1/", include("apps.quests.urls")),
     path("api/v1/", include("apps.shop.urls")),
     path("api/v1/", include("apps.badges.urls")),

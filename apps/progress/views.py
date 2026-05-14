@@ -38,7 +38,7 @@ class AgentLeaderboardView(generics.ListAPIView):
     serializer_class = LeaderboardAgentSerializer
 
     def get_queryset(self):
-        queryset = User.objects.order_by("-rating_current", "id")
+        queryset = User.objects.filter(telegram_link__is_active=True).order_by("-rating_current", "id")
         track = self.request.query_params.get("track")
         course = self.request.query_params.get("course")
         if track:
