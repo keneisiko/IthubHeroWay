@@ -1,5 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
-import { IconHome, IconProfile, IconQuests, IconShop, IconLeaders, IconSquads } from './icons'
+
+import {
+  IconHome,
+  IconProfile,
+  IconQuests,
+  IconShop,
+  IconLeaders,
+  IconSquads
+} from './icons'
 
 const navItems = [
   { path: '/dashboard', Icon: IconHome, label: 'Главная' },
@@ -18,13 +26,18 @@ export default function Sidebar() {
       {navItems.map((item) => {
         const isActive = location.pathname === item.path
 
+        const Icon = item.Icon
+
         return (
           <Link
             key={item.path}
             to={item.path}
-            className={`right-sidebar__item ${isActive ? 'right-sidebar__item--active' : ''}`}
+            className={`right-sidebar__item ${
+              isActive ? 'right-sidebar__item--active' : ''
+            }`}
           >
-            <item.Icon active={isActive} />
+            {/* защита от падения */}
+            {Icon && <Icon active={isActive} />}
             <span>{item.label}</span>
           </Link>
         )

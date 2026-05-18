@@ -11,6 +11,14 @@ import {
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
+const AXIS_DATA: Record<string, { outer: number; inner: number; history: number[] }> = {
+  Мощность: { outer: 17, inner: 14, history: [4, 7, 9, 11, 14, 17] },
+  Связь:    { outer: 17, inner: 14, history: [3, 6, 8, 10, 12, 17] },
+  Фокус:    { outer: 17, inner: 14, history: [5, 7, 8, 11, 13, 17] },
+  Ритм:     { outer: 17, inner: 14, history: [2, 5, 7, 10, 13, 17] },
+  Отдача:   { outer: 17, inner: 14, history: [4, 6, 9, 10, 12, 17] },
+}
+
 const radarData = {
   labels: ['Ритм', 'Фокус', 'Мощность', 'Связь', 'Отдача'],
   datasets: [
@@ -24,7 +32,7 @@ const radarData = {
       pointBorderColor: '#f5f5f5',
       pointBorderWidth: 6,
       pointRadius: 12,
-      pointHoverRadius: 12,
+      pointHoverRadius: 14,
     },
     {
       label: 'Внутренний контур',
@@ -54,77 +62,77 @@ const radarOptions = {
   },
   layout: { padding: 0 },
   elements: { line: { tension: 0 } },
-  animation: { duration: 0 },
+  animation: { duration: 600, easing: 'easeOutQuart' as const },
   plugins: { legend: { display: false }, tooltip: { enabled: false } },
 } as const
 
+const AXES = [
+  { key: 'Мощность', position: 'profile-radar__axis--top' },
+  { key: 'Связь',    position: 'profile-radar__axis--left' },
+  { key: 'Фокус',    position: 'profile-radar__axis--right' },
+  { key: 'Ритм',     position: 'profile-radar__axis--bottom-left' },
+  { key: 'Отдача',   position: 'profile-radar__axis--bottom-right' },
+] as const
+
+const VALUE_POSITIONS = [
+  { outer: 'profile-radar__value--outer-top',           inner: 'profile-radar__value--inner-top' },
+  { outer: 'profile-radar__value--outer-left',          inner: 'profile-radar__value--inner-left' },
+  { outer: 'profile-radar__value--outer-right',         inner: 'profile-radar__value--inner-right' },
+  { outer: 'profile-radar__value--outer-bottom-left',   inner: 'profile-radar__value--inner-bottom-left' },
+  { outer: 'profile-radar__value--outer-bottom-right',  inner: 'profile-radar__value--inner-bottom-right' },
+]
+
 export default function Profile() {
-  const tabs = useMemo(
-    () => ['Путь', 'Ритм', 'Мастерство', 'Сообщество', 'Вклад', 'Статус', 'Особые'],
-    [],
-  )
+  const tabs = useMemo(() => ['Путь', 'Ритм', 'Мастерство', 'Сообщество', 'Вклад', 'Статус', 'Особые'], [])
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('Путь')
   const [activeAxis, setActiveAxis] = useState<string | null>(null)
+  const [hoveredAxis, setHoveredAxis] = useState<string | null>(null)
   const tabsRef = useRef<HTMLDivElement | null>(null)
   const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 65 })
+
   const achievementsPreview = [
     { name: 'Название', rarity: 'Обычный', rarityClass: 'ach__rarity--common' },
     { name: 'Название', rarity: 'Редкий', rarityClass: 'ach__rarity--rare' },
     { name: 'Название', rarity: 'Эпический', rarityClass: 'ach__rarity--epic' },
   ] as const
+
   const pathCards = [
     { name: 'Название', rarity: 'Обычный', rarityClass: 'path-card__chip--common', iconClass: 'path-card__icon--common' },
     { name: 'Название', rarity: 'Редкий', rarityClass: 'path-card__chip--rare', iconClass: 'path-card__icon--rare' },
     { name: 'Название', rarity: 'Эпический', rarityClass: 'path-card__chip--epic', iconClass: 'path-card__icon--epic' },
     { name: 'Название', rarity: 'Легендарный', rarityClass: 'path-card__chip--legendary', iconClass: 'path-card__icon--legendary' },
   ] as const
-  const toggleAxis = (axis: string) => {
-    setActiveAxis((current) => (current === axis ? null : axis))
-  }
-  const historyByAxis: Record<string, number[]> = {
-    Мощность: [4, 7, 9, 11, 14, 17],
-    Связь: [3, 6, 8, 10, 12, 17],
-    Фокус: [5, 7, 8, 11, 13, 17],
-    Ритм: [2, 5, 7, 10, 13, 17],
-    Отдача: [4, 6, 9, 10, 12, 17],
-  }
-  const activeHistory = activeAxis ? historyByAxis[activeAxis] : historyByAxis.Мощность
+
+  const toggleAxis = (axis: string) => setActiveAxis((current) => (current === axis ? null : axis))
+  const activeHistory = activeAxis ? AXIS_DATA[activeAxis].history : AXIS_DATA['Мощность'].history
 
   useEffect(() => {
     const updateIndicator = () => {
       const container = tabsRef.current
       const activeButton = tabButtonRefs.current[activeTab]
       if (!container || !activeButton) return
-
       const containerRect = container.getBoundingClientRect()
       const activeRect = activeButton.getBoundingClientRect()
-      setIndicatorStyle({
-        left: activeRect.left - containerRect.left,
-        width: activeRect.width,
-      })
+      setIndicatorStyle({ left: activeRect.left - containerRect.left, width: activeRect.width })
     }
-
     updateIndicator()
     window.addEventListener('resize', updateIndicator)
     return () => window.removeEventListener('resize', updateIndicator)
   }, [activeTab])
 
   return (
-    <div className="profile">
+    <div className="profile page-enter">
       <div className="profile__top">
         <div className="profile__left">
           <section className="profile-card profile-card--primary">
             <div className="profile-card__header">
-              <div className="profile-card__avatar" role="img" aria-label="Аватар">
-                ИП
-              </div>
+              <div className="profile-card__avatar" role="img" aria-label="Аватар">ИП</div>
               <div className="profile-card__names">
                 <div className="profile-card__nickname">Никнейм</div>
                 <div className="profile-card__fio">ФИО</div>
               </div>
             </div>
-
             <div className="profile-card__rows">
               <div className="profile-row">
                 <span className="profile-row__label">Трек:</span>
@@ -154,12 +162,8 @@ export default function Profile() {
                 <button className="profile-map__node profile-map__node--idle profile-map__node--shadow" type="button" aria-label="Первая миссия" />
               </div>
               <div className="profile-map__labels profile-map__labels--top">
-                <span>Вход</span>
-                <span>Первая<br />победа</span>
-                <span>Первый<br />провал</span>
-                <span>Первая<br />миссия</span>
+                <span>Вход</span><span>Первая<br />победа</span><span>Первый<br />провал</span><span>Первая<br />миссия</span>
               </div>
-
               <div className="profile-map__row profile-map__row--bottom">
                 <span className="profile-map__line profile-map__line--idle profile-map__line--first" />
                 <button className="profile-map__node profile-map__node--idle profile-map__node--shadow" type="button" aria-label="Продукт" />
@@ -169,9 +173,7 @@ export default function Profile() {
                 <button className="profile-map__node profile-map__node--idle profile-map__node--shadow" type="button" aria-label="Выпуск" />
               </div>
               <div className="profile-map__labels profile-map__labels--bottom">
-                <span>Продукт</span>
-                <span>Стажировка</span>
-                <span>Выпуск</span>
+                <span>Продукт</span><span>Стажировка</span><span>Выпуск</span>
               </div>
             </div>
           </section>
@@ -180,57 +182,79 @@ export default function Profile() {
         <section className="profile-card profile-card--aside">
           <button className="profile-aside__btn">Настроить профиль</button>
           <div className="profile-aside__divider" />
-
           <h3 className="profile-aside__title">Статистика:</h3>
           <div className="profile-aside__stats">
             <span className="profile-aside__pill">Выполнено квестов: 47</span>
             <span className="profile-aside__pill">Получено нашивок: 12 из 42</span>
             <span className="profile-aside__pill">Побед в дуелях: 5</span>
           </div>
-
           <h3 className="profile-aside__title profile-aside__title--sp">Шефство:</h3>
           <button className="profile-aside__mentee">@подшефный</button>
           <button className="profile-aside__mentor-btn">Стать наставником</button>
         </section>
       </div>
 
+      {/* Radar with hover tooltips */}
       <section className="profile-radar">
         <div className="profile-radar__chart">
           <Radar data={radarData} options={radarOptions} />
         </div>
 
-        <button className="profile-radar__axis profile-radar__axis--top" type="button" onClick={() => toggleAxis('Мощность')}>
-          <span className="profile-radar__axis-icon" aria-hidden="true" />
-          <span>Мощность</span>
-        </button>
-        <button className="profile-radar__axis profile-radar__axis--left" type="button" onClick={() => toggleAxis('Связь')}>
-          <span className="profile-radar__axis-icon" aria-hidden="true" />
-          <span>Связь</span>
-        </button>
-        <button className="profile-radar__axis profile-radar__axis--right" type="button" onClick={() => toggleAxis('Фокус')}>
-          <span className="profile-radar__axis-icon" aria-hidden="true" />
-          <span>Фокус</span>
-        </button>
-        <button className="profile-radar__axis profile-radar__axis--bottom-left" type="button" onClick={() => toggleAxis('Ритм')}>
-          <span className="profile-radar__axis-icon" aria-hidden="true" />
-          <span>Ритм</span>
-        </button>
-        <button className="profile-radar__axis profile-radar__axis--bottom-right" type="button" onClick={() => toggleAxis('Отдача')}>
-          <span className="profile-radar__axis-icon" aria-hidden="true" />
-          <span>Отдача</span>
-        </button>
+        {AXES.map(({ key, position }) => {
+          const data = AXIS_DATA[key]
+          const isHovered = hoveredAxis === key
+          const isTop = position === 'profile-radar__axis--top'
+          const isBottom = position.includes('bottom')
+          const isLeft = position === 'profile-radar__axis--left'
+          const isRight = position === 'profile-radar__axis--right'
+          const tooltipStyle: React.CSSProperties = isTop
+            ? { bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)' }
+            : isBottom
+              ? { top: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)' }
+              : isLeft
+                ? { right: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' }
+                : isRight
+                  ? { left: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' }
+                  : { bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)' }
+          return (
+            <div
+              key={key}
+              className={`profile-radar__axis ${position}`}
+              onMouseEnter={() => setHoveredAxis(key)}
+              onMouseLeave={() => setHoveredAxis(null)}
+              onClick={() => toggleAxis(key)}
+              style={{ cursor: 'pointer' }}
+            >
+              <span className="profile-radar__axis-icon" aria-hidden="true" />
+              <span>{key}</span>
+              {isHovered && (
+                <span className="tooltip" style={tooltipStyle}>
+                  {key}: {data.outer} / 20
+                </span>
+              )}
+            </div>
+          )
+        })}
 
-        <span className="profile-radar__value profile-radar__value--outer-top">17</span>
-        <span className="profile-radar__value profile-radar__value--outer-left">17</span>
-        <span className="profile-radar__value profile-radar__value--outer-right">17</span>
-        <span className="profile-radar__value profile-radar__value--outer-bottom-left">17</span>
-        <span className="profile-radar__value profile-radar__value--outer-bottom-right">17</span>
+        {VALUE_POSITIONS.map((pos, i) => {
+          const axisKey = AXES[i].key
+          const data = AXIS_DATA[axisKey]
+          return (
+            <span key={`outer-${i}`} className={`profile-radar__value ${pos.outer}`}>
+              {data.outer}
+            </span>
+          )
+        })}
 
-        <span className="profile-radar__value profile-radar__value--inner-top profile-radar__value--inner">14</span>
-        <span className="profile-radar__value profile-radar__value--inner-left profile-radar__value--inner">14</span>
-        <span className="profile-radar__value profile-radar__value--inner-right profile-radar__value--inner">14</span>
-        <span className="profile-radar__value profile-radar__value--inner-bottom-left profile-radar__value--inner">14</span>
-        <span className="profile-radar__value profile-radar__value--inner-bottom-right profile-radar__value--inner">14</span>
+        {VALUE_POSITIONS.map((pos, i) => {
+          const axisKey = AXES[i].key
+          const data = AXIS_DATA[axisKey]
+          return (
+            <span key={`inner-${i}`} className={`profile-radar__value ${pos.inner} profile-radar__value--inner`}>
+              {data.inner}
+            </span>
+          )
+        })}
 
         <section className={activeAxis ? 'profile-history profile-history--visible' : 'profile-history'} aria-hidden={!activeAxis}>
           <span className="profile-history__title">История{activeAxis ? `: ${activeAxis}` : ''}</span>
@@ -241,11 +265,7 @@ export default function Profile() {
               ))}
             </div>
             <div className="profile-history__y">
-              <span>20</span>
-              <span>15</span>
-              <span>10</span>
-              <span>5</span>
-              <span>0</span>
+              <span>20</span><span>15</span><span>10</span><span>5</span><span>0</span>
             </div>
             <div className="profile-history__plot">
               {activeHistory.map((v, i) => (
@@ -262,12 +282,7 @@ export default function Profile() {
               </svg>
             </div>
             <div className="profile-history__x">
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-              <span>5</span>
-              <span>6</span>
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
             </div>
             <span className="profile-history__x-label">Недели</span>
           </div>
@@ -278,7 +293,7 @@ export default function Profile() {
         <h3 className="profile-achievements__title">Достижения:</h3>
         <div className="profile-achievements__row">
           {achievementsPreview.map((item) => (
-            <button key={`${item.name}-${item.rarity}`} className="ach ach--preview" type="button">
+            <button key={`${item.name}-${item.rarity}`} className="ach ach--preview hover-lift" type="button">
               <span className="ach__icon ach__icon--preview" aria-hidden="true">
                 <span className="ach__glyph ach__glyph--preview" />
               </span>
@@ -291,16 +306,11 @@ export default function Profile() {
         <div className="profile-path__tabs" ref={tabsRef}>
           {tabs.map((t) => (
             <button
-              key={t}
-              type="button"
-              ref={(el) => {
-                tabButtonRefs.current[t] = el
-              }}
+              key={t} type="button"
+              ref={(el) => { tabButtonRefs.current[t] = el }}
               className={t === activeTab ? 'profile-path__tab profile-path__tab--active' : 'profile-path__tab'}
               onClick={() => setActiveTab(t)}
-            >
-              {t}
-            </button>
+            >{t}</button>
           ))}
         </div>
         <div className="profile-path__underline" aria-hidden="true">
@@ -309,7 +319,7 @@ export default function Profile() {
 
         <div className="profile-path__grid">
           {pathCards.map((card) => (
-            <button key={card.rarity} className="path-card" type="button">
+            <button key={card.rarity} className="path-card hover-lift" type="button">
               <span className={`path-card__icon ${card.iconClass}`} aria-hidden="true">
                 <span className="path-card__glyph" />
               </span>
@@ -330,4 +340,3 @@ export default function Profile() {
     </div>
   )
 }
-

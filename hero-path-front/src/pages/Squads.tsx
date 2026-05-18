@@ -1,10 +1,42 @@
+import { useState, useRef, useEffect } from 'react'
 import userAvatar from '../assets/branding/user-avatar.png'
 
-const members = [1, 2, 3, 4].map((i) => ({ id: i }))
+const members = [
+  { id: 1, name: 'Никнейм', track: 'Код', status: 'Активен' },
+  { id: 2, name: 'Никнейм', track: 'Дизайн', status: 'Неактивен' },
+  { id: 3, name: 'Никнейм', track: 'Код', status: 'Активен' },
+  { id: 4, name: 'Никнейм', track: 'Менеджмент', status: 'Активен' },
+]
+
+const SEARCH_RESULTS = [
+  { id: 101, name: 'Агент_1' },
+  { id: 102, name: 'Агент_2' },
+  { id: 103, name: 'Агент_3' },
+]
+
+type SortKey = 'name' | 'track' | 'status'
 
 export default function Squads() {
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteSearch, setInviteSearch] = useState('')
+  const [showSort, setShowSort] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('name')
+  const sortRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setShowSort(false)
+      }
+    }
+    if (showSort) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showSort])
+
+  const sortedMembers = [...members].sort((a, b) => a[sortKey].localeCompare(b[sortKey]))
+
   return (
-    <div className="dashboard squad-page">
+    <div className="dashboard squad-page page-enter">
       <div className="squad-page__top">
         <section className="squad-my" aria-labelledby="squad-my-title">
           <div className="squad-my__title-row">
@@ -96,7 +128,7 @@ export default function Squads() {
             <button type="button" className="squad-actions__btn squad-actions__btn--share">
               поделиться
             </button>
-            <button type="button" className="squad-actions__btn squad-actions__btn--invite">
+            <button type="button" className="squad-actions__btn squad-actions__btn--invite" onClick={() => setShowInvite(true)}>
               пригласить
             </button>
           </section>
@@ -108,9 +140,36 @@ export default function Squads() {
           <h2 id="squad-members-title" className="squad-members__title">
             Участники отряда
           </h2>
-          <button type="button" className="squad-members__sort">
-            Сортировка
-          </button>
+          <div ref={sortRef} style={{ position: 'relative' }}>
+            <button type="button" className="squad-members__sort" onClick={() => setShowSort((v) => !v)}>
+              Сортировка
+            </button>
+            {showSort && (
+              <div className="popup" style={{
+                position: 'absolute', top: '44px', right: 0,
+                background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
+                boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '8px 0',
+                minWidth: '160px', zIndex: 60,
+              }}>
+                {(['name', 'track', 'status'] as SortKey[]).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => { setSortKey(key); setShowSort(false) }}
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 20px', border: 'none',
+                      background: sortKey === key ? '#9a33f4' : 'transparent',
+                      color: sortKey === key ? '#f5f5f5' : '#121212',
+                      fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px',
+                      textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s',
+                    }}
+                  >
+                    {{ name: 'По имени', track: 'По треку', status: 'По статусу' }[key]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="squad-members__search">
@@ -123,14 +182,14 @@ export default function Squads() {
 
         <div className="squad-members__panel">
           <ul className="squad-members__list">
-            {members.map((m) => (
-              <li key={m.id} className="squad-member-row">
+            {sortedMembers.map((m) => (
+              <li key={m.id} className="squad-member-row hover-lift">
                 <div className="squad-member-row__main">
                   <img className="squad-member-row__avatar" src={userAvatar} alt="" width={50} height={50} />
                   <div className="squad-member-row__tags">
-                    <span className="squad-member-tag squad-member-tag--dark">Никнейм</span>
-                    <span className="squad-member-tag squad-member-tag--purple">Трек</span>
-                    <span className="squad-member-tag squad-member-tag--purple">статус</span>
+                    <span className="squad-member-tag squad-member-tag--dark">{m.name}</span>
+                    <span className="squad-member-tag squad-member-tag--purple">{m.track}</span>
+                    <span className="squad-member-tag squad-member-tag--purple">{m.status}</span>
                   </div>
                 </div>
                 <button type="button" className="squad-member-row__rating">
@@ -141,6 +200,75 @@ export default function Squads() {
           </ul>
         </div>
       </section>
+
+      {/* Invite popup (Frame292) */}
+      {showInvite && (
+        <div className="overlay" onClick={() => setShowInvite(false)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()} style={{
+            background: '#f5f5f5', borderRadius: '24px', border: '4px solid #9a33f4',
+            boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px',
+            width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px',
+          }}>
+            <h3 style={{ fontFamily: 'TT Firs Neue, sans-serif', fontWeight: 700, fontSize: '28px', color: '#9a33f4', margin: 0 }}>
+              Пригласить в отряд
+            </h3>
+
+            {/* Search field */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
+              boxShadow: '25px 25px 20px -14px rgba(0,0,0,0.45)', padding: '9px 11px',
+            }}>
+              <input
+                type="text"
+                value={inviteSearch}
+                onChange={(e) => setInviteSearch(e.target.value)}
+                placeholder="Поиск агента"
+                style={{
+                  border: 'none', outline: 'none', background: 'transparent',
+                  fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px',
+                  color: '#121212', width: '100%',
+                }}
+              />
+              <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ flexShrink: 0 }}>
+                <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
+                <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
+              </svg>
+            </div>
+
+            {/* Search results */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {SEARCH_RESULTS.filter((r) =>
+                r.name.toLowerCase().includes(inviteSearch.toLowerCase())
+              ).map((result) => (
+                <div key={result.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  background: '#f5f5f5', borderRadius: '8px', border: '4px solid #9a33f4',
+                  boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '14px',
+                }}>
+                  <img src={userAvatar} alt="" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '3px solid #9a33f4' }} />
+                  <div style={{ flex: 1 }}>
+                    <span style={{
+                      background: '#121212', borderRadius: '48px', padding: '4px 16px',
+                      fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px', color: '#f5f5f5',
+                    }}>
+                      {result.name}
+                    </span>
+                  </div>
+                  <button type="button" style={{
+                    background: '#9a33f4', height: '46px', borderRadius: '4px',
+                    padding: '8px 16px', border: 'none',
+                    fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: '18px',
+                    color: '#f5f5f5', cursor: 'pointer', transition: 'opacity 0.2s',
+                  }}>
+                    Пригласить
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
