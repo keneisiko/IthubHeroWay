@@ -1,5 +1,9 @@
 from django.contrib import admin
 from django.urls import include, path
+
+from hero_path.admin_site import setup_admin_site
+
+setup_admin_site()
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django_prometheus import exports
 from apps.operations.health_views import HealthView, ReadyView

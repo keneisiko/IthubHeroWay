@@ -2,10 +2,16 @@
 
 {% block branding %}
   <h1 id="site-name">
-    IThub Hero Path Admin
+    Путь героя IThub — администрирование
     {% if request.user.is_authenticated %}
       <small style="font-size:12px;opacity:.8;">
-        {{ request.user.get_full_name|default:request.user.username }} / {{ request.user.role|default:"superadmin" }}
+        {{ request.user.get_full_name|default:request.user.username }}
+        /
+        {% if request.user.is_superuser %}
+          суперадмин
+        {% else %}
+          {{ request.user.get_role_display }}
+        {% endif %}
       </small>
     {% endif %}
   </h1>

@@ -3,25 +3,34 @@ from django.db import models
 
 
 class RatingChangeSource(models.TextChoices):
-    QUEST = "quest", "Quest"
-    BADGE = "badge", "Badge"
-    SHOP = "shop", "Shop"
-    SOCIAL = "social", "Social"
-    MANUAL = "manual", "Manual"
-    SYSTEM = "system", "System"
+    QUEST = "quest", "Квест"
+    BADGE = "badge", "Значок"
+    SHOP = "shop", "Магазин"
+    SOCIAL = "social", "Социальное"
+    MANUAL = "manual", "Вручную"
+    SYSTEM = "system", "Система"
 
 
 class RatingLog(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rating_logs")
-    value_before = models.IntegerField()
-    value_after = models.IntegerField()
-    delta = models.IntegerField()
-    source = models.CharField(max_length=16, choices=RatingChangeSource.choices, default=RatingChangeSource.SYSTEM)
-    source_id = models.CharField(max_length=64, blank=True)
-    reason = models.CharField(max_length=255, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Пользователь",
+        on_delete=models.CASCADE,
+        related_name="rating_logs",
+    )
+    value_before = models.IntegerField("Было")
+    value_after = models.IntegerField("Стало")
+    delta = models.IntegerField("Изменение")
+    source = models.CharField(
+        "Источник", max_length=16, choices=RatingChangeSource.choices, default=RatingChangeSource.SYSTEM
+    )
+    source_id = models.CharField("ID источника", max_length=64, blank=True)
+    reason = models.CharField("Причина", max_length=255, blank=True)
+    created_at = models.DateTimeField("Создана", auto_now_add=True)
 
     class Meta:
+        verbose_name = "Запись рейтинга"
+        verbose_name_plural = "Журнал рейтинга"
         indexes = [
             models.Index(fields=["user", "-created_at"]),
             models.Index(fields=["source"]),
@@ -32,13 +41,20 @@ class RatingLog(models.Model):
 
 
 class Characteristic(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="characteristics")
-    pillar = models.CharField(max_length=32, db_index=True)
-    current = models.FloatField(default=0)
-    peak = models.FloatField(default=0)
-    last_updated = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Пользователь",
+        on_delete=models.CASCADE,
+        related_name="characteristics",
+    )
+    pillar = models.CharField("Опора", max_length=32, db_index=True)
+    current = models.FloatField("Текущее значение", default=0)
+    peak = models.FloatField("Пик", default=0)
+    last_updated = models.DateTimeField("Обновлено", auto_now=True)
 
     class Meta:
+        verbose_name = "Характеристика"
+        verbose_name_plural = "Характеристики"
         constraints = [
             models.UniqueConstraint(fields=["user", "pillar"], name="uniq_characteristic_per_user_pillar"),
         ]
@@ -46,9 +62,15 @@ class Characteristic(models.Model):
 
 class CharacteristicHistory(models.Model):
     characteristic = models.ForeignKey(
-        Characteristic, on_delete=models.CASCADE, related_name="history_entries"
+        Characteristic,
+        verbose_name="Характеристика",
+        on_delete=models.CASCADE,
+        related_name="history_entries",
     )
-    value = models.FloatField()
-    formula_version = models.CharField(max_length=32, default="v1")
-    created_at = models.DateTimeField(auto_now_add=True)
+    value = models.FloatField("Значение")
+    formula_version = models.CharField("Версия формулы", max_length=32, default="v1")
+    created_at = models.DateTimeField("Создана", auto_now_add=True)
 
+    class Meta:
+        verbose_name = "История характеристики"
+        verbose_name_plural = "История характеристик"

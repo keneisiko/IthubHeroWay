@@ -165,10 +165,10 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
     @admin.display(description="Статус")
     def status_badge(self, obj: SelfReportProof):
         if obj.status == SelfReportProofStatus.APPROVED:
-            return format_html('<span style="color:#16a34a;font-weight:700;">approved</span>')
+            return format_html('<span style="color:#16a34a;font-weight:700;">Одобрен</span>')
         if obj.status == SelfReportProofStatus.REJECTED:
-            return format_html('<span style="color:#dc2626;font-weight:700;">rejected</span>')
-        return format_html('<span style="color:#ca8a04;font-weight:700;">pending</span>')
+            return format_html('<span style="color:#dc2626;font-weight:700;">Отклонён</span>')
+        return format_html('<span style="color:#ca8a04;font-weight:700;">На проверке</span>')
 
     def has_module_permission(self, request):
         # HQ must not see self-reports
@@ -184,7 +184,7 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             return qs.filter(user__squad__course__gte=2, user__squad__course__lte=4)
         return qs.none()
 
-    @admin.action(description="Approve selected proofs")
+    @admin.action(description="Одобрить выбранные самоотчёты")
     def approve_proofs(self, request, queryset):
         if is_hq(request.user):
             self.message_user(request, "Штаб не проверяет самоотчёты.", level=messages.ERROR)
@@ -201,9 +201,9 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             proof.save(update_fields=["status", "reviewed_by", "reviewed_at"])
             _complete_quest_idempotent(proof.user, proof.quest, request.user)
             updated += 1
-        self.message_user(request, f"Approved: {updated}", level=messages.SUCCESS)
+        self.message_user(request, f"Одобрено: {updated}", level=messages.SUCCESS)
 
-    @admin.action(description="Reject selected proofs")
+    @admin.action(description="Отклонить выбранные самоотчёты")
     def reject_proofs(self, request, queryset):
         if is_hq(request.user):
             self.message_user(request, "Штаб не проверяет самоотчёты.", level=messages.ERROR)
@@ -212,4 +212,4 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
         updated = queryset.exclude(status=SelfReportProofStatus.REJECTED).update(
             status=SelfReportProofStatus.REJECTED, reviewed_by=request.user, reviewed_at=now
         )
-        self.message_user(request, f"Rejected: {updated}", level=messages.SUCCESS)
+        self.message_user(request, f"Отклонено: {updated}", level=messages.SUCCESS)

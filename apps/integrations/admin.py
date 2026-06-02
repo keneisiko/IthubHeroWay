@@ -28,10 +28,10 @@ class HikEventAdmin(ManagedRoleAdminMixin):
     def has_module_permission(self, request):
         return super().has_module_permission(request) and not is_hq(request.user)
 
-    @admin.action(description="Снять признак processed (повторная обработка)")
+    @admin.action(description="Снять признак «обработано» (повторная обработка)")
     def mark_unprocessed(self, request, queryset):
         queryset.update(processed=False)
-        self.message_user(request, f"Снят processed для {queryset.count()} записей.", level=messages.WARNING)
+        self.message_user(request, f"Снят признак «обработано» для {queryset.count()} записей.", level=messages.WARNING)
 
 
 @admin.register(LXPSnapshot)

@@ -68,7 +68,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
     actions = ("grant_event_bonus", "create_recovery_quest")
     fieldsets = BaseUserAdmin.fieldsets + (
         (
-            "Hero Path",
+            "Путь героя",
             {
                 "fields": (
                     "callsign",
@@ -140,7 +140,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         if not is_curator(request.user):
             self.message_user(request, "Действие доступно только куратору.", level=messages.ERROR)
             return
-        reason = request.POST.get("reason", "").strip() or "Bonus for event participation"
+        reason = request.POST.get("reason", "").strip() or "Бонус за участие в мероприятии"
         queryset = queryset.filter(squad_id=request.user.squad_id)
         with transaction.atomic():
             updated = 0

@@ -45,6 +45,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -105,9 +106,10 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
-LANGUAGE_CODE = "ru-ru"
+LANGUAGE_CODE = "ru"
 TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
+USE_L10N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
@@ -150,10 +152,10 @@ CORS_ALLOWED_ORIGINS: list[str] = [
 ]
 
 JAZZMIN_SETTINGS = {
-    "site_title": "IThub Admin",
-    "site_header": "IThub Hero Path",
-    "site_brand": "Hero Path",
-    "welcome_sign": "Панель управления Path of Hero",
+    "site_title": "Админ-панель IThub",
+    "site_header": "Путь героя IThub",
+    "site_brand": "Путь героя",
+    "welcome_sign": "Добро пожаловать в панель управления «Путь героя»",
     "copyright": "IThub",
     "theme": "darkly",
     "show_sidebar": True,
@@ -165,6 +167,7 @@ JAZZMIN_SETTINGS = {
         "badges",
         "shop",
         "social",
+        "integrations",
     ],
     "custom_links": {
         "accounts": [

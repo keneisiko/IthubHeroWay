@@ -40,7 +40,7 @@ def _rating_dynamics(users_qs, days=7):
 @staff_member_required
 def curator_dashboard(request):
     if not (request.user.is_superuser or request.user.role == Role.CURATOR):
-        raise PermissionDenied("Role access denied")
+        raise PermissionDenied("Доступ запрещён для вашей роли")
     users_qs = (
         User.objects.filter(squad_id=request.user.squad_id, role=Role.AGENT, telegram_link__is_active=True)
         if request.user.squad_id
@@ -67,7 +67,7 @@ def curator_dashboard(request):
 @staff_member_required
 def tutor_dashboard(request):
     if not (request.user.is_superuser or request.user.role == Role.TUTOR):
-        raise PermissionDenied("Role access denied")
+        raise PermissionDenied("Доступ запрещён для вашей роли")
     users_qs = User.objects.filter(
         squad__course__gte=2,
         squad__course__lte=4,
@@ -96,7 +96,7 @@ def tutor_dashboard(request):
 @staff_member_required
 def hq_dashboard(request):
     if not (request.user.is_superuser or request.user.role == Role.HQ):
-        raise PermissionDenied("Role access denied")
+        raise PermissionDenied("Доступ запрещён для вашей роли")
     users_qs = User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
     context = {
         "zone_counts": _zone_counts(users_qs),
