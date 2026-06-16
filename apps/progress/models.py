@@ -74,3 +74,26 @@ class CharacteristicHistory(models.Model):
     class Meta:
         verbose_name = "История характеристики"
         verbose_name_plural = "История характеристик"
+
+
+class UserStrike(models.Model):
+    """Серии без пропусков и без опозданий для бонусов."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Пользователь",
+        on_delete=models.CASCADE,
+        related_name="strike",
+    )
+    attendance_strike = models.PositiveIntegerField("Дней без пропусков", default=0)
+    late_strike = models.PositiveIntegerField("Дней без опозданий", default=0)
+    last_attendance_date = models.DateField("Последний день посещаемости", null=True, blank=True)
+    last_late_date = models.DateField("Последний день без опозданий", null=True, blank=True)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+
+    class Meta:
+        verbose_name = "Серия студента"
+        verbose_name_plural = "Серии студентов"
+
+    def __str__(self) -> str:
+        return f"{self.user_id}: att={self.attendance_strike} late={self.late_strike}"

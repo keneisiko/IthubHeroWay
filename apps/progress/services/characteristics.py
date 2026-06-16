@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 
 from apps.progress.models import Characteristic, CharacteristicHistory
+from apps.progress.services.lxp_characteristics import update_lxp_pillars_from_snapshot
 
 
 DEFAULT_PILLARS = ("discipline", "leadership", "teamwork", "initiative", "growth")
@@ -24,5 +25,6 @@ def update_all_characteristics(formula_weights: dict | None = None) -> int:
             char_obj.save(update_fields=["current", "peak", "last_updated"])
             CharacteristicHistory.objects.create(characteristic=char_obj, value=metric_value, formula_version="v1")
             updated += 1
-    return updated
 
+    updated += update_lxp_pillars_from_snapshot()
+    return updated

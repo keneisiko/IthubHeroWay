@@ -125,3 +125,14 @@ def process_hik_events_daily() -> str:
         return "hik_disabled"
     proc_seen, ext_n, skipped = process_unprocessed_hik_events(limit=50_000)
     return f"hik_daily processed={proc_seen} external={ext_n} skipped_users={skipped}"
+
+
+@shared_task
+def process_late_events() -> str:
+    """Обработка HikEvent: опоздания, ExternalEvent, штрафы рейтинга."""
+    if not getattr(settings, "HIK_FETCH_ENABLED", False):
+        return "hik_disabled"
+    proc_seen, ext_n, skipped = process_unprocessed_hik_events(
+        limit=int(getattr(settings, "HIK_PROCESS_BATCH", 8000))
+    )
+    return f"hik_late processed={proc_seen} external={ext_n} skipped_users={skipped}"

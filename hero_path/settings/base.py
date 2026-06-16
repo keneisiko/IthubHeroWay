@@ -7,6 +7,17 @@ from .rating_coefficients import QUESTS_REWARDS, RATING_DRIVE, RATING_KP, RATING
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+
+def _env_int(name: str, default: int) -> int:
+    """int из env; пустая строка из docker-compose → default."""
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return int(str(raw).strip())
+    except ValueError:
+        return default
+
 SECRET_KEY = "change-me-in-prod"
 
 DEBUG = True
@@ -37,6 +48,7 @@ INSTALLED_APPS = [
     "apps.integrations",
     "apps.notifications",
     "apps.operations",
+    "apps.schedule",
 ]
 
 MIDDLEWARE = [
@@ -220,11 +232,11 @@ LXP_SNAPSHOT_DISCIPLINES_PER_QUERY = int(os.getenv("LXP_SNAPSHOT_DISCIPLINES_PER
 
 # HikCentral / Hik-Connect OpenAPI (Artemis), подпись x-ca-signature
 HIK_HOST = os.getenv("HIK_HOST", "").strip()
-HIK_PORT = int(os.getenv("HIK_PORT", "443"))
+HIK_PORT = _env_int("HIK_PORT", 443)
 HIK_APP_KEY = os.getenv("HIK_APP_KEY", "").strip()
 HIK_APP_SECRET = os.getenv("HIK_APP_SECRET", "").strip()
-HIK_REQUEST_TIMEOUT = int(os.getenv("HIK_REQUEST_TIMEOUT", "30"))
-HIK_MAX_RETRIES = int(os.getenv("HIK_MAX_RETRIES", "3"))
+HIK_REQUEST_TIMEOUT = _env_int("HIK_REQUEST_TIMEOUT", 30)
+HIK_MAX_RETRIES = _env_int("HIK_MAX_RETRIES", 3)
 HIK_SSL_VERIFY = os.getenv("HIK_SSL_VERIFY", "1").lower() in {"1", "true", "yes"}
 HIK_ARTEMIS_EVENT_RECORDS_PATH = os.getenv(
     "HIK_ARTEMIS_EVENT_RECORDS_PATH",
@@ -236,9 +248,9 @@ HIK_SIGNATURE_HEADERS = os.getenv(
     "x-ca-key,x-ca-nonce,x-ca-timestamp",
 )
 HIK_ARTEMIS_PERSON_PATH = os.getenv("HIK_ARTEMIS_PERSON_PATH", "").strip()
-HIK_FETCH_LOOKBACK_HOURS = int(os.getenv("HIK_FETCH_LOOKBACK_HOURS", "2"))
-HIK_PAGE_SIZE = int(os.getenv("HIK_PAGE_SIZE", "100"))
-HIK_PROCESS_BATCH = int(os.getenv("HIK_PROCESS_BATCH", "8000"))
+HIK_FETCH_LOOKBACK_HOURS = _env_int("HIK_FETCH_LOOKBACK_HOURS", 2)
+HIK_PAGE_SIZE = _env_int("HIK_PAGE_SIZE", 100)
+HIK_PROCESS_BATCH = _env_int("HIK_PROCESS_BATCH", 8000)
 HIK_FETCH_ENABLED = (
     bool(HIK_HOST and HIK_APP_KEY and HIK_APP_SECRET)
     and os.getenv("HIK_FETCH_ENABLED", "1").lower() in {"1", "true", "yes"}
@@ -260,6 +272,19 @@ HIK_ARTEMIS_TIME_FORMAT = os.getenv(
     "HIK_ARTEMIS_TIME_FORMAT",
     "%Y-%m-%dT%H:%M:%S.000",
 )
+
+# Переопределение штрафов/бонусов (положительные числа в .env → отрицательные штрафы в RATING_KP)
+_rating_kp_overrides = {
+    "LATE_LIGHT": -_env_int("LATE_PENALTY_LIGHT", abs(RATING_KP.get("LATE_LIGHT", -3))),
+    "LATE_MODERATE": -_env_int("LATE_PENALTY_MODERATE", abs(RATING_KP.get("LATE_MODERATE", -5))),
+    "LATE_SEVERE": -_env_int("LATE_PENALTY_SEVERE", abs(RATING_KP.get("LATE_SEVERE", -8))),
+    "LATE_STREAK_7D": _env_int("LATE_STRIKE_7D_BONUS", RATING_KP.get("LATE_STREAK_7D", 5)),
+    "LATE_STREAK_14D": _env_int("LATE_STRIKE_14D_BONUS", RATING_KP.get("LATE_STREAK_14D", 10)),
+    "LATE_STREAK_21D": _env_int("LATE_STRIKE_21D_BONUS", RATING_KP.get("LATE_STREAK_21D", 15)),
+    "ATTENDANCE_FULL_WEEK": _env_int("ATTENDANCE_FULL_WEEK_BONUS", RATING_KP.get("ATTENDANCE_FULL_WEEK", 15)),
+    "ATTENDANCE_STREAK_7D": _env_int("ATTENDANCE_STRIKE_7D_BONUS", RATING_KP.get("ATTENDANCE_STREAK_7D", 5)),
+}
+RATING_KP = {**RATING_KP, **_rating_kp_overrides}
 
 SENTRY_DSN = os.getenv("SENTRY_DSN", "")
 if SENTRY_DSN:
@@ -303,8 +328,8 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=7, minute=30),
     },
     "check_strikes_daily": {
-        "task": "apps.progress.tasks.check_strikes_daily",
-        "schedule": crontab(hour=23, minute=0),
+        "task": "apps.progress.tasks.apply_strike_bonuses_daily",
+        "schedule": crontab(hour=23, minute=30),
     },
     "check_badges_weekly": {
         "task": "apps.badges.tasks.check_badges_weekly",
@@ -325,6 +350,10 @@ CELERY_BEAT_SCHEDULE = {
     "process-hik-events-daily": {
         "task": "apps.integrations.tasks.process_hik_events_daily",
         "schedule": crontab(hour=20, minute=0),
+    },
+    "process-late-events-hourly": {
+        "task": "apps.integrations.tasks.process_late_events",
+        "schedule": crontab(minute=30),
     },
 }
 

@@ -1,8 +1,8 @@
 """
 Нормализация событий HikCentral и выпуск записей во внутреннюю очередь (ExternalEvent).
 
-Расписание занятий и расчёт «опоздание vs начало пары» — отдельный этап: поля late_minutes
-заполняются позже или через интеграцию расписания (LXP / локальная модель).
+При наличии расписания отряда вычисляет опоздание относительно первой пары дня
+и применяет штраф к рейтингу.
 """
 
 from __future__ import annotations
@@ -17,6 +17,10 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from apps.integrations.models import ExternalEvent, HikEvent
+from apps.progress.models import RatingChangeSource, RatingLog
+from apps.progress.services.late_penalties import late_penalty_delta
+from apps.progress.services.rewards import apply_rating_delta_with_cap
+from apps.schedule.services import classify_entrance_against_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +36,7 @@ def parse_hik_event_time(value) -> datetime:
         ts = float(value)
         if ts > 1e12:
             ts /= 1000.0
-        return datetime.fromtimestamp(ts, tz=timezone.UTS)
+        return datetime.fromtimestamp(ts, tz=timezone.utc)
     if isinstance(value, str):
         s = value.strip()
         if s.isdigit():
@@ -120,9 +124,26 @@ def save_hik_row_as_event(row: dict) -> tuple[HikEvent | None, bool]:
     return obj, created
 
 
+def _apply_late_penalty_if_needed(user, *, event_id: str, late_minutes: int) -> None:
+    if late_minutes <= 0:
+        return
+    source_id = f"hik-late:{event_id}"
+    if RatingLog.objects.filter(user=user, source_id=source_id).exists():
+        return
+    delta = late_penalty_delta(late_minutes)
+    apply_rating_delta_with_cap(
+        user=user,
+        delta=delta,
+        source=RatingChangeSource.SYSTEM,
+        reason=f"Опоздание {late_minutes} мин (Hik)",
+        source_id=source_id,
+    )
+
+
 def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]:
     """
-    Для необработанных HikEvent с известным пользователем создаёт ExternalEvent (source=hik).
+    Для необработанных HikEvent с известным пользователем создаёт ExternalEvent (source=hik)
+    и при опоздании — штраф рейтинга.
 
     Возвращает (рассмотрено, создано external, пропущено без карты).
     """
@@ -134,17 +155,17 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
     ext_created = 0
     skipped_no_user = 0
 
-    code_to_user: dict[str, int] = {}
+    code_to_user: dict[str, User] = {}
     qs = User.objects.filter(
         (Q(hik_card_code__isnull=False) & ~Q(hik_card_code=""))
         | (Q(hik_person_id__isnull=False) & ~Q(hik_person_id=""))
-    ).only("id", "hik_card_code", "hik_person_id")
+    ).select_related("squad").only("id", "hik_card_code", "hik_person_id", "squad_id", "rating_current", "unclosed_ct_count")
     for u in qs.iterator(chunk_size=500):
         if u.hik_card_code:
-            code_to_user[str(u.hik_card_code).strip()] = u.pk
+            code_to_user[str(u.hik_card_code).strip()] = u
         if u.hik_person_id:
             pid = str(u.hik_person_id).strip()
-            code_to_user.setdefault(pid, u.pk)
+            code_to_user.setdefault(pid, u)
 
     for he in pending:
         seen += 1
@@ -152,30 +173,40 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
         if not code:
             skipped_no_user += 1
             continue
-        uid = code_to_user.get(code) if code else None
-        if uid is None:
+        user = code_to_user.get(code)
+        if user is None:
             skipped_no_user += 1
             continue
         try:
             with transaction.atomic():
+                classification = classify_entrance_against_schedule(
+                    squad_id=user.squad_id,
+                    event_dt=he.event_time,
+                )
+                event_type = classification["event_type"]
+                late_minutes = classification.get("late_minutes")
+
                 _, ext_c = ExternalEvent.objects.get_or_create(
                     source="hik",
                     external_event_id=he.event_id,
                     defaults={
                         "payload": {
-                            "event_type": "access",
+                            "event_type": event_type,
                             "kind": "turnstile_pass",
-                            "user_id": uid,
+                            "user_id": user.pk,
                             "student_code": code,
                             "door_name": he.door_name,
                             "hik_event_type": he.event_type,
                             "event_time": he.event_time.isoformat(),
-                            "late_minutes": None,
+                            "late_minutes": late_minutes,
+                            "schedule_id": classification.get("schedule_id"),
                         },
                     },
                 )
                 if ext_c:
                     ext_created += 1
+                if event_type == "late" and late_minutes is not None:
+                    _apply_late_penalty_if_needed(user, event_id=he.event_id, late_minutes=int(late_minutes))
                 HikEvent.objects.filter(pk=he.pk).update(processed=True)
         except Exception:
             logger.exception("HikEvent process failed id=%s", he.pk)

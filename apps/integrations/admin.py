@@ -2,7 +2,46 @@ from django.contrib import admin, messages
 
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
 
-from .models import HikEvent, LXPSnapshot
+from .models import ExternalEvent, HikEvent, LXPSnapshot
+
+
+class ExternalEventTypeFilter(admin.SimpleListFilter):
+    title = "Тип события"
+    parameter_name = "event_type"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("late", "Опоздание"),
+            ("access", "Проход"),
+            ("absent", "Прогул"),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+        return queryset.filter(payload__event_type=value)
+
+
+@admin.register(ExternalEvent)
+class ExternalEventAdmin(ManagedRoleAdminMixin):
+    list_display = ("source", "external_event_id", "event_type_display", "processed_at")
+    list_filter = ("source", ExternalEventTypeFilter, "processed_at")
+    search_fields = ("external_event_id", "source")
+    readonly_fields = ("source", "external_event_id", "payload", "processed_at")
+
+    @admin.display(description="Тип")
+    def event_type_display(self, obj: ExternalEvent) -> str:
+        return (obj.payload or {}).get("event_type") or "—"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_module_permission(self, request):
+        return super().has_module_permission(request) and not is_hq(request.user)
 
 
 @admin.register(HikEvent)
@@ -59,4 +98,3 @@ class LXPSnapshotAdmin(ManagedRoleAdminMixin):
         for snap in queryset:
             recalculate_rating_for_date.delay(snap.date.isoformat())
         self.message_user(request, f"Запущен пересчёт для {queryset.count()} снимков.", level=messages.SUCCESS)
-

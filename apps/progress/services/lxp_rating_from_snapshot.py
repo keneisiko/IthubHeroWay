@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from django.conf import settings
 from django.db import transaction
@@ -66,6 +66,31 @@ def _collect_topic_counts(control_points_flat: dict) -> tuple[int, int]:
     return closed_n, open_n
 
 
+def _attendance_row(snapshot_data: dict, lxp_uid: str) -> dict | None:
+    att = _unwrap_category(snapshot_data.get("attendance"))
+    row = att.get(lxp_uid)
+    return row if isinstance(row, dict) else None
+
+
+def _full_week_attendance_bonus(lxp_uid: str, end_date: date) -> int:
+    """+15 если за 7 календарных дней подряд has_attendance === true в снимках."""
+    kp = getattr(settings, "RATING_KP", {})
+    bonus = int(kp.get("ATTENDANCE_FULL_WEEK", 15))
+    start = end_date - timedelta(days=6)
+    snaps = LXPSnapshot.objects.filter(date__gte=start, date__lte=end_date).order_by("date")
+    if snaps.count() < 7:
+        return 0
+    for snap in snaps:
+        row = _attendance_row(snap.data or {}, lxp_uid)
+        if not row or row.get("has_attendance") is not True:
+            return 0
+    return bonus
+
+
+def _bonus_already_applied(user_id: int, source_id: str) -> bool:
+    return RatingLog.objects.filter(user_id=user_id, source_id=source_id).exists()
+
+
 @dataclass(frozen=True)
 class LxpRatingApplyResult:
     snapshot_date: date
@@ -113,6 +138,7 @@ def apply_rating_from_lxp_snapshot(
     ct_on = int(kp.get("CT_ON_TIME", 20))
     ct_miss = int(kp.get("CT_NOT_SUBMITTED", -20))
     abs_unexcused = int(kp.get("ABSENCE_UNEXCUSED", -10))
+    ct_all_bonus = int(kp.get("CT_ALL_CLOSED_BONUS", 30))
 
     qs = User.objects.filter(
         telegram_link__is_active=True,
@@ -149,7 +175,20 @@ def apply_rating_from_lxp_snapshot(
         if isinstance(row_att, dict) and row_att.get("has_attendance") is False:
             delta_att = max(-abs_cap, abs_unexcused)
 
-        delta = delta_ct + delta_att
+        delta_bonus = 0
+        ct_bonus = 0
+        week_bonus = 0
+        ct_source = f"ct_all_closed:{snapshot_date.isoformat()}"
+        week_start = snapshot_date - timedelta(days=6)
+        week_source = f"attendance_full_week:{week_start.isoformat()}"
+
+        if ct_ok and open_topics == 0 and closed_topics > 0 and not _bonus_already_applied(user.pk, ct_source):
+            ct_bonus = ct_all_bonus
+        if not _bonus_already_applied(user.pk, week_source):
+            week_bonus = _full_week_attendance_bonus(lxp_uid, snapshot_date)
+        delta_bonus = ct_bonus + week_bonus
+
+        delta = delta_ct + delta_att + delta_bonus
 
         before = int(user.rating_current)
         rating_after = max(0, min(1000, before + delta))
@@ -157,13 +196,18 @@ def apply_rating_from_lxp_snapshot(
         if unclosed_total >= block_thr:
             rating_after = min(rating_after, max_when_blocked)
 
-        if rating_after == before and unclosed_total == user.unclosed_ct_count:
+        if (
+            rating_after == before
+            and unclosed_total == user.unclosed_ct_count
+            and delta_bonus == 0
+        ):
             continue
 
         reason_parts = [
             f"LXP {snapshot_date.isoformat()}",
             f"Δ={delta}",
             f"topics_closed={closed_topics}/open={open_topics}",
+            f"bonus={delta_bonus}",
             f"partial={partial}",
         ]
         reason = "; ".join(reason_parts)[:250]
@@ -182,6 +226,30 @@ def apply_rating_from_lxp_snapshot(
                 source_id=snapshot_date.isoformat(),
                 reason=reason,
             )
+            if ct_bonus:
+                RatingLog.objects.get_or_create(
+                    user=u,
+                    source_id=ct_source,
+                    defaults={
+                        "value_before": rating_after,
+                        "value_after": rating_after,
+                        "delta": 0,
+                        "source": RatingChangeSource.SYSTEM,
+                        "reason": "Маркер: все КТ закрыты",
+                    },
+                )
+            if week_bonus:
+                RatingLog.objects.get_or_create(
+                    user=u,
+                    source_id=week_source,
+                    defaults={
+                        "value_before": rating_after,
+                        "value_after": rating_after,
+                        "delta": 0,
+                        "source": RatingChangeSource.SYSTEM,
+                        "reason": "Маркер: неделя без пропусков",
+                    },
+                )
             updated += 1
 
     notes = f"control_points_ok={ct_ok} partial_meta={partial}"

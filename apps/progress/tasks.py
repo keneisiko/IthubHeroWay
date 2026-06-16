@@ -1,17 +1,17 @@
 from celery import shared_task
-from datetime import date
-from django.utils.dateparse import parse_date
-from apps.progress.services.characteristics import update_all_characteristics
-from apps.integrations.services.lxp_client import LXPClient
-from apps.integrations.models import ExternalEvent
 from django.db import IntegrityError
+from django.utils.dateparse import parse_date
+
+from apps.integrations.models import ExternalEvent
+from apps.integrations.services.lxp_client import LXPClient
+from apps.progress.services.characteristics import update_all_characteristics
+from apps.progress.services.strike_bonuses import apply_strike_bonuses
 
 
 @shared_task
 def recalculate_rating_daily() -> None:
     """
     Ежедневный пересчёт рейтинга (06:00) на основе данных из LXP/YouGile.
-    В реальной реализации здесь будет интеграция с apps.integrations и моделями progress.
     """
     snapshot = LXPClient().fetch_daily_snapshot()
     for event in snapshot.get("events", []):
@@ -27,9 +27,7 @@ def recalculate_rating_daily() -> None:
 
 @shared_task
 def recalculate_rating_for_date(date_iso: str) -> str:
-    """
-    Пересчёт рейтинга на основе данных LXP snapshot за указанную дату.
-    """
+    """Пересчёт рейтинга на основе данных LXP snapshot за указанную дату."""
     target_date = parse_date(date_iso)
     if not target_date:
         return f"invalid_date:{date_iso}"
@@ -44,18 +42,22 @@ def recalculate_rating_for_date(date_iso: str) -> str:
 
 @shared_task
 def recalculate_pillars_weekly() -> None:
-    """
-    Еженедельный пересчёт характеристик (воскресенье 22:00).
-    """
+    """Еженедельный пересчёт характеристик (воскресенье 22:00)."""
     update_all_characteristics()
     return None
 
 
 @shared_task
-def check_strikes_daily() -> None:
-    """
-    Ежедневная проверка серий (23:00) и начисление бонусов.
-    """
-    # TODO: реализовать проверку серий и бонусы
-    return None
+def check_strikes_daily() -> str:
+    """Ежедневная проверка серий и начисление бонусов."""
+    result = apply_strike_bonuses()
+    return (
+        f"strikes:{result['date']}:updated={result['strikes_updated']}"
+        f":bonuses={result['bonuses_applied']}"
+    )
 
+
+@shared_task
+def apply_strike_bonuses_daily() -> str:
+    """Алиас для явного расписания Celery Beat."""
+    return check_strikes_daily()

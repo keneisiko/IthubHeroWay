@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
 
-from .models import Characteristic, CharacteristicHistory, RatingLog
+from .models import Characteristic, CharacteristicHistory, RatingLog, UserStrike
 
 
 @admin.register(RatingLog)
@@ -42,3 +42,20 @@ class CharacteristicHistoryAdmin(ManagedRoleAdminMixin):
 
     def has_change_permission(self, request, obj=None):
         return request.user.is_superuser
+
+
+@admin.register(UserStrike)
+class UserStrikeAdmin(ManagedRoleAdminMixin):
+    list_display = (
+        "user",
+        "attendance_strike",
+        "late_strike",
+        "last_attendance_date",
+        "last_late_date",
+        "updated_at",
+    )
+    search_fields = ("user__callsign", "user__username")
+    readonly_fields = ("updated_at",)
+
+    def has_module_permission(self, request):
+        return super().has_module_permission(request) and not is_hq(request.user)
