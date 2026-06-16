@@ -1,16 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import api from '../api'
 
 const TABS = ['Активные', 'Выполненные', 'История наград'] as const
 
-const QUESTS = [
-  { id: 1, kind: 'Ежедневный',  leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы пппаа', reward: '+999 монет', note: 'Выполняется автоматически', confirm: false, teamNote: '' },
-  { id: 2, kind: 'Еженедельный', leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы пппаа', reward: '+999 монет', note: '', confirm: true, teamNote: '' },
-  { id: 3, kind: 'Сезонный',    leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы пппаа', reward: '+999 монет', note: 'Выполняется автоматически', confirm: false, teamNote: '' },
-  { id: 4, kind: 'Личный',      leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы пппаа', reward: '+999 монет', note: '', confirm: true, teamNote: '' },
-  { id: 5, kind: 'Командный',   leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы пппаа', reward: '+999 монет', note: '', confirm: false, teamNote: '8 из 10 сдали КТ' },
+interface Quest {
+  id: number
+  kind: string
+  leftDays: string
+  progress: string
+  title: string
+  desc: string
+  reward: string
+  note: string
+  confirm: boolean
+  teamNote: string
+}
+
+interface Activity {
+  id: number
+  title: string
+  reward: string
+  time: string
+}
+
+const FALLBACK_QUESTS: Quest[] = [
+  { id: 1, kind: 'Ежедневный',  leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы', reward: '+999 монет', note: 'Выполняется автоматически', confirm: false, teamNote: '' },
+  { id: 2, kind: 'Еженедельный', leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы', reward: '+999 монет', note: '', confirm: true, teamNote: '' },
+  { id: 3, kind: 'Сезонный',    leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы', reward: '+999 монет', note: 'Выполняется автоматически', confirm: false, teamNote: '' },
+  { id: 4, kind: 'Личный',      leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы', reward: '+999 монет', note: '', confirm: true, teamNote: '' },
+  { id: 5, kind: 'Командный',   leftDays: '2 дня', progress: '77%', title: 'Название', desc: 'Сдать КТ по Python до пятницы', reward: '+999 монет', note: '', confirm: false, teamNote: '8 из 10 сдали КТ' },
 ]
 
-const ACTIVITY = [
+const FALLBACK_ACTIVITY: Activity[] = [
   { id: 1, title: 'Название', reward: 'полученные монеты', time: 'Дата выполнения' },
   { id: 2, title: 'Название', reward: 'полученные монеты', time: '1 час назад' },
   { id: 3, title: 'Название', reward: 'полученные монеты', time: '1 час назад' },
@@ -23,6 +44,18 @@ export default function Quests() {
   const [confirmQuestId, setConfirmQuestId] = useState<number | null>(null)
   const [confirmLink, setConfirmLink] = useState('')
   const [selectedWeekly, setSelectedWeekly] = useState<'A' | 'B' | null>(null)
+  const [quests, setQuests] = useState<Quest[]>(FALLBACK_QUESTS)
+  const [activity, setActivity] = useState<Activity[]>(FALLBACK_ACTIVITY)
+
+  useEffect(() => {
+    api.get('/api/v1/quests/active/').then(res => {
+      if (res.data?.length) setQuests(res.data)
+    }).catch(() => {})
+
+    api.get('/api/v1/quests/completed/').then(res => {
+      if (res.data?.length) setActivity(res.data)
+    }).catch(() => {})
+  }, [])
 
   return (
     <div className="q1">
@@ -48,7 +81,7 @@ export default function Quests() {
           <h2 className="q1__quests-title">Активный квест</h2>
           <div className="q1__quests-slot">
             <div className="q1__quests-slot-inner">
-              {QUESTS.map((q) => (
+              {quests.map((q) => (
                 <article key={q.id} className="q1__card hover-lift">
                   <div className="q1__card-body">
                     <div className="q1__card-top">
@@ -59,13 +92,11 @@ export default function Quests() {
                       </span>
                       <span className="q1__card-pct">{q.progress}</span>
                     </div>
-
                     <div className="q1__card-mid">
                       <div className="q1__card-name">{q.title}</div>
                       <div className="q1__card-desc">{q.desc}</div>
                       {q.teamNote && <div className="q1__card-team">{q.teamNote}</div>}
                     </div>
-
                     <div className="q1__card-steps" aria-hidden="true">
                       <span className="q1__step q1__step--red" />
                       <span className="q1__step-seg q1__step-seg--red" />
@@ -73,15 +104,13 @@ export default function Quests() {
                       <span className="q1__step-seg q1__step-seg--yellow" />
                       <span className="q1__step q1__step--violet" />
                       <div className="q1__step-rail">
-                        <div className="q1__step-fill" style={{ width: '40%' }} />
+                        <div className="q1__step-fill" style={{ width: q.progress }} />
                       </div>
                       <span className="q1__step q1__step--green" />
                     </div>
-
                     <div className="q1__card-reward">
                       Награда: <span className="q1__card-reward-coins">{q.reward}</span>
                     </div>
-
                     {q.confirm && (
                       <button type="button" className="q1__card-confirm" onClick={() => setConfirmQuestId(q.id)}>
                         Подтвердить
@@ -165,7 +194,7 @@ export default function Quests() {
         <section className="q1__activity">
           <h3 className="q1__activity-title">Список выполненных квестов за последние 30 дней</h3>
           <div className="q1__activity-list">
-            {ACTIVITY.map((a) => (
+            {activity.map((a) => (
               <article key={a.id} className="q1__acard">
                 <div className="q1__acard-body">
                   <div className="q1__acard-name">{a.title}</div>
@@ -179,7 +208,6 @@ export default function Quests() {
         </section>
       </aside>
 
-      {/* ─── Самоотчёт popup (Frame142) ─── */}
       {showReport && (
         <div className="overlay" onClick={() => setShowReport(false)}>
           <div className="popup" onClick={(e) => e.stopPropagation()} style={{
@@ -187,39 +215,23 @@ export default function Quests() {
             boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px',
             width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px',
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
-                Ссылка на работу
-              </label>
-              <input
-                type="url"
-                value={reportText}
-                onChange={(e) => setReportText(e.target.value)}
-                placeholder="https://..."
-                style={{
-                  height: '38px', borderRadius: '12px', border: '4px solid #9a33f4',
-                  padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px',
-                  outline: 'none', background: '#fff', color: '#121212',
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => { setShowReport(false); setReportText('') }}
-              style={{
-                background: '#9a33f4', height: '48px', borderRadius: '48px',
-                border: '4px solid #f5f5f5', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)',
-                padding: '3px 24px', fontFamily: 'Montserrat, sans-serif', fontWeight: 700,
-                fontSize: '24px', color: '#f5f5f5', cursor: 'pointer', transition: 'opacity 0.2s',
-              }}
-            >
-              Отправить
-            </button>
+            <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
+              Ссылка на работу
+            </label>
+            <input
+              type="url" value={reportText} onChange={(e) => setReportText(e.target.value)}
+              placeholder="https://..."
+              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
+            />
+            <button type="button" onClick={() => { setShowReport(false); setReportText('') }} style={{
+              background: '#9a33f4', height: '48px', borderRadius: '48px', border: '4px solid #f5f5f5',
+              boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '3px 24px',
+              fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
+            }}>Отправить</button>
           </div>
         </div>
       )}
 
-      {/* ─── Confirm quest popup ─── */}
       {confirmQuestId !== null && (
         <div className="overlay" onClick={() => setConfirmQuestId(null)}>
           <div className="popup" onClick={(e) => e.stopPropagation()} style={{
@@ -231,28 +243,15 @@ export default function Quests() {
               Прикрепите подтверждение
             </label>
             <input
-              type="url"
-              value={confirmLink}
-              onChange={(e) => setConfirmLink(e.target.value)}
+              type="url" value={confirmLink} onChange={(e) => setConfirmLink(e.target.value)}
               placeholder="Ссылка на доказательство"
-              style={{
-                height: '38px', borderRadius: '12px', border: '4px solid #9a33f4',
-                padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px',
-                outline: 'none', background: '#fff', color: '#121212',
-              }}
+              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
             />
-            <button
-              type="button"
-              onClick={() => { setConfirmQuestId(null); setConfirmLink('') }}
-              style={{
-                background: '#9a33f4', height: '48px', borderRadius: '48px',
-                border: '4px solid #f5f5f5', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)',
-                padding: '3px 24px', fontFamily: 'Montserrat, sans-serif', fontWeight: 700,
-                fontSize: '24px', color: '#f5f5f5', cursor: 'pointer', transition: 'opacity 0.2s',
-              }}
-            >
-              Отправить
-            </button>
+            <button type="button" onClick={() => { setConfirmQuestId(null); setConfirmLink('') }} style={{
+              background: '#9a33f4', height: '48px', borderRadius: '48px', border: '4px solid #f5f5f5',
+              boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '3px 24px',
+              fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
+            }}>Отправить</button>
           </div>
         </div>
       )}

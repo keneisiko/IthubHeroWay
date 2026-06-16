@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Radar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -9,38 +9,11 @@ import {
   Tooltip,
 } from 'chart.js'
 import seriesIcon from '../assets/other/Group 11.svg'
+import api from '../api'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
 const AXIS_LABELS = ['Ритм', 'Фокус', 'Мощность', 'Связь', 'Отдача']
-const AXIS_VALUES = { current: [80, 60, 70, 50, 65], peak: [90, 75, 80, 65, 75] }
-
-const radarData = {
-  labels: AXIS_LABELS,
-  datasets: [
-    {
-      label: 'Текущий',
-      data: AXIS_VALUES.current,
-      backgroundColor: 'rgba(154, 51, 244, 0.2)',
-      borderColor: '#9A33F4',
-      borderWidth: 6,
-      pointBackgroundColor: '#9A33F4',
-      pointBorderColor: '#f5f5f5',
-      pointBorderWidth: 6,
-      pointRadius: 12,
-      pointHoverRadius: 14,
-    },
-    {
-      label: 'Пик',
-      data: AXIS_VALUES.peak,
-      backgroundColor: 'rgba(154, 51, 244, 0.08)',
-      borderColor: 'rgba(154, 51, 244, 0.65)',
-      borderWidth: 4,
-      borderDash: [8, 8],
-      pointRadius: 0,
-    },
-  ],
-}
 
 const radarOptions = {
   responsive: true,
@@ -63,6 +36,21 @@ const radarOptions = {
 
 type QuestTab = 'daily' | 'weekly'
 
+interface DashboardData {
+  user: {
+    callsign: string
+    level: number
+    rating_current: number
+  }
+  current_quest: {
+    title: string
+    quest_type: string
+    progress_value: number
+    reward_coins: number
+  } | null
+  feed: { text: string; time: string }[]
+}
+
 export default function Dashboard() {
   const [hoveredRadar, setHoveredRadar] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -70,12 +58,53 @@ export default function Dashboard() {
   const [questTab, setQuestTab] = useState<QuestTab>('daily')
   const [showReport, setShowReport] = useState(false)
   const [reportText, setReportText] = useState('')
+  const [data, setData] = useState<DashboardData | null>(null)
 
-  const activity = [
-    { text: 'Получена нашивка «Железный ритм»', time: '1 час назад' },
-    { text: '+3 монеты от @ivan за респект', time: '2 часа назад', highlight: '@ivan' },
-    { text: 'Серия 7 дней · +5 монет', time: '3 часа назад' },
-  ]
+  useEffect(() => {
+    api.get('/api/v1/dashboard/').then(res => setData(res.data)).catch(() => {})
+  }, [])
+
+  const rating = data?.user.rating_current ?? 199
+  const level = data?.user.level ?? 6
+  const questTitle = data?.current_quest?.title ?? 'Сдать КТ по Python'
+  const questProgress = data?.current_quest?.progress_value ?? 77
+  const isDaily = data?.current_quest?.quest_type === 'daily'
+
+  const radarValues = [80, 60, 70, 50, 65] // пока статика, бэк не отдаёт радар
+  const radarData = {
+    labels: AXIS_LABELS,
+    datasets: [
+      {
+        label: 'Текущий',
+        data: radarValues,
+        backgroundColor: 'rgba(154, 51, 244, 0.2)',
+        borderColor: '#9A33F4',
+        borderWidth: 6,
+        pointBackgroundColor: '#9A33F4',
+        pointBorderColor: '#f5f5f5',
+        pointBorderWidth: 6,
+        pointRadius: 12,
+        pointHoverRadius: 14,
+      },
+      {
+        label: 'Пик',
+        data: [90, 75, 80, 65, 75],
+        backgroundColor: 'rgba(154, 51, 244, 0.08)',
+        borderColor: 'rgba(154, 51, 244, 0.65)',
+        borderWidth: 4,
+        borderDash: [8, 8],
+        pointRadius: 0,
+      },
+    ],
+  }
+
+  const activity = data?.feed?.length
+    ? data.feed
+    : [
+        { text: 'Получена нашивка «Железный ритм»', time: '1 час назад' },
+        { text: '+3 монеты от @ivan за респект', time: '2 часа назад' },
+        { text: 'Серия 7 дней · +5 монет', time: '3 часа назад' },
+      ]
 
   return (
     <div className="dashboard page-enter">
@@ -104,11 +133,11 @@ export default function Dashboard() {
 
           <section className="card card--purple">
             <h3 className="rating__title">Текущий рейтинг:</h3>
-            <div className="rating__value">199</div>
+            <div className="rating__value">{rating}</div>
             <div className="rating__line">
               <span>Статус:</span>
               <span className="chip chip--light rating__chip">Игрок</span>
-              <span className="chip chip--light rating__chip">6 ур.</span>
+              <span className="chip chip--light rating__chip">{level} ур.</span>
             </div>
             <div className="rating__line">
               <span>до</span>
@@ -128,16 +157,10 @@ export default function Dashboard() {
         </div>
 
         <section className="radar-card">
-          <span className="radar-card__label" style={{
-            opacity: hoveredRadar ? 1 : 0,
-            transition: 'opacity 0.25s ease-out',
-          }}>
-            {hoveredRadar ? `${hoveredRadar}: ${AXIS_VALUES.current[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
+          <span className="radar-card__label" style={{ opacity: hoveredRadar ? 1 : 0, transition: 'opacity 0.25s ease-out' }}>
+            {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
           </span>
-          <div
-            className="radar-card__canvas"
-            onMouseLeave={() => setHoveredRadar(null)}
-          >
+          <div className="radar-card__canvas" onMouseLeave={() => setHoveredRadar(null)}>
             <Radar
               data={radarData}
               options={{
@@ -155,9 +178,7 @@ export default function Dashboard() {
                     callbacks: {
                       title: (items: any) => items[0]?.label || '',
                       label: (item: any) =>
-                        item.datasetIndex === 0
-                          ? `Текущий: ${item.raw}%`
-                          : `Пик: ${item.raw}%`,
+                        item.datasetIndex === 0 ? `Текущий: ${item.raw}%` : `Пик: ${item.raw}%`,
                     },
                   },
                 },
@@ -178,17 +199,9 @@ export default function Dashboard() {
         <section className="activity-card">
           <h3 className="section-title">Лента активности</h3>
           <div className="activity">
-            {activity.map((item) => (
+            {activity.map((item: any) => (
               <article key={item.text} className="activity__item" style={{ animation: 'slideUp 0.4s ease-out' }}>
-                <span>
-                  {item.highlight ? (
-                    <>
-                      {item.text.split(item.highlight)[0]}
-                      <span className="activity__highlight">{item.highlight}</span>
-                      {item.text.split(item.highlight)[1]}
-                    </>
-                  ) : item.text}
-                </span>
+                <span>{item.text}</span>
                 <time>{item.time}</time>
               </article>
             ))}
@@ -209,8 +222,8 @@ export default function Dashboard() {
           </div>
           <div className="quest__progress">
             <div className="quest__head">
-              <span>{questTab === 'daily' ? 'Сдать КТ по Python' : 'Завершить 5 задач'}</span>
-              <strong>{questTab === 'daily' ? '77%' : '40%'}</strong>
+              <span>{isDaily ? questTitle : 'Завершить 5 задач'}</span>
+              <strong>{questProgress}%</strong>
             </div>
             <div className="quest__steps">
               <span className="quest-step"><span className="dot dot--red" /><span className="quest-step__bar quest-step__bar--red" /></span>
@@ -227,7 +240,6 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* Confirm quest popup */}
       {showConfirm && (
         <div className="overlay" onClick={() => setShowConfirm(false)}>
           <div className="popup" onClick={(e) => e.stopPropagation()} style={{
@@ -243,25 +255,18 @@ export default function Dashboard() {
               value={confirmLink}
               onChange={(e) => setConfirmLink(e.target.value)}
               placeholder="Ссылка на доказательство"
-              style={{
-                height: '38px', borderRadius: '12px', border: '4px solid #9a33f4',
-                padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px',
-                outline: 'none', background: '#fff', color: '#121212',
-              }}
+              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
             />
             <button type="button" onClick={() => { setShowConfirm(false); setConfirmLink('') }} style={{
               background: '#9a33f4', height: '48px', borderRadius: '48px',
               border: '4px solid #f5f5f5', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)',
               padding: '3px 24px', fontFamily: 'Montserrat, sans-serif', fontWeight: 700,
-              fontSize: '24px', color: '#f5f5f5', cursor: 'pointer', transition: 'opacity 0.2s',
-            }}>
-              Отправить
-            </button>
+              fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
+            }}>Отправить</button>
           </div>
         </div>
       )}
 
-      {/* Self-report popup (Frame142) */}
       {showReport && (
         <div className="overlay" onClick={() => setShowReport(false)}>
           <div className="popup" onClick={(e) => e.stopPropagation()} style={{
@@ -269,30 +274,22 @@ export default function Dashboard() {
             boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px',
             width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px',
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
-                Ссылка на работу
-              </label>
-              <input
-                type="url"
-                value={reportText}
-                onChange={(e) => setReportText(e.target.value)}
-                placeholder="https://..."
-                style={{
-                  height: '38px', borderRadius: '12px', border: '4px solid #9a33f4',
-                  padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px',
-                  outline: 'none', background: '#fff', color: '#121212',
-                }}
-              />
-            </div>
+            <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
+              Ссылка на работу
+            </label>
+            <input
+              type="url"
+              value={reportText}
+              onChange={(e) => setReportText(e.target.value)}
+              placeholder="https://..."
+              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
+            />
             <button type="button" onClick={() => { setShowReport(false); setReportText('') }} style={{
               background: '#9a33f4', height: '48px', borderRadius: '48px',
               border: '4px solid #f5f5f5', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)',
               padding: '3px 24px', fontFamily: 'Montserrat, sans-serif', fontWeight: 700,
-              fontSize: '24px', color: '#f5f5f5', cursor: 'pointer', transition: 'opacity 0.2s',
-            }}>
-              Отправить
-            </button>
+              fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
+            }}>Отправить</button>
           </div>
         </div>
       )}

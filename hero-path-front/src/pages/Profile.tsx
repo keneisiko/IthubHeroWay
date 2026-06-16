@@ -8,44 +8,11 @@ import {
   Filler,
   Tooltip,
 } from 'chart.js'
+import api from '../api'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
-const AXIS_DATA: Record<string, { outer: number; inner: number; history: number[] }> = {
-  Мощность: { outer: 17, inner: 14, history: [4, 7, 9, 11, 14, 17] },
-  Связь:    { outer: 17, inner: 14, history: [3, 6, 8, 10, 12, 17] },
-  Фокус:    { outer: 17, inner: 14, history: [5, 7, 8, 11, 13, 17] },
-  Ритм:     { outer: 17, inner: 14, history: [2, 5, 7, 10, 13, 17] },
-  Отдача:   { outer: 17, inner: 14, history: [4, 6, 9, 10, 12, 17] },
-}
-
-const radarData = {
-  labels: ['Ритм', 'Фокус', 'Мощность', 'Связь', 'Отдача'],
-  datasets: [
-    {
-      label: 'Внешний контур',
-      data: [17, 17, 17, 17, 17],
-      backgroundColor: 'rgba(154, 51, 244, 0.2)',
-      borderColor: '#9A33F4',
-      borderWidth: 6,
-      pointBackgroundColor: '#9A33F4',
-      pointBorderColor: '#f5f5f5',
-      pointBorderWidth: 6,
-      pointRadius: 12,
-      pointHoverRadius: 14,
-    },
-    {
-      label: 'Внутренний контур',
-      data: [14, 14, 14, 14, 14],
-      backgroundColor: 'rgba(154, 51, 244, 0.08)',
-      borderColor: '#9A33F4',
-      borderWidth: 4,
-      borderDash: [8, 6],
-      pointRadius: 0,
-      pointHoverRadius: 0,
-    },
-  ],
-}
+const AXIS_KEYS = ['Мощность', 'Связь', 'Фокус', 'Ритм', 'Отдача'] as const
 
 const radarOptions = {
   responsive: true,
@@ -75,37 +42,72 @@ const AXES = [
 ] as const
 
 const VALUE_POSITIONS = [
-  { outer: 'profile-radar__value--outer-top',           inner: 'profile-radar__value--inner-top' },
-  { outer: 'profile-radar__value--outer-left',          inner: 'profile-radar__value--inner-left' },
-  { outer: 'profile-radar__value--outer-right',         inner: 'profile-radar__value--inner-right' },
-  { outer: 'profile-radar__value--outer-bottom-left',   inner: 'profile-radar__value--inner-bottom-left' },
-  { outer: 'profile-radar__value--outer-bottom-right',  inner: 'profile-radar__value--inner-bottom-right' },
+  { outer: 'profile-radar__value--outer-top',          inner: 'profile-radar__value--inner-top' },
+  { outer: 'profile-radar__value--outer-left',         inner: 'profile-radar__value--inner-left' },
+  { outer: 'profile-radar__value--outer-right',        inner: 'profile-radar__value--inner-right' },
+  { outer: 'profile-radar__value--outer-bottom-left',  inner: 'profile-radar__value--inner-bottom-left' },
+  { outer: 'profile-radar__value--outer-bottom-right', inner: 'profile-radar__value--inner-bottom-right' },
 ]
+
+interface ProfileData {
+  callsign: string
+  full_name: string
+  track: string
+  squad: string
+  level: number
+  status: string
+  quests_completed: number
+  badges_count: number
+  duel_wins: number
+  skills: Record<string, { current: number; peak: number; history: number[] }>
+}
 
 export default function Profile() {
   const tabs = useMemo(() => ['Путь', 'Ритм', 'Мастерство', 'Сообщество', 'Вклад', 'Статус', 'Особые'], [])
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('Путь')
+  const [activeTab, setActiveTab] = useState<string>('Путь')
   const [activeAxis, setActiveAxis] = useState<string | null>(null)
   const [hoveredAxis, setHoveredAxis] = useState<string | null>(null)
   const tabsRef = useRef<HTMLDivElement | null>(null)
   const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 65 })
+  const [profile, setProfile] = useState<ProfileData | null>(null)
 
-  const achievementsPreview = [
-    { name: 'Название', rarity: 'Обычный', rarityClass: 'ach__rarity--common' },
-    { name: 'Название', rarity: 'Редкий', rarityClass: 'ach__rarity--rare' },
-    { name: 'Название', rarity: 'Эпический', rarityClass: 'ach__rarity--epic' },
-  ] as const
+  useEffect(() => {
+    api.get('/api/v1/profile/me/').then(res => setProfile(res.data)).catch(() => {})
+  }, [])
 
-  const pathCards = [
-    { name: 'Название', rarity: 'Обычный', rarityClass: 'path-card__chip--common', iconClass: 'path-card__icon--common' },
-    { name: 'Название', rarity: 'Редкий', rarityClass: 'path-card__chip--rare', iconClass: 'path-card__icon--rare' },
-    { name: 'Название', rarity: 'Эпический', rarityClass: 'path-card__chip--epic', iconClass: 'path-card__icon--epic' },
-    { name: 'Название', rarity: 'Легендарный', rarityClass: 'path-card__chip--legendary', iconClass: 'path-card__icon--legendary' },
-  ] as const
+  const getSkill = (key: string) => profile?.skills?.[key] ?? { current: 17, peak: 14, history: [4, 7, 9, 11, 14, 17] }
 
-  const toggleAxis = (axis: string) => setActiveAxis((current) => (current === axis ? null : axis))
-  const activeHistory = activeAxis ? AXIS_DATA[activeAxis].history : AXIS_DATA['Мощность'].history
+  const radarData = {
+    labels: ['Ритм', 'Фокус', 'Мощность', 'Связь', 'Отдача'],
+    datasets: [
+      {
+        label: 'Текущий',
+        data: AXIS_KEYS.map(k => getSkill(k).current),
+        backgroundColor: 'rgba(154, 51, 244, 0.2)',
+        borderColor: '#9A33F4',
+        borderWidth: 6,
+        pointBackgroundColor: '#9A33F4',
+        pointBorderColor: '#f5f5f5',
+        pointBorderWidth: 6,
+        pointRadius: 12,
+        pointHoverRadius: 14,
+      },
+      {
+        label: 'Пик',
+        data: AXIS_KEYS.map(k => getSkill(k).peak),
+        backgroundColor: 'rgba(154, 51, 244, 0.08)',
+        borderColor: '#9A33F4',
+        borderWidth: 4,
+        borderDash: [8, 6],
+        pointRadius: 0,
+        pointHoverRadius: 0,
+      },
+    ],
+  }
+
+  const activeHistory = activeAxis ? getSkill(activeAxis).history : getSkill('Мощность').history
+  const toggleAxis = (axis: string) => setActiveAxis(cur => cur === axis ? null : axis)
 
   useEffect(() => {
     const updateIndicator = () => {
@@ -121,30 +123,32 @@ export default function Profile() {
     return () => window.removeEventListener('resize', updateIndicator)
   }, [activeTab])
 
+  const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? 'ИП'
+
   return (
     <div className="profile page-enter">
       <div className="profile__top">
         <div className="profile__left">
           <section className="profile-card profile-card--primary">
             <div className="profile-card__header">
-              <div className="profile-card__avatar" role="img" aria-label="Аватар">ИП</div>
+              <div className="profile-card__avatar" role="img" aria-label="Аватар">{initials}</div>
               <div className="profile-card__names">
-                <div className="profile-card__nickname">Никнейм</div>
-                <div className="profile-card__fio">ФИО</div>
+                <div className="profile-card__nickname">{profile?.callsign ?? 'Никнейм'}</div>
+                <div className="profile-card__fio">{profile?.full_name ?? 'ФИО'}</div>
               </div>
             </div>
             <div className="profile-card__rows">
               <div className="profile-row">
                 <span className="profile-row__label">Трек:</span>
-                <span className="profile-row__chip profile-row__chip--dark">Код - программирование</span>
+                <span className="profile-row__chip profile-row__chip--dark">{profile?.track ?? 'Код - программирование'}</span>
               </div>
               <div className="profile-row">
                 <span className="profile-row__label">Отряд:</span>
-                <span className="profile-row__chip profile-row__chip--light">Учебная группа</span>
+                <span className="profile-row__chip profile-row__chip--light">{profile?.squad ?? 'Учебная группа'}</span>
               </div>
               <div className="profile-row">
                 <span className="profile-row__label">Статус и уровень:</span>
-                <span className="profile-row__chip profile-row__chip--dark">Стажёр ур. 3</span>
+                <span className="profile-row__chip profile-row__chip--dark">{profile?.status ?? 'Стажёр'} ур. {profile?.level ?? 3}</span>
               </div>
             </div>
           </section>
@@ -184,9 +188,9 @@ export default function Profile() {
           <div className="profile-aside__divider" />
           <h3 className="profile-aside__title">Статистика:</h3>
           <div className="profile-aside__stats">
-            <span className="profile-aside__pill">Выполнено квестов: 47</span>
-            <span className="profile-aside__pill">Получено нашивок: 12 из 42</span>
-            <span className="profile-aside__pill">Побед в дуелях: 5</span>
+            <span className="profile-aside__pill">Выполнено квестов: {profile?.quests_completed ?? 0}</span>
+            <span className="profile-aside__pill">Получено нашивок: {profile?.badges_count ?? 0}</span>
+            <span className="profile-aside__pill">Побед в дуэлях: {profile?.duel_wins ?? 0}</span>
           </div>
           <h3 className="profile-aside__title profile-aside__title--sp">Шефство:</h3>
           <button className="profile-aside__mentee">@подшефный</button>
@@ -194,28 +198,24 @@ export default function Profile() {
         </section>
       </div>
 
-      {/* Radar with hover tooltips */}
       <section className="profile-radar">
         <div className="profile-radar__chart">
           <Radar data={radarData} options={radarOptions} />
         </div>
 
         {AXES.map(({ key, position }) => {
-          const data = AXIS_DATA[key]
+          const skill = getSkill(key)
           const isHovered = hoveredAxis === key
           const isTop = position === 'profile-radar__axis--top'
           const isBottom = position.includes('bottom')
           const isLeft = position === 'profile-radar__axis--left'
-          const isRight = position === 'profile-radar__axis--right'
           const tooltipStyle: React.CSSProperties = isTop
             ? { bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)' }
             : isBottom
               ? { top: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)' }
               : isLeft
                 ? { right: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' }
-                : isRight
-                  ? { left: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' }
-                  : { bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)' }
+                : { left: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' }
           return (
             <div
               key={key}
@@ -229,7 +229,7 @@ export default function Profile() {
               <span>{key}</span>
               {isHovered && (
                 <span className="tooltip" style={tooltipStyle}>
-                  {key}: {data.outer} / 20
+                  {key}: {skill.current} / 20
                 </span>
               )}
             </div>
@@ -237,21 +237,19 @@ export default function Profile() {
         })}
 
         {VALUE_POSITIONS.map((pos, i) => {
-          const axisKey = AXES[i].key
-          const data = AXIS_DATA[axisKey]
+          const skill = getSkill(AXES[i].key)
           return (
             <span key={`outer-${i}`} className={`profile-radar__value ${pos.outer}`}>
-              {data.outer}
+              {skill.current}
             </span>
           )
         })}
 
         {VALUE_POSITIONS.map((pos, i) => {
-          const axisKey = AXES[i].key
-          const data = AXIS_DATA[axisKey]
+          const skill = getSkill(AXES[i].key)
           return (
             <span key={`inner-${i}`} className={`profile-radar__value ${pos.inner} profile-radar__value--inner`}>
-              {data.inner}
+              {skill.peak}
             </span>
           )
         })}
@@ -292,12 +290,12 @@ export default function Profile() {
       <section className="profile-path profile-card">
         <h3 className="profile-achievements__title">Достижения:</h3>
         <div className="profile-achievements__row">
-          {achievementsPreview.map((item) => (
-            <button key={`${item.name}-${item.rarity}`} className="ach ach--preview hover-lift" type="button">
+          {['Обычный', 'Редкий', 'Эпический'].map((rarity) => (
+            <button key={rarity} className="ach ach--preview hover-lift" type="button">
               <span className="ach__icon ach__icon--preview" aria-hidden="true">
                 <span className="ach__glyph ach__glyph--preview" />
               </span>
-              <span className="ach__name">{item.name}</span>
+              <span className="ach__name">Название</span>
               <span className="ach__rarity">Редкость</span>
             </button>
           ))}
@@ -318,13 +316,13 @@ export default function Profile() {
         </div>
 
         <div className="profile-path__grid">
-          {pathCards.map((card) => (
-            <button key={card.rarity} className="path-card hover-lift" type="button">
-              <span className={`path-card__icon ${card.iconClass}`} aria-hidden="true">
+          {['Обычный', 'Редкий', 'Эпический', 'Легендарный'].map((rarity) => (
+            <button key={rarity} className="path-card hover-lift" type="button">
+              <span className={`path-card__icon path-card__icon--${rarity.toLowerCase()}`} aria-hidden="true">
                 <span className="path-card__glyph" />
               </span>
               <span className="path-card__name">Название</span>
-              <span className={`path-card__chip ${card.rarityClass}`}>{card.rarity}</span>
+              <span className={`path-card__chip path-card__chip--${rarity.toLowerCase()}`}>{rarity}</span>
             </button>
           ))}
           {Array.from({ length: 8 }).map((_, i) => (

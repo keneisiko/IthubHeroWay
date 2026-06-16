@@ -2,11 +2,22 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ithubLogo from '../assets/other/лого-26 1.svg'
 import userAvatar from '../assets/branding/user-avatar.png'
+import api from '../api'
+
+interface ProfileData {
+  callsign: string
+  coins: number
+}
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profile, setProfile] = useState<ProfileData | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    api.get('/api/v1/profile/me/').then(res => setProfile(res.data)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -18,6 +29,9 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [menuOpen])
 
+  const username = profile?.callsign || localStorage.getItem('username') || 'имя пользователя'
+  const coins = profile?.coins ?? 0
+
   return (
     <header className="top-header">
       <div className="top-header__brand">
@@ -27,10 +41,10 @@ export default function Header() {
       </div>
       <div className="top-header__user" style={{ position: 'relative' }} ref={menuRef}>
         <div className="top-header__user-meta">
-          <div className="top-header__username">{localStorage.getItem('username') || 'имя пользователя'}</div>
+          <div className="top-header__username">{username}</div>
           <div className="top-header__money">
             <span className="top-header__coin" aria-hidden="true" />
-            <strong>9.99</strong>
+            <strong>{coins}</strong>
           </div>
         </div>
         <button
@@ -41,7 +55,6 @@ export default function Header() {
           <img src={userAvatar} alt="Аватар пользователя" className="top-header__avatar" />
         </button>
 
-        {/* Profile / Logout dropdown — Frame294-1 */}
         {menuOpen && (
           <div
             className="popup"
