@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import api from '../api'
 
 type LeaderTab = 'agents' | 'squads'
@@ -19,6 +19,49 @@ const getBadgeClass = (rank: number) => {
   return 'rank-badge rank-badge--default'
 }
 
+function FilterDropdown({
+  options, selected, onSelect, onClose
+}: {
+  options: string[]
+  selected: string
+  onSelect: (v: string) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [onClose])
+
+  return (
+    <div ref={ref} className="popup filter-dropdown" style={{
+      position: 'absolute', top: '56px', right: 0,
+      background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
+      boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '12px 0',
+      minWidth: '180px', zIndex: 60,
+      animation: 'popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+    }}>
+      {options.map(opt => (
+        <button
+          key={opt} type="button"
+          onClick={() => { onSelect(opt); onClose() }}
+          style={{
+            display: 'block', width: '100%', padding: '8px 20px', border: 'none',
+            background: selected === opt ? '#9a33f4' : 'transparent',
+            color: selected === opt ? '#f5f5f5' : '#121212',
+            fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px',
+            textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s',
+          }}
+        >{opt}</button>
+      ))}
+    </div>
+  )
+}
+
 export default function Leaderboard() {
   const [activeTab, setActiveTab] = useState<LeaderTab>('squads')
   const [searchQuery, setSearchQuery] = useState('')
@@ -26,7 +69,7 @@ export default function Leaderboard() {
   const [selectedFilter, setSelectedFilter] = useState('Все курсы')
   const [agents, setAgents] = useState<LeaderItem[]>([])
   const [squads, setSquads] = useState<LeaderItem[]>([])
-  const [myRank, setMyRank] = useState<{ rank: number; delta: string }>({ rank: 56, delta: '+47' })
+  const [myRank, setMyRank] = useState({ rank: 56, delta: '+47' })
 
   useEffect(() => {
     api.get('/api/v1/leaderboard/agents/').then(res => {
@@ -75,48 +118,38 @@ export default function Leaderboard() {
     item.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const handleFilterSelect = useCallback((filter: string) => {
+    setSelectedFilter(filter)
+  }, [])
+
   return (
     <div className="dashboard leaderboard-page page-enter">
       <div className="leaderboard-controls">
         <div className="leaderboard-tabs">
           <button
             type="button"
-            className={`leaderboard-tab${activeTab === 'agents' ? ' leaderboard-tab--active' : ''}`}
+            className={`leaderboard-tab${activeTab === 'agents' ? ' leaderboard-tab--active' : ''} btn-press`}
             onClick={() => setActiveTab('agents')}
           >Агенты</button>
           <button
             type="button"
-            className={`leaderboard-tab${activeTab === 'squads' ? ' leaderboard-tab--active' : ''}`}
+            className={`leaderboard-tab${activeTab === 'squads' ? ' leaderboard-tab--active' : ''} btn-press`}
             onClick={() => setActiveTab('squads')}
           >Отряды</button>
         </div>
         <div className="leaderboard-filters-frame" style={{ position: 'relative' }}>
           <button
             type="button"
-            className="leaderboard-filter-button"
+            className="leaderboard-filter-button btn-press"
             onClick={() => setShowFilters(v => !v)}
-          >Фильтры</button>
+          >{selectedFilter}</button>
           {showFilters && (
-            <div className="popup" style={{
-              position: 'absolute', top: '56px', right: 0,
-              background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
-              boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '12px 0',
-              minWidth: '180px', zIndex: 60,
-            }}>
-              {FILTER_OPTIONS.map(opt => (
-                <button
-                  key={opt} type="button"
-                  onClick={() => { setSelectedFilter(opt); setShowFilters(false) }}
-                  style={{
-                    display: 'block', width: '100%', padding: '8px 20px', border: 'none',
-                    background: selectedFilter === opt ? '#9a33f4' : 'transparent',
-                    color: selectedFilter === opt ? '#f5f5f5' : '#121212',
-                    fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px',
-                    textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s',
-                  }}
-                >{opt}</button>
-              ))}
-            </div>
+            <FilterDropdown
+              options={FILTER_OPTIONS}
+              selected={selectedFilter}
+              onSelect={handleFilterSelect}
+              onClose={() => setShowFilters(false)}
+            />
           )}
         </div>
       </div>
@@ -130,7 +163,7 @@ export default function Leaderboard() {
           <input
             type="text" value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Поиск"
+            placeholder="Поиск по названию..."
             style={{
               border: 'none', outline: 'none', background: 'transparent',
               fontFamily: 'Montserrat, sans-serif', fontSize: '20px',
@@ -145,8 +178,8 @@ export default function Leaderboard() {
 
         <div className="leaderboard-panel">
           <div className="leaderboard-list">
-            {filteredItems.map(item => (
-              <div className="leaderboard-item hover-lift" key={item.rank}>
+            {filteredItems.map((item, i) => (
+              <div className="leaderboard-item hover-lift" key={item.rank} style={{ animationDelay: `${i * 50}ms` }}>
                 <div className={item.badgeClass}>{item.rank}</div>
                 <div className="leaderboard-item__card">
                   <div className="leaderboard-item__tags">
@@ -154,10 +187,15 @@ export default function Leaderboard() {
                     <span className="tag tag--delta">Дельта роста:</span>
                     <span className="tag tag--gain">{item.delta}</span>
                   </div>
-                  <button type="button" className="leaderboard-item__button">Рейтинг</button>
+                  <button type="button" className="leaderboard-item__button btn-press">Рейтинг</button>
                 </div>
               </div>
             ))}
+            {filteredItems.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#848484', fontFamily: 'Montserrat, sans-serif', fontSize: '18px' }}>
+                Ничего не найдено
+              </div>
+            )}
           </div>
 
           <div className="leaderboard-divider" />
@@ -170,7 +208,7 @@ export default function Leaderboard() {
                 <span className="tag tag--delta">Дельта роста:</span>
                 <span className="tag tag--gain">{myRank.delta}</span>
               </div>
-              <button type="button" className="leaderboard-item__button">Рейтинг</button>
+              <button type="button" className="leaderboard-item__button btn-press">Рейтинг</button>
             </div>
           </div>
         </div>

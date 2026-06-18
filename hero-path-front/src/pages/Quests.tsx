@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../api'
 
 const TABS = ['Активные', 'Выполненные', 'История наград'] as const
@@ -37,6 +37,41 @@ const FALLBACK_ACTIVITY: Activity[] = [
   { id: 3, title: 'Название', reward: 'полученные монеты', time: '1 час назад' },
 ]
 
+function Modal({
+  open, onClose, title, children
+}: {
+  open: boolean
+  onClose: () => void
+  title?: string
+  children: React.ReactNode
+}) {
+  const [visible, setVisible] = useState(false)
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setClosing(false)
+      const t = setTimeout(() => setVisible(true), 10)
+      return () => clearTimeout(t)
+    } else {
+      setClosing(true)
+      const t = setTimeout(() => setVisible(false), 220)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  if (!visible && !open) return null
+
+  return (
+    <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose}>
+      <div className={`popup popup--link${closing ? ' popup--closing' : ''}`} onClick={e => e.stopPropagation()}>
+        {title && <h3 className="popup__title">{title}</h3>}
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function Quests() {
   const [activeTab, setActiveTab] = useState(0)
   const [showReport, setShowReport] = useState(false)
@@ -57,8 +92,18 @@ export default function Quests() {
     }).catch(() => {})
   }, [])
 
+  const handleReportSubmit = useCallback(() => {
+    setShowReport(false)
+    setReportText('')
+  }, [])
+
+  const handleConfirmSubmit = useCallback(() => {
+    setConfirmQuestId(null)
+    setConfirmLink('')
+  }, [])
+
   return (
-    <div className="q1">
+    <div className="q1 page-enter">
       <div className="q1__left">
         <div className="q1__tabs-card">
           <div className="q1__tabs-row">
@@ -66,7 +111,7 @@ export default function Quests() {
               <button
                 key={t} type="button" role="tab"
                 aria-selected={i === activeTab}
-                className={`q1__tab${i === activeTab ? ' q1__tab--active' : ''}`}
+                className={`q1__tab${i === activeTab ? ' q1__tab--active' : ''} btn-press`}
                 onClick={() => setActiveTab(i)}
               >{t}</button>
             ))}
@@ -112,7 +157,7 @@ export default function Quests() {
                       Награда: <span className="q1__card-reward-coins">{q.reward}</span>
                     </div>
                     {q.confirm && (
-                      <button type="button" className="q1__card-confirm" onClick={() => setConfirmQuestId(q.id)}>
+                      <button type="button" className="q1__card-confirm btn-press" onClick={() => setConfirmQuestId(q.id)}>
                         Подтвердить
                       </button>
                     )}
@@ -136,7 +181,7 @@ export default function Quests() {
                   <p>Помочь однокурснику с проектом</p>
                 </div>
                 <div className="q1__wcard-reward">+10 монет</div>
-                <button type="button" className="q1__wcard-pick" onClick={() => setSelectedWeekly('A')}>
+                <button type="button" className="q1__wcard-pick btn-press" onClick={() => setSelectedWeekly('A')}>
                   {selectedWeekly === 'A' ? 'Выбрано' : 'Выбрать'}
                 </button>
               </article>
@@ -147,7 +192,7 @@ export default function Quests() {
                   <p>Сдать КТ по Python до пятницы</p>
                 </div>
                 <div className="q1__wcard-reward">+10 монет</div>
-                <button type="button" className="q1__wcard-pick" onClick={() => setSelectedWeekly('B')}>
+                <button type="button" className="q1__wcard-pick btn-press" onClick={() => setSelectedWeekly('B')}>
                   {selectedWeekly === 'B' ? 'Выбрано' : 'Выбрать'}
                 </button>
               </article>
@@ -158,10 +203,10 @@ export default function Quests() {
 
       <aside className="q1__right">
         <div className="q1__report">
-          <button type="button" className="q1__report-btn q1__report-btn--primary" onClick={() => setShowReport(true)}>
+          <button type="button" className="q1__report-btn q1__report-btn--primary btn-press" onClick={() => setShowReport(true)}>
             Самоотчёт
           </button>
-          <button type="button" className="q1__report-btn q1__report-btn--dark" onClick={() => alert('Функция жалобы будет доступна позже')}>
+          <button type="button" className="q1__report-btn q1__report-btn--dark btn-press" onClick={() => alert('Функция жалобы будет доступна позже')}>
             Пожаловаться
           </button>
         </div>
@@ -204,57 +249,33 @@ export default function Quests() {
               </article>
             ))}
           </div>
-          <button type="button" className="q1__activity-more">Показать ещё</button>
+          <button type="button" className="q1__activity-more btn-press">Показать ещё</button>
         </section>
       </aside>
 
-      {showReport && (
-        <div className="overlay" onClick={() => setShowReport(false)}>
-          <div className="popup" onClick={(e) => e.stopPropagation()} style={{
-            background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
-            boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px',
-            width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px',
-          }}>
-            <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
-              Ссылка на работу
-            </label>
-            <input
-              type="url" value={reportText} onChange={(e) => setReportText(e.target.value)}
-              placeholder="https://..."
-              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
-            />
-            <button type="button" onClick={() => { setShowReport(false); setReportText('') }} style={{
-              background: '#9a33f4', height: '48px', borderRadius: '48px', border: '4px solid #f5f5f5',
-              boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '3px 24px',
-              fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
-            }}>Отправить</button>
-          </div>
-        </div>
-      )}
+      <Modal open={showReport} onClose={() => setShowReport(false)} title="Самоотчёт">
+        <label className="popup__label">Ссылка на работу</label>
+        <input
+          type="url" value={reportText} onChange={e => setReportText(e.target.value)}
+          placeholder="https://..."
+          className="popup__input"
+        />
+        <button type="button" className="popup__submit btn-press" onClick={handleReportSubmit}>
+          Отправить
+        </button>
+      </Modal>
 
-      {confirmQuestId !== null && (
-        <div className="overlay" onClick={() => setConfirmQuestId(null)}>
-          <div className="popup" onClick={(e) => e.stopPropagation()} style={{
-            background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
-            boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px',
-            width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px',
-          }}>
-            <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
-              Прикрепите подтверждение
-            </label>
-            <input
-              type="url" value={confirmLink} onChange={(e) => setConfirmLink(e.target.value)}
-              placeholder="Ссылка на доказательство"
-              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
-            />
-            <button type="button" onClick={() => { setConfirmQuestId(null); setConfirmLink('') }} style={{
-              background: '#9a33f4', height: '48px', borderRadius: '48px', border: '4px solid #f5f5f5',
-              boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '3px 24px',
-              fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
-            }}>Отправить</button>
-          </div>
-        </div>
-      )}
+      <Modal open={confirmQuestId !== null} onClose={() => setConfirmQuestId(null)} title="Подтверждение квеста">
+        <label className="popup__label">Прикрепите подтверждение выполнения</label>
+        <input
+          type="url" value={confirmLink} onChange={e => setConfirmLink(e.target.value)}
+          placeholder="Ссылка на доказательство"
+          className="popup__input"
+        />
+        <button type="button" className="popup__submit btn-press" onClick={handleConfirmSubmit}>
+          Отправить
+        </button>
+      </Modal>
     </div>
   )
 }

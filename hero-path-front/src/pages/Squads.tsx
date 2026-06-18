@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import userAvatar from '../assets/branding/user-avatar.png'
 import api from '../api'
 
@@ -29,6 +29,90 @@ interface SearchResult {
   name: string
 }
 
+function Modal({
+  open, onClose, title, children, width = '460px'
+}: {
+  open: boolean
+  onClose: () => void
+  title?: string
+  children: React.ReactNode
+  width?: string
+}) {
+  const [visible, setVisible] = useState(false)
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setClosing(false)
+      const t = setTimeout(() => setVisible(true), 10)
+      return () => clearTimeout(t)
+    } else {
+      setClosing(true)
+      const t = setTimeout(() => setVisible(false), 220)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  if (!visible && !open) return null
+
+  return (
+    <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose}>
+      <div className={`popup${closing ? ' popup--closing' : ''}`} onClick={e => e.stopPropagation()} style={{ width, maxWidth: '90vw' }}>
+        {title && <h3 className="popup__title">{title}</h3>}
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function SortDropdown({
+  sortKey, onSelect, onClose
+}: {
+  sortKey: SortKey
+  onSelect: (key: SortKey) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [onClose])
+
+  const options: { key: SortKey; label: string }[] = [
+    { key: 'name', label: 'По имени' },
+    { key: 'track', label: 'По треку' },
+    { key: 'status', label: 'По статусу' },
+  ]
+
+  return (
+    <div ref={ref} className="popup sort-dropdown" style={{
+      position: 'absolute', top: '44px', right: 0,
+      background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
+      boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '8px 0',
+      minWidth: '160px', zIndex: 60,
+      animation: 'popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+    }}>
+      {options.map(opt => (
+        <button
+          key={opt.key} type="button"
+          onClick={() => { onSelect(opt.key); onClose() }}
+          style={{
+            display: 'block', width: '100%', padding: '8px 20px', border: 'none',
+            background: sortKey === opt.key ? '#9a33f4' : 'transparent',
+            color: sortKey === opt.key ? '#f5f5f5' : '#121212',
+            fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px',
+            textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s',
+          }}
+        >{opt.label}</button>
+      ))}
+    </div>
+  )
+}
+
 export default function Squads() {
   const [showInvite, setShowInvite] = useState(false)
   const [inviteSearch, setInviteSearch] = useState('')
@@ -46,13 +130,9 @@ export default function Squads() {
     { id: 102, name: 'Агент_2' },
     { id: 103, name: 'Агент_3' },
   ])
-  const sortRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    api.get('/api/v1/squad/my/').then(res => {
-      setSquad(res.data)
-    }).catch(() => {})
-
+    api.get('/api/v1/squad/my/').then(res => setSquad(res.data)).catch(() => {})
     api.get('/api/v1/squad/members/').then(res => {
       if (res.data?.length) setMembers(res.data)
     }).catch(() => {})
@@ -61,23 +141,29 @@ export default function Squads() {
   useEffect(() => {
     if (!inviteSearch) return
     const timer = setTimeout(() => {
-      api.get(`/api/v1/users/search/?q=${inviteSearch}`).then(res => {
+      api.get(`/api/v1/users/search/?q=${encodeURIComponent(inviteSearch)}`).then(res => {
         if (res.data?.length) setSearchResults(res.data)
       }).catch(() => {})
     }, 300)
     return () => clearTimeout(timer)
   }, [inviteSearch])
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setShowSort(false)
-    }
-    if (showSort) document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showSort])
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) => a[sortKey].localeCompare(b[sortKey]))
+  }, [members, sortKey])
 
-  const sortedMembers = [...members].sort((a, b) => a[sortKey].localeCompare(b[sortKey]))
-  const filteredResults = searchResults.filter(r => r.name.toLowerCase().includes(inviteSearch.toLowerCase()))
+  const filteredResults = useMemo(() => {
+    if (!inviteSearch) return searchResults
+    return searchResults.filter(r => r.name.toLowerCase().includes(inviteSearch.toLowerCase()))
+  }, [searchResults, inviteSearch])
+
+  const handleInvite = useCallback((userId: number) => {
+    api.post(`/api/v1/squad/invite/${userId}/`).then(() => {
+      alert('Приглашение отправлено!')
+    }).catch(() => {
+      alert('Ошибка при отправке приглашения')
+    })
+  }, [])
 
   return (
     <div className="dashboard squad-page page-enter">
@@ -97,7 +183,7 @@ export default function Squads() {
               <dd><span className="squad-pill squad-pill--light">{squad?.members_count ?? 19}</span></dd>
             </div>
             <div className="squad-my__row">
-              <dt className="squad-my__label">Дельта роста за неделю:</dt>
+              <dt className="squad-my__label">Дельта роста:</dt>
               <dd>
                 <span className="squad-pill squad-pill--dark squad-pill--delta">
                   {squad?.delta ?? '+47'}
@@ -108,7 +194,7 @@ export default function Squads() {
               </dd>
             </div>
             <div className="squad-my__row">
-              <dt className="squad-my__label">Место в общем рейтинге отрядов:</dt>
+              <dt className="squad-my__label">Место в рейтинге:</dt>
               <dd><span className="squad-pill squad-pill--dark squad-pill--wide">{squad?.rank ?? '3 место из 18'}</span></dd>
             </div>
           </dl>
@@ -117,13 +203,13 @@ export default function Squads() {
         <div className="squad-page__right">
           <section className="squad-bonus" aria-label="Прогресс командного бонуса">
             <p className="squad-bonus__lead">{squad?.bonus_progress ?? 80}% отряда выполнили еженедельный квест</p>
-            <div className="squad-bonus__chip squad-bonus__chip--purple">При 80% - вы получите +5 монет в пятницу</div>
+            <div className="squad-bonus__chip squad-bonus__chip--purple">При 80% — +5 монет в пятницу</div>
             <div className="squad-bonus__chip squad-bonus__chip--dark">
               <span className="squad-bonus__chip-num">{squad?.bonus_completed ?? 12}</span>
-              <span> из {squad?.bonus_total ?? 15} агентов выполнили</span>
+              <span> из {squad?.bonus_total ?? 15} агентов</span>
             </div>
             <div className="squad-bonus__progress-block">
-              <p className="squad-bonus__hint">До бонуса осталось {(squad?.bonus_total ?? 15) - (squad?.bonus_completed ?? 12)} человека</p>
+              <p className="squad-bonus__hint">До бонуса осталось {(squad?.bonus_total ?? 15) - (squad?.bonus_completed ?? 12)} человек</p>
               <div className="squad-bonus__progress">
                 <span className="squad-bonus__dot squad-bonus__dot--start" aria-hidden="true" />
                 <div className="squad-bonus__track">
@@ -138,12 +224,12 @@ export default function Squads() {
 
           <section className="squad-actions" aria-label="Действия отряда">
             <div className="squad-actions__coins">
-              <span className="squad-actions__coins-text">В этом месяце отряд получил</span>
+              <span className="squad-actions__coins-text">В этом месяце:</span>
               <span className="squad-actions__coins-badge">{squad?.coins_month ?? 340}</span>
               <span className="squad-actions__coins-text">монет</span>
             </div>
-            <button type="button" className="squad-actions__btn squad-actions__btn--share">поделиться</button>
-            <button type="button" className="squad-actions__btn squad-actions__btn--invite" onClick={() => setShowInvite(true)}>пригласить</button>
+            <button type="button" className="squad-actions__btn squad-actions__btn--share btn-press">Поделиться</button>
+            <button type="button" className="squad-actions__btn squad-actions__btn--invite btn-press" onClick={() => setShowInvite(true)}>Пригласить</button>
           </section>
         </div>
       </div>
@@ -151,16 +237,14 @@ export default function Squads() {
       <section className="squad-members" aria-labelledby="squad-members-title">
         <div className="squad-members__head">
           <h2 id="squad-members-title" className="squad-members__title">Участники отряда</h2>
-          <div ref={sortRef} style={{ position: 'relative' }}>
-            <button type="button" className="squad-members__sort" onClick={() => setShowSort(v => !v)}>Сортировка</button>
+          <div style={{ position: 'relative' }}>
+            <button type="button" className="squad-members__sort btn-press" onClick={() => setShowSort(v => !v)}>Сортировка</button>
             {showSort && (
-              <div className="popup" style={{ position: 'absolute', top: '44px', right: 0, background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '8px 0', minWidth: '160px', zIndex: 60 }}>
-                {(['name', 'track', 'status'] as SortKey[]).map(key => (
-                  <button key={key} type="button" onClick={() => { setSortKey(key); setShowSort(false) }} style={{ display: 'block', width: '100%', padding: '8px 20px', border: 'none', background: sortKey === key ? '#9a33f4' : 'transparent', color: sortKey === key ? '#f5f5f5' : '#121212', fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px', textAlign: 'left', cursor: 'pointer' }}>
-                    {{ name: 'По имени', track: 'По треку', status: 'По статусу' }[key]}
-                  </button>
-                ))}
-              </div>
+              <SortDropdown
+                sortKey={sortKey}
+                onSelect={setSortKey}
+                onClose={() => setShowSort(false)}
+              />
             )}
           </div>
         </div>
@@ -175,8 +259,8 @@ export default function Squads() {
 
         <div className="squad-members__panel">
           <ul className="squad-members__list">
-            {sortedMembers.map(m => (
-              <li key={m.id} className="squad-member-row hover-lift">
+            {sortedMembers.map((m, i) => (
+              <li key={m.id} className="squad-member-row hover-lift" style={{ animationDelay: `${i * 40}ms` }}>
                 <div className="squad-member-row__main">
                   <img className="squad-member-row__avatar" src={userAvatar} alt="" width={50} height={50} />
                   <div className="squad-member-row__tags">
@@ -185,42 +269,40 @@ export default function Squads() {
                     <span className="squad-member-tag squad-member-tag--purple">{m.status}</span>
                   </div>
                 </div>
-                <button type="button" className="squad-member-row__rating">Рейтинг</button>
+                <button type="button" className="squad-member-row__rating btn-press">Рейтинг</button>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      {showInvite && (
-        <div className="overlay" onClick={() => setShowInvite(false)}>
-          <div className="popup" onClick={e => e.stopPropagation()} style={{ background: '#f5f5f5', borderRadius: '24px', border: '4px solid #9a33f4', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px', width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontFamily: 'TT Firs Neue, sans-serif', fontWeight: 700, fontSize: '28px', color: '#9a33f4', margin: 0 }}>Пригласить в отряд</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4', boxShadow: '25px 25px 20px -14px rgba(0,0,0,0.45)', padding: '9px 11px' }}>
-              <input
-                type="text" value={inviteSearch} onChange={e => setInviteSearch(e.target.value)}
-                placeholder="Поиск агента"
-                style={{ border: 'none', outline: 'none', background: 'transparent', fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#121212', width: '100%' }}
-              />
-              <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ flexShrink: 0 }}>
-                <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
-                <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {filteredResults.map(result => (
-                <div key={result.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f5f5f5', borderRadius: '8px', border: '4px solid #9a33f4', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '14px' }}>
-                  <img src={userAvatar} alt="" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '3px solid #9a33f4' }} />
-                  <div style={{ flex: 1 }}>
-                    <span style={{ background: '#121212', borderRadius: '48px', padding: '4px 16px', fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px', color: '#f5f5f5' }}>{result.name}</span>
-                  </div>
-                  <button type="button" style={{ background: '#9a33f4', height: '46px', borderRadius: '4px', padding: '8px 16px', border: 'none', fontFamily: 'Montserrat, sans-serif', fontWeight: 700, fontSize: '18px', color: '#f5f5f5', cursor: 'pointer' }}>Пригласить</button>
-                </div>
-              ))}
-            </div>
-          </div>
+      <Modal open={showInvite} onClose={() => setShowInvite(false)} title="Пригласить в отряд">
+        <div className="squad-modal__search">
+          <input
+            type="text" value={inviteSearch} onChange={e => setInviteSearch(e.target.value)}
+            placeholder="Поиск агента..."
+            className="popup__input"
+          />
+          <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
+            <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
+          </svg>
         </div>
-      )}
+        <div className="squad-modal__results">
+          {filteredResults.map(result => (
+            <div key={result.id} className="squad-modal__result">
+              <img src={userAvatar} alt="" className="squad-modal__result-avatar" />
+              <span className="squad-modal__result-name">{result.name}</span>
+              <button type="button" className="squad-modal__invite-btn btn-press" onClick={() => handleInvite(result.id)}>
+                Пригласить
+              </button>
+            </div>
+          ))}
+          {filteredResults.length === 0 && (
+            <div className="squad-modal__empty">Ничего не найдено</div>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

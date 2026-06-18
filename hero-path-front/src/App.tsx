@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
+import PageTransition from './PageTransition'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -22,21 +23,25 @@ function App() {
 }
 
 function AppShell() {
+  const location = useLocation()
+
   return (
     <div className="app-shell">
       <Header />
       <div className="app-content">
         <main className="page-content">
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/:username" element={<Profile />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/quests" element={<Quests />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/squads" element={<Squads />} />
-          </Routes>
+          <PageTransition>
+            <Routes location={location} key={location.pathname}>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/:username" element={<Profile />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/quests" element={<Quests />} />
+              <Route path="/shop" element={<Shop />} />
+              <Route path="/squads" element={<Squads />} />
+            </Routes>
+          </PageTransition>
         </main>
         <Sidebar />
       </div>

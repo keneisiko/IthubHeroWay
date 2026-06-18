@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Radar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -23,14 +23,14 @@ const radarOptions = {
       beginAtZero: true,
       max: 100,
       ticks: { display: false },
-      grid: { color: 'rgba(154, 51, 244, 1)', lineWidth: 4 },
-      angleLines: { color: 'rgba(154, 51, 244, 1)', lineWidth: 4 },
+      grid: { color: 'rgba(154, 51, 244, 0.42)', lineWidth: 2 },
+      angleLines: { color: 'rgba(154, 51, 244, 0.5)', lineWidth: 2 },
       pointLabels: { display: false },
     },
   },
   layout: { padding: 0 },
   elements: { line: { tension: 0 } },
-  animation: { duration: 800, easing: 'easeOutQuart' as const },
+  animation: { duration: 1100, easing: 'easeOutExpo' as const },
   plugins: { legend: { display: false } },
 }
 
@@ -51,20 +51,110 @@ interface DashboardData {
   feed: { text: string; time: string }[]
 }
 
+/* ---------- маленькие хуки для "живости" интерфейса ---------- */
+
+// плавный счётчик — рейтинг "доезжает" до значения, а не появляется сразу
+function useCountUp(target: number, duration = 1100) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    let raf = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - t, 3) // easeOutCubic
+      setValue(Math.round(target * eased))
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
+  return value
+}
+
+// модалка с нормальным закрытием — фейд-аут, а не мгновенное исчезновение
+function useDismissable() {
+  const [open, setOpen] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const show = () => { setClosing(false); setOpen(true) }
+  const hide = () => {
+    setClosing(true)
+    setTimeout(() => { setOpen(false); setClosing(false) }, 220)
+  }
+  return { open, closing, show, hide }
+}
+
+// лёгкий 3D-tilt по курсору на карточке радара
+function useTilt(maxDeg = 7) {
+  const ref = useRef<HTMLDivElement>(null)
+  const onMouseMove = (e: React.MouseEvent) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = (e.clientX - rect.left) / rect.width - 0.5
+    const y = (e.clientY - rect.top) / rect.height - 0.5
+    el.style.transform = `perspective(900px) rotateX(${(-y * maxDeg).toFixed(2)}deg) rotateY(${(x * maxDeg).toFixed(2)}deg)`
+  }
+  const onMouseLeave = () => {
+    const el = ref.current
+    if (el) el.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)'
+  }
+  return { ref, onMouseMove, onMouseLeave }
+}
+
+/* ---------- общая модалка вместо двух дублей ---------- */
+
+function LinkModal({
+  open, closing, label, value, placeholder, onChange, onClose, onSubmit,
+}: {
+  open: boolean
+  closing: boolean
+  label: string
+  value: string
+  placeholder: string
+  onChange: (v: string) => void
+  onClose: () => void
+  onSubmit: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose}>
+      <div
+        className={`popup popup--link${closing ? ' popup--closing' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <label className="popup__label">{label}</label>
+        <input
+          type="url"
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="popup__input"
+        />
+        <button type="button" className="popup__submit btn-press" onClick={onSubmit}>
+          Отправить
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [hoveredRadar, setHoveredRadar] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const confirm = useDismissable()
+  const report = useDismissable()
   const [confirmLink, setConfirmLink] = useState('')
-  const [questTab, setQuestTab] = useState<QuestTab>('daily')
-  const [showReport, setShowReport] = useState(false)
   const [reportText, setReportText] = useState('')
+  const [questTab, setQuestTab] = useState<QuestTab>('daily')
   const [data, setData] = useState<DashboardData | null>(null)
+  const tilt = useTilt()
 
   useEffect(() => {
     api.get('/api/v1/dashboard/').then(res => setData(res.data)).catch(() => {})
   }, [])
 
   const rating = data?.user.rating_current ?? 199
+  const ratingDisplay = useCountUp(rating)
   const level = data?.user.level ?? 6
   const questTitle = data?.current_quest?.title ?? 'Сдать КТ по Python'
   const questProgress = data?.current_quest?.progress_value ?? 77
@@ -77,22 +167,22 @@ export default function Dashboard() {
       {
         label: 'Текущий',
         data: radarValues,
-        backgroundColor: 'rgba(154, 51, 244, 0.2)',
+        backgroundColor: 'rgba(154, 51, 244, 0.18)',
         borderColor: '#9A33F4',
-        borderWidth: 6,
-        pointBackgroundColor: '#9A33F4',
-        pointBorderColor: '#f5f5f5',
-        pointBorderWidth: 6,
-        pointRadius: 12,
-        pointHoverRadius: 14,
+        borderWidth: 5,
+        pointBackgroundColor: '#f5f5f5',
+        pointBorderColor: '#9A33F4',
+        pointBorderWidth: 5,
+        pointRadius: 9,
+        pointHoverRadius: 12,
       },
       {
         label: 'Пик',
         data: [90, 75, 80, 65, 75],
         backgroundColor: 'rgba(154, 51, 244, 0.08)',
         borderColor: 'rgba(154, 51, 244, 0.65)',
-        borderWidth: 4,
-        borderDash: [8, 8],
+        borderWidth: 3,
+        borderDash: [8, 7],
         pointRadius: 0,
       },
     ],
@@ -108,9 +198,12 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard page-enter">
+      <div className="dash-glow dash-glow--a" aria-hidden="true" />
+      <div className="dash-glow dash-glow--b" aria-hidden="true" />
+
       <div className="dashboard__top">
         <div className="dashboard__left-col">
-          <section className="card card--light">
+          <section className="card card--light dash-in" style={{ animationDelay: '0ms' }}>
             <div className="series__header">
               <img className="series__icon-image" src={seriesIcon} alt="" aria-hidden="true" />
               <div className="series__title-wrap">
@@ -131,9 +224,9 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <section className="card card--purple">
+          <section className="card card--purple dash-in" style={{ animationDelay: '90ms' }}>
             <h3 className="rating__title">Текущий рейтинг:</h3>
-            <div className="rating__value">{rating}</div>
+            <div className="rating__value">{ratingDisplay}</div>
             <div className="rating__line">
               <span>Статус:</span>
               <span className="chip chip--light rating__chip">Игрок</span>
@@ -156,51 +249,65 @@ export default function Dashboard() {
           </section>
         </div>
 
-        <section className="radar-card">
-          <span className="radar-card__label" style={{ opacity: hoveredRadar ? 1 : 0, transition: 'opacity 0.25s ease-out' }}>
-            {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
-          </span>
-          <div className="radar-card__canvas" onMouseLeave={() => setHoveredRadar(null)}>
-            <Radar
-              data={radarData}
-              options={{
-                ...radarOptions,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    enabled: true,
-                    backgroundColor: '#9a33f4',
-                    titleFont: { family: 'TT Firs Neue', size: 16, weight: 700 },
-                    bodyFont: { family: 'Montserrat', size: 14 },
-                    padding: 10,
-                    cornerRadius: 12,
-                    displayColors: false,
-                    callbacks: {
-                      title: (items: any) => items[0]?.label || '',
-                      label: (item: any) =>
-                        item.datasetIndex === 0 ? `Текущий: ${item.raw}%` : `Пик: ${item.raw}%`,
+        <section
+          className="radar-card dash-in"
+          style={{ animationDelay: '160ms' }}
+          onMouseMove={tilt.onMouseMove}
+          onMouseLeave={() => { tilt.onMouseLeave(); setHoveredRadar(null) }}
+        >
+          <div className="radar-card__tilt" ref={tilt.ref}>
+            <span className="radar-card__label" style={{ opacity: hoveredRadar ? 1 : 0 }}>
+              {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
+            </span>
+            <div className="radar-card__canvas">
+              <Radar
+                data={radarData}
+                options={{
+                  ...radarOptions,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      enabled: true,
+                      backgroundColor: '#9a33f4',
+                      titleFont: { family: 'TT Firs Neue', size: 16, weight: 700 },
+                      bodyFont: { family: 'Montserrat', size: 14 },
+                      padding: 10,
+                      cornerRadius: 12,
+                      displayColors: false,
+                      callbacks: {
+                        title: (items: any) => items[0]?.label || '',
+                        label: (item: any) =>
+                          item.datasetIndex === 0 ? `Текущий: ${item.raw}%` : `Пик: ${item.raw}%`,
+                      },
                     },
                   },
-                },
-                onHover: (_: any, elements: any[]) => {
-                  if (elements.length > 0 && elements[0].datasetIndex === 0) {
-                    setHoveredRadar(AXIS_LABELS[elements[0].index])
-                  } else {
-                    setHoveredRadar(null)
-                  }
-                },
-              }}
-            />
+                  onHover: (_: any, elements: any[]) => {
+                    if (elements.length > 0 && elements[0].datasetIndex === 0) {
+                      setHoveredRadar(AXIS_LABELS[elements[0].index])
+                    } else {
+                      setHoveredRadar(null)
+                    }
+                  },
+                }}
+              />
+            </div>
           </div>
         </section>
       </div>
 
       <div className="dashboard__bottom">
-        <section className="activity-card">
-          <h3 className="section-title">Лента активности</h3>
+        <section className="activity-card dash-in" style={{ animationDelay: '240ms' }}>
+          <h3 className="section-title">
+            <span className="live-dot" aria-hidden="true" />
+            Лента активности
+          </h3>
           <div className="activity">
-            {activity.map((item: any) => (
-              <article key={item.text} className="activity__item" style={{ animation: 'slideUp 0.4s ease-out' }}>
+            {activity.map((item: any, i: number) => (
+              <article
+                key={item.text}
+                className="activity__item dash-in-item"
+                style={{ animationDelay: `${320 + i * 80}ms` }}
+              >
                 <span>{item.text}</span>
                 <time>{item.time}</time>
               </article>
@@ -208,7 +315,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="quest">
+        <section className="quest dash-in" style={{ animationDelay: '320ms' }}>
           <h3>Активный квест</h3>
           <div className="quest__tabs">
             <button
@@ -232,67 +339,35 @@ export default function Dashboard() {
               <span className="dot dot--green" />
             </div>
           </div>
-          <button className="quest__confirm" onClick={() => setShowConfirm(true)}>Подтвердить</button>
+          <button className="quest__confirm btn-press" onClick={confirm.show}>Подтвердить</button>
           <div className="quest__row">
             <span>Текст</span><span>+</span>
           </div>
-          <button className="quest__self" onClick={() => setShowReport(true)}>Самоотчёт</button>
+          <button className="quest__self btn-press" onClick={report.show}>Самоотчёт</button>
         </section>
       </div>
 
-      {showConfirm && (
-        <div className="overlay" onClick={() => setShowConfirm(false)}>
-          <div className="popup" onClick={(e) => e.stopPropagation()} style={{
-            background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
-            boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px',
-            width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px',
-          }}>
-            <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
-              Прикрепите подтверждение выполнения
-            </label>
-            <input
-              type="url"
-              value={confirmLink}
-              onChange={(e) => setConfirmLink(e.target.value)}
-              placeholder="Ссылка на доказательство"
-              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
-            />
-            <button type="button" onClick={() => { setShowConfirm(false); setConfirmLink('') }} style={{
-              background: '#9a33f4', height: '48px', borderRadius: '48px',
-              border: '4px solid #f5f5f5', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)',
-              padding: '3px 24px', fontFamily: 'Montserrat, sans-serif', fontWeight: 700,
-              fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
-            }}>Отправить</button>
-          </div>
-        </div>
-      )}
+      <LinkModal
+        open={confirm.open}
+        closing={confirm.closing}
+        label="Прикрепите подтверждение выполнения"
+        value={confirmLink}
+        placeholder="Ссылка на доказательство"
+        onChange={setConfirmLink}
+        onClose={confirm.hide}
+        onSubmit={() => { confirm.hide(); setConfirmLink('') }}
+      />
 
-      {showReport && (
-        <div className="overlay" onClick={() => setShowReport(false)}>
-          <div className="popup" onClick={(e) => e.stopPropagation()} style={{
-            background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
-            boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '20px',
-            width: '460px', maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: '16px',
-          }}>
-            <label style={{ fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#848484' }}>
-              Ссылка на работу
-            </label>
-            <input
-              type="url"
-              value={reportText}
-              onChange={(e) => setReportText(e.target.value)}
-              placeholder="https://..."
-              style={{ height: '38px', borderRadius: '12px', border: '4px solid #9a33f4', padding: '0 12px', fontFamily: 'Montserrat, sans-serif', fontSize: '16px', outline: 'none', background: '#fff', color: '#121212' }}
-            />
-            <button type="button" onClick={() => { setShowReport(false); setReportText('') }} style={{
-              background: '#9a33f4', height: '48px', borderRadius: '48px',
-              border: '4px solid #f5f5f5', boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)',
-              padding: '3px 24px', fontFamily: 'Montserrat, sans-serif', fontWeight: 700,
-              fontSize: '24px', color: '#f5f5f5', cursor: 'pointer',
-            }}>Отправить</button>
-          </div>
-        </div>
-      )}
+      <LinkModal
+        open={report.open}
+        closing={report.closing}
+        label="Ссылка на работу"
+        value={reportText}
+        placeholder="https://..."
+        onChange={setReportText}
+        onClose={report.hide}
+        onSubmit={() => { report.hide(); setReportText('') }}
+      />
     </div>
   )
 }
