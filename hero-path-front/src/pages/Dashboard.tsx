@@ -139,6 +139,17 @@ function LinkModal({
   )
 }
 
+/* ---------- toast ---------- */
+function useToasts() {
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
+  const addToast = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000)
+  }
+  return { toasts, addToast }
+}
+
 export default function Dashboard() {
   const [hoveredRadar, setHoveredRadar] = useState<string | null>(null)
   const confirm = useDismissable()
@@ -148,6 +159,7 @@ export default function Dashboard() {
   const [questTab, setQuestTab] = useState<QuestTab>('daily')
   const [data, setData] = useState<DashboardData | null>(null)
   const tilt = useTilt()
+  const { toasts, addToast } = useToasts()
 
   useEffect(() => {
     api.get('/api/v1/dashboard/').then(res => setData(res.data)).catch(() => {})
@@ -355,7 +367,11 @@ export default function Dashboard() {
         placeholder="Ссылка на доказательство"
         onChange={setConfirmLink}
         onClose={confirm.hide}
-        onSubmit={() => { confirm.hide(); setConfirmLink('') }}
+        onSubmit={() => {
+          api.post('/api/v1/quests/confirm/', { link: confirmLink })
+            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Квест подтверждён!', 'success') })
+            .catch(() => addToast('Ошибка подтверждения', 'error'))
+        }}
       />
 
       <LinkModal
@@ -366,8 +382,22 @@ export default function Dashboard() {
         placeholder="https://..."
         onChange={setReportText}
         onClose={report.hide}
-        onSubmit={() => { report.hide(); setReportText('') }}
+        onSubmit={() => {
+          api.post('/api/v1/quests/report/', { link: reportText })
+            .then(() => { report.hide(); setReportText(''); addToast('Самоотчёт отправлен!', 'success') })
+            .catch(() => addToast('Ошибка отправки', 'error'))
+        }}
       />
+
+      {/* Тосты */}
+      <div className="toast-container toast-container--fixed-right">
+        {toasts.map(toast => (
+          <div key={toast.id} className={`toast toast--${toast.type}`}>
+            {toast.type === 'success' ? '✓ ' : '✕ '}
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

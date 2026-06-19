@@ -41,7 +41,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
       <div style={{
         width: '100%', height: '100%',
         opacity: phase === 'cover' ? 0 : 1,
-        transform: phase === 'cover' ? 'translateY(8px)' : 'translateY(0)',
+        transform: phase === 'cover' ? 'translateY(8px)' : phase === 'uncover' ? 'translateY(0)' : 'none',
         transition: phase === 'uncover'
           ? 'opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1)'
           : 'opacity 0.2s ease, transform 0.2s ease',

@@ -1,29 +1,48 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import PageTransition from './PageTransition'
 
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Profile from './pages/Profile'
-import Leaderboard from './pages/Leaderboard'
-import Quests from './pages/Quests'
-import Shop from './pages/Shop'
-import Squads from './pages/Squads'
-
 import './App.css'
+
+const Login = lazy(() => import('./pages/Login'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Profile = lazy(() => import('./pages/Profile'))
+const Leaderboard = lazy(() => import('./pages/Leaderboard'))
+const Quests = lazy(() => import('./pages/Quests'))
+const Shop = lazy(() => import('./pages/Shop'))
+const Squads = lazy(() => import('./pages/Squads'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+
+function PageFallback() {
+  return (
+    <div className="profile-loading">
+      <div className="loading-spinner">
+        <span className="loading-spinner-dot" />
+        <span className="loading-spinner-dot" />
+        <span className="loading-spinner-dot" />
+      </div>
+      <p className="loading-text">Загрузка...</p>
+    </div>
+  )
+}
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/*" element={<AppShell />} />
-    </Routes>
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/*" element={<AppShell />} />
+      </Routes>
+    </Suspense>
   )
 }
 
 function AppShell() {
   const location = useLocation()
+  const KNOWN_PATHS = ['/dashboard', '/profile', '/leaderboard', '/quests', '/shop', '/squads']
+  const isKnownRoute = location.pathname === '/' || KNOWN_PATHS.some(p => location.pathname.startsWith(p))
 
   return (
     <div className="app-shell">
@@ -31,19 +50,22 @@ function AppShell() {
       <div className="app-content">
         <main className="page-content">
           <PageTransition>
-            <Routes location={location} key={location.pathname}>
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/profile/:username" element={<Profile />} />
-              <Route path="/leaderboard" element={<Leaderboard />} />
-              <Route path="/quests" element={<Quests />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/squads" element={<Squads />} />
-            </Routes>
+            <Suspense fallback={<PageFallback />}>
+              <Routes location={location} key={location.pathname}>
+                <Route path="/" element={<Navigate to="/dashboard" />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/profile/:username" element={<Profile />} />
+                <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/quests" element={<Quests />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/squads" element={<Squads />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </PageTransition>
         </main>
-        <Sidebar />
+        {isKnownRoute && <Sidebar />}
       </div>
     </div>
   )

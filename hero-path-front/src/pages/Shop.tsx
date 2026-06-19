@@ -120,7 +120,20 @@ export default function Shop() {
   const selectedProduct = products.find(p => p.id === (showPurchase ?? showDetail))
 
   const handleBuy = useCallback(() => {
-    setShowPurchase(null)
+    if (showPurchase === null) return
+    api.post('/api/v1/shop/buy/', { item_id: showPurchase })
+      .catch(() => {})
+      .finally(() => setShowPurchase(null))
+  }, [showPurchase])
+
+  const handleApply = useCallback((purchaseId: number) => {
+    api.post(`/api/v1/shop/apply/${purchaseId}/`)
+      .then(() => {
+        setPurchases(prev => prev.map(p =>
+          p.id === purchaseId ? { ...p, status: 'Применено' } : p
+        ))
+      })
+      .catch(() => {})
   }, [])
 
   return (
@@ -237,7 +250,7 @@ export default function Shop() {
                 {p.status}
               </span>
               {p.status === 'Не применено' && (
-                <button type="button" className="shop-modal__btn shop-modal__btn--small btn-press">Применить</button>
+                <button type="button" className="shop-modal__btn shop-modal__btn--small btn-press" onClick={() => handleApply(p.id)}>Применить</button>
               )}
             </div>
           ))}

@@ -1,16 +1,36 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import { useCountUp } from '../useCountUp'
 
 type LeaderTab = 'agents' | 'squads'
 
 interface LeaderItem {
+  id: number
   rank: number
   title: string
   delta: string
   badgeClass: string
+  track?: string
 }
 
 const FILTER_OPTIONS = ['Все курсы', 'Курс 1', 'Курс 2', 'Курс 3', 'Курс 4']
+
+const AGENT_NAMES = [
+  'CyberWolf', 'PixelMaster', 'DataNinja', 'CloudRider', 'ByteHunter',
+  'NeonFox', 'CodePhantom', 'DevSpark', 'StarCoder', 'QuantumBit',
+  'IronHeart', 'SkyWalker', 'NightOwl', 'FireStorm', 'IceBreaker',
+  'ThunderBolt', 'FastTrack', 'DeepMind', 'AlphaWave', 'ZeroCool'
+]
+
+const SQUAD_NAMES = [
+  'Альфа', 'Бета', 'Гамма', 'Дельта', 'Эпсилон',
+  'Зета', 'Эта', 'Тета', 'Йота', 'Каппа',
+  'Лямбда', 'Мю', 'Ню', 'Кси', 'Омикрон',
+  'Пи', 'Ро', 'Сигма', 'Тау', 'Ипсилон'
+]
+
+const TRACKS = ['Код', 'Дизайн', 'Менеджмент']
 
 const getBadgeClass = (rank: number) => {
   if (rank === 1) return 'rank-badge rank-badge--first'
@@ -63,64 +83,100 @@ function FilterDropdown({
 }
 
 export default function Leaderboard() {
-  const [activeTab, setActiveTab] = useState<LeaderTab>('squads')
+  const [activeTab, setActiveTab] = useState<LeaderTab>('agents')
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedFilter, setSelectedFilter] = useState('Все курсы')
   const [agents, setAgents] = useState<LeaderItem[]>([])
   const [squads, setSquads] = useState<LeaderItem[]>([])
   const [myRank, setMyRank] = useState({ rank: 56, delta: '+47' })
+  const [loading, setLoading] = useState(true)
+  const [transitioning, setTransitioning] = useState(false)
+
+  // Анимация чисел
+  const animMyRank = useCountUp(myRank.rank, 1200)
+
+  const switchTab = (tab: LeaderTab) => {
+    if (tab === activeTab) return
+    setTransitioning(true)
+    setTimeout(() => {
+      setActiveTab(tab)
+      setTransitioning(false)
+    }, 280)
+  }
 
   useEffect(() => {
-    api.get('/api/v1/leaderboard/agents/').then(res => {
-      const data = res.data.map((item: any, i: number) => ({
-        rank: i + 1,
-        title: item.callsign ?? item.title ?? 'Никнейм',
-        delta: item.delta ?? '+0',
-        badgeClass: getBadgeClass(i + 1),
-      }))
-      setAgents(data)
-    }).catch(() => {
-      setAgents([
-        { rank: 1, title: 'Никнейм', delta: '+47', badgeClass: 'rank-badge rank-badge--first' },
-        { rank: 2, title: 'Никнейм', delta: '+35', badgeClass: 'rank-badge rank-badge--second' },
-        { rank: 3, title: 'Никнейм', delta: '+28', badgeClass: 'rank-badge rank-badge--third' },
-        { rank: 4, title: 'Никнейм', delta: '+21', badgeClass: 'rank-badge rank-badge--default' },
-        { rank: 5, title: 'Никнейм', delta: '+15', badgeClass: 'rank-badge rank-badge--default' },
-      ])
-    })
+    setLoading(true)
+    Promise.all([
+      api.get('/api/v1/leaderboard/agents/').catch(() => ({ data: [] })),
+      api.get('/api/v1/leaderboard/squads/').catch(() => ({ data: [] })),
+      api.get('/api/v1/leaderboard/me/').catch(() => ({ data: { rank: 56, delta: '+47' } })),
+    ]).then(([agentsRes, squadsRes, meRes]) => {
+      const agentsData = agentsRes.data?.length ? agentsRes.data : generateFallbackAgents()
+      const squadsData = squadsRes.data?.length ? squadsRes.data : generateFallbackSquads()
 
-    api.get('/api/v1/leaderboard/squads/').then(res => {
-      const data = res.data.map((item: any, i: number) => ({
+      setAgents(agentsData.map((item: any, i: number) => ({
+        id: item.id ?? i + 1,
         rank: i + 1,
-        title: item.name ?? item.title ?? 'Название отряда',
-        delta: item.delta ?? '+0',
+        title: item.callsign ?? item.title ?? AGENT_NAMES[i] ?? 'Агент',
+        delta: item.delta ?? `+${Math.max(1, 50 - i * 2)}`,
         badgeClass: getBadgeClass(i + 1),
-      }))
-      setSquads(data)
-    }).catch(() => {
-      setSquads([
-        { rank: 1, title: 'Название отряда', delta: '+47', badgeClass: 'rank-badge rank-badge--first' },
-        { rank: 2, title: 'Название отряда', delta: '+47', badgeClass: 'rank-badge rank-badge--second' },
-        { rank: 3, title: 'Название отряда', delta: '+47', badgeClass: 'rank-badge rank-badge--third' },
-        { rank: 4, title: 'Название отряда', delta: '+47', badgeClass: 'rank-badge rank-badge--default' },
-        { rank: 5, title: 'Название отряда', delta: '+47', badgeClass: 'rank-badge rank-badge--default' },
-      ])
-    })
+        track: item.track ?? TRACKS[i % 3],
+      })))
 
-    api.get('/api/v1/leaderboard/me/').then(res => {
-      setMyRank({ rank: res.data.rank ?? 56, delta: res.data.delta ?? '+0' })
-    }).catch(() => {})
+      setSquads(squadsData.map((item: any, i: number) => ({
+        id: item.id ?? i + 1,
+        rank: i + 1,
+        title: item.name ?? item.title ?? SQUAD_NAMES[i] ?? 'Отряд',
+        delta: item.delta ?? `+${Math.max(1, 48 - i * 2)}`,
+        badgeClass: getBadgeClass(i + 1),
+      })))
+
+      setMyRank({ rank: meRes.data?.rank ?? 56, delta: meRes.data?.delta ?? '+0' })
+    }).finally(() => setLoading(false))
   }, [])
+
+  const generateFallbackAgents = () =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      callsign: AGENT_NAMES[i],
+      delta: `+${Math.max(1, 50 - i * 2)}`,
+      track: TRACKS[i % 3],
+    }))
+
+  const generateFallbackSquads = () =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: SQUAD_NAMES[i],
+      delta: `+${Math.max(1, 48 - i * 2)}`,
+      course: (i % 4) + 1,
+    }))
 
   const items = activeTab === 'agents' ? agents : squads
   const filteredItems = items.filter(item =>
     item.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const navigate = useNavigate()
+
   const handleFilterSelect = useCallback((filter: string) => {
     setSelectedFilter(filter)
   }, [])
+
+  if (loading) {
+    return (
+      <div className="dashboard leaderboard-page page-enter">
+        <div className="leaderboard-loading">
+          <div className="loading-spinner">
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+          </div>
+          <p className="loading-text">Загрузка лидерборда...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="dashboard leaderboard-page page-enter">
@@ -129,12 +185,12 @@ export default function Leaderboard() {
           <button
             type="button"
             className={`leaderboard-tab${activeTab === 'agents' ? ' leaderboard-tab--active' : ''} btn-press`}
-            onClick={() => setActiveTab('agents')}
+            onClick={() => { switchTab('agents') }}
           >Агенты</button>
           <button
             type="button"
             className={`leaderboard-tab${activeTab === 'squads' ? ' leaderboard-tab--active' : ''} btn-press`}
-            onClick={() => setActiveTab('squads')}
+            onClick={() => { switchTab('squads') }}
           >Отряды</button>
         </div>
         <div className="leaderboard-filters-frame" style={{ position: 'relative' }}>
@@ -156,13 +212,17 @@ export default function Leaderboard() {
 
       <section className="leaderboard-card">
         <div className="leaderboard-card__header">
-          <h2>{activeTab === 'agents' ? 'Топ 10 агентов' : 'Топ 10 отрядов'}</h2>
+          <h2>{activeTab === 'agents' ? 'Топ агентов' : 'Топ отрядов'}</h2>
+          <span className="leaderboard-count">
+            <span className="leaderboard-count__number">{filteredItems.length}</span>
+            <span>{activeTab === 'agents' ? 'агентов' : 'отрядов'}</span>
+          </span>
         </div>
 
         <div className="leaderboard-search">
           <input
             type="text" value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={e => { setSearchQuery(e.target.value) }}
             placeholder="Поиск по названию..."
             style={{
               border: 'none', outline: 'none', background: 'transparent',
@@ -176,24 +236,35 @@ export default function Leaderboard() {
           </svg>
         </div>
 
-        <div className="leaderboard-panel">
+        <div className={`leaderboard-panel${transitioning ? ' leaderboard-panel--transitioning' : ''}`}>
           <div className="leaderboard-list">
             {filteredItems.map((item, i) => (
-              <div className="leaderboard-item hover-lift" key={item.rank} style={{ animationDelay: `${i * 50}ms` }}>
+              <div 
+                className="leaderboard-item hover-lift" 
+                key={item.id} 
+                style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
+              >
                 <div className={item.badgeClass}>{item.rank}</div>
                 <div className="leaderboard-item__card">
                   <div className="leaderboard-item__tags">
                     <span className="tag tag--title">{item.title}</span>
-                    <span className="tag tag--delta">Дельта роста:</span>
+                    {item.track && (
+                      <span className="tag tag--track">{item.track}</span>
+                    )}
+                    <span className="tag tag--delta">Дельта:</span>
                     <span className="tag tag--gain">{item.delta}</span>
                   </div>
-                  <button type="button" className="leaderboard-item__button btn-press">Рейтинг</button>
+                  <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate(`/profile/${item.id}`)}>Рейтинг</button>
                 </div>
               </div>
             ))}
             {filteredItems.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#848484', fontFamily: 'Montserrat, sans-serif', fontSize: '18px' }}>
-                Ничего не найдено
+              <div className="leaderboard-empty" style={{
+                textAlign: 'center', padding: '40px 20px', color: '#848484',
+                fontFamily: 'Montserrat, sans-serif', fontSize: '18px', fontWeight: 600
+              }}>
+                <span style={{ fontSize: '40px', display: 'block', marginBottom: '12px' }}>🔍</span>
+                <p>Ничего не найдено</p>
               </div>
             )}
           </div>
@@ -201,14 +272,14 @@ export default function Leaderboard() {
           <div className="leaderboard-divider" />
 
           <div className="leaderboard-item leaderboard-item--my-squad">
-            <div className="rank-badge rank-badge--bottom">{myRank.rank}</div>
+            <div className="rank-badge rank-badge--bottom">{animMyRank}</div>
             <div className="leaderboard-item__card leaderboard-item__card--bottom">
               <div className="leaderboard-item__tags">
-                <span className="tag tag--title">{activeTab === 'agents' ? 'Я' : 'Мой отряд'}</span>
-                <span className="tag tag--delta">Дельта роста:</span>
+                <span className="tag tag--title">{activeTab === 'agents' ? 'Моя позиция' : 'Мой отряд'}</span>
+                <span className="tag tag--delta">Дельта:</span>
                 <span className="tag tag--gain">{myRank.delta}</span>
               </div>
-              <button type="button" className="leaderboard-item__button btn-press">Рейтинг</button>
+              <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate('/profile')}>Рейтинг</button>
             </div>
           </div>
         </div>

@@ -56,7 +56,7 @@ function Modal({
   if (!visible && !open) return null
 
   return (
-    <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose}>
+    <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose} style={{ background: 'transparent' }}>
       <div className={`popup${closing ? ' popup--closing' : ''}`} onClick={e => e.stopPropagation()} style={{ width, maxWidth: '90vw' }}>
         {title && <h3 className="popup__title">{title}</h3>}
         {children}
@@ -113,17 +113,27 @@ function SortDropdown({
   )
 }
 
+const TRACKS = ['Код', 'Дизайн', 'Менеджмент']
+const STATUSES = ['Активен', 'Неактивен', 'В академе']
+
+function generateFallbackMembers(): Member[] {
+  const names = ['CyberWolf', 'PixelMaster', 'DataNinja', 'CloudRider', 'ByteHunter', 'NeonFox', 'CodePhantom', 'DevSpark', 'StarCoder', 'QuantumBit', 'IronHeart', 'SkyWalker']
+  return names.map((name, i) => ({
+    id: i + 1,
+    name,
+    track: TRACKS[i % TRACKS.length],
+    status: STATUSES[i % STATUSES.length],
+  }))
+}
+
 export default function Squads() {
   const [showInvite, setShowInvite] = useState(false)
   const [inviteSearch, setInviteSearch] = useState('')
+  const [memberQuery, setMemberQuery] = useState('')
   const [showSort, setShowSort] = useState(false)
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
   const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [members, setMembers] = useState<Member[]>([
-    { id: 1, name: 'Никнейм', track: 'Код', status: 'Активен' },
-    { id: 2, name: 'Никнейм', track: 'Дизайн', status: 'Неактивен' },
-    { id: 3, name: 'Никнейм', track: 'Код', status: 'Активен' },
-    { id: 4, name: 'Никнейм', track: 'Менеджмент', status: 'Активен' },
-  ])
+  const [members, setMembers] = useState<Member[]>(generateFallbackMembers())
   const [squad, setSquad] = useState<SquadData | null>(null)
   const [searchResults, setSearchResults] = useState<SearchResult[]>([
     { id: 101, name: 'Агент_1' },
@@ -152,6 +162,44 @@ export default function Squads() {
     return [...members].sort((a, b) => a[sortKey].localeCompare(b[sortKey]))
   }, [members, sortKey])
 
+  const visibleMembers = useMemo(() => {
+    const q = memberQuery.trim().toLowerCase()
+    if (!q) return sortedMembers
+    return sortedMembers.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      m.track.toLowerCase().includes(q) ||
+      m.status.toLowerCase().includes(q)
+    )
+  }, [sortedMembers, memberQuery])
+
+  const addToast = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id))
+    }, 3000)
+  }
+
+  const handleShare = useCallback(() => {
+    const shareUrl = `${window.location.origin}/squads`
+    const shareData = {
+      title: `Отряд ${squad?.name ?? 'Альфа-12'}`,
+      text: `Присоединяйся к моему отряду «${squad?.name ?? 'Альфа-12'}» в IThub Путь Героя!`,
+      url: shareUrl,
+    }
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => {})
+      return
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => addToast('Ссылка на отряд скопирована'))
+        .catch(() => addToast('Не удалось скопировать ссылку', 'error'))
+    } else {
+      addToast('Не удалось скопировать ссылку', 'error')
+    }
+  }, [squad])
+
   const filteredResults = useMemo(() => {
     if (!inviteSearch) return searchResults
     return searchResults.filter(r => r.name.toLowerCase().includes(inviteSearch.toLowerCase()))
@@ -170,7 +218,7 @@ export default function Squads() {
       <div className="squad-page__top">
         <section className="squad-my" aria-labelledby="squad-my-title">
           <div className="squad-my__title-row">
-            <h2 id="squad-my-title" className="squad-my__title">{squad?.name ?? 'Название отряда'}</h2>
+            <h2 id="squad-my-title" className="squad-my__title">{squad?.name ?? 'Альфа-12'}</h2>
             <div className="squad-my__course"><span>Курс: {squad?.course ?? 2}</span></div>
           </div>
           <dl className="squad-my__stats">
@@ -180,7 +228,7 @@ export default function Squads() {
             </div>
             <div className="squad-my__row">
               <dt className="squad-my__label">Агентов:</dt>
-              <dd><span className="squad-pill squad-pill--light">{squad?.members_count ?? 19}</span></dd>
+              <dd><span className="squad-pill squad-pill--light">{squad?.members_count ?? members.length}</span></dd>
             </div>
             <div className="squad-my__row">
               <dt className="squad-my__label">Дельта роста:</dt>
@@ -205,11 +253,11 @@ export default function Squads() {
             <p className="squad-bonus__lead">{squad?.bonus_progress ?? 80}% отряда выполнили еженедельный квест</p>
             <div className="squad-bonus__chip squad-bonus__chip--purple">При 80% — +5 монет в пятницу</div>
             <div className="squad-bonus__chip squad-bonus__chip--dark">
-              <span className="squad-bonus__chip-num">{squad?.bonus_completed ?? 12}</span>
-              <span> из {squad?.bonus_total ?? 15} агентов</span>
+              <span className="squad-bonus__chip-num">{squad?.bonus_completed ?? Math.min(members.length, 12)}</span>
+              <span> из {squad?.bonus_total ?? members.length} агентов</span>
             </div>
             <div className="squad-bonus__progress-block">
-              <p className="squad-bonus__hint">До бонуса осталось {(squad?.bonus_total ?? 15) - (squad?.bonus_completed ?? 12)} человек</p>
+              <p className="squad-bonus__hint">До бонуса осталось {(squad?.bonus_total ?? members.length) - (squad?.bonus_completed ?? Math.min(members.length, 12))} человек</p>
               <div className="squad-bonus__progress">
                 <span className="squad-bonus__dot squad-bonus__dot--start" aria-hidden="true" />
                 <div className="squad-bonus__track">
@@ -228,7 +276,7 @@ export default function Squads() {
               <span className="squad-actions__coins-badge">{squad?.coins_month ?? 340}</span>
               <span className="squad-actions__coins-text">монет</span>
             </div>
-            <button type="button" className="squad-actions__btn squad-actions__btn--share btn-press">Поделиться</button>
+            <button type="button" className="squad-actions__btn squad-actions__btn--share btn-press" onClick={handleShare}>Поделиться</button>
             <button type="button" className="squad-actions__btn squad-actions__btn--invite btn-press" onClick={() => setShowInvite(true)}>Пригласить</button>
           </section>
         </div>
@@ -250,7 +298,14 @@ export default function Squads() {
         </div>
 
         <div className="squad-members__search">
-          <span>Поиск</span>
+          <input
+            type="text"
+            value={memberQuery}
+            onChange={e => setMemberQuery(e.target.value)}
+            placeholder="Поиск участника по имени, треку или статусу..."
+            className="squad-members__search-input"
+            aria-label="Поиск участника отряда"
+          />
           <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
             <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
@@ -259,7 +314,7 @@ export default function Squads() {
 
         <div className="squad-members__panel">
           <ul className="squad-members__list">
-            {sortedMembers.map((m, i) => (
+            {visibleMembers.map((m, i) => (
               <li key={m.id} className="squad-member-row hover-lift" style={{ animationDelay: `${i * 40}ms` }}>
                 <div className="squad-member-row__main">
                   <img className="squad-member-row__avatar" src={userAvatar} alt="" width={50} height={50} />
@@ -272,6 +327,9 @@ export default function Squads() {
                 <button type="button" className="squad-member-row__rating btn-press">Рейтинг</button>
               </li>
             ))}
+            {visibleMembers.length === 0 && (
+              <li className="squad-members__empty">Никого не найдено</li>
+            )}
           </ul>
         </div>
       </section>
@@ -303,6 +361,15 @@ export default function Squads() {
           )}
         </div>
       </Modal>
+
+      <div className="toast-container toast-container--fixed-right">
+        {toasts.map(toast => (
+          <div key={toast.id} className={`toast toast--${toast.type}`}>
+            {toast.type === 'success' ? '✓ ' : '✕ '}
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

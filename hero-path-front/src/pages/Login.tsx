@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ithubLogo from '../assets/other/лого-26 1.svg'
 import api from '../api'
@@ -8,9 +8,32 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [shake, setShake] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const navigate = useNavigate()
 
+  useEffect(() => {
+    const token = localStorage.getItem('access_token')
+    if (token) navigate('/dashboard')
+  }, [navigate])
+
+  const validate = () => {
+    if (!username.trim()) return 'Введите логин'
+    if (username.length < 3) return 'Логин минимум 3 символа'
+    if (!password) return 'Введите пароль'
+    if (password.length < 4) return 'Пароль минимум 4 символа'
+    return ''
+  }
+
   const handleLogin = async () => {
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
@@ -18,48 +41,66 @@ export default function Login() {
       localStorage.setItem('access_token', res.data.access)
       localStorage.setItem('refresh_token', res.data.refresh)
       navigate('/dashboard')
-    } catch {
-      setError('Неверный логин или пароль')
+    } catch (err: any) {
+      const msg = err.response?.status === 401 
+        ? 'Неверный логин или пароль' 
+        : 'Ошибка соединения. Попробуйте позже'
+      setError(msg)
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
     } finally {
       setLoading(false)
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleLogin()
+  }
+
   return (
     <div className="login-page">
-      <div className="login-container popup">
+      <div className={`login-container ${shake ? 'login-shake' : ''}`}>
         <div className="login-inner">
           <div className="login-content">
-            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-              <img src={ithubLogo} alt="IThub" style={{ width: '120px', objectFit: 'contain' }} />
+            <div className="login-brand">
+              <div className="login-logo-wrap">
+                <img src={ithubLogo} alt="IThub" className="login-logo" />
+              </div>
             </div>
 
             <h1 className="login-title">Путь героя</h1>
+            <p className="login-subtitle">Войди, чтобы начать свой путь</p>
 
             <div className="login-form-fields">
-              <div className="login-input-field">
+              <div className={`login-input-field ${focusedField === 'username' ? 'login-input-field--focused' : ''} ${error && !username ? 'login-input-field--error' : ''}`}>
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => { setUsername(e.target.value); if (error) setError('') }}
+                  onFocus={() => setFocusedField('username')}
+                  onBlur={() => setFocusedField(null)}
                   placeholder="Логин"
-                  style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#121212', padding: '0 15px', borderRadius: '12px' }}
+                  autoFocus
+                  className="login-input"
                 />
               </div>
 
-              <div className="login-input-field">
+              <div className={`login-input-field ${focusedField === 'password' ? 'login-input-field--focused' : ''} ${error && !password ? 'login-input-field--error' : ''}`}>
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); if (error) setError('') }}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
                   placeholder="Пароль"
-                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                  style={{ width: '100%', height: '100%', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '20px', color: '#121212', padding: '0 15px', borderRadius: '12px' }}
+                  onKeyDown={handleKeyDown}
+                  className="login-input"
                 />
               </div>
 
               {error && (
-                <div style={{ color: 'red', fontFamily: 'Montserrat, sans-serif', fontSize: '14px' }}>
+                <div className="login-error">
+                  <span className="login-error-icon">⚠</span>
                   {error}
                 </div>
               )}
@@ -67,13 +108,24 @@ export default function Login() {
 
             <button
               type="button"
-              className="login-submit-button"
+              className={`login-submit-button ${loading ? 'login-submit-button--loading' : ''}`}
               onClick={handleLogin}
               disabled={loading}
-              style={{ width: '100%', border: 'none', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
             >
-              <span className="login-submit-text">{loading ? 'Загрузка...' : 'Войти'}</span>
+              {loading ? (
+                <span className="login-spinner">
+                  <span className="login-spinner-dot" />
+                  <span className="login-spinner-dot" />
+                  <span className="login-spinner-dot" />
+                </span>
+              ) : (
+                <span className="login-submit-text">Войти</span>
+              )}
             </button>
+
+            <div className="login-footer">
+              <span className="login-hint">Забыли пароль? Обратитесь к администратору</span>
+            </div>
           </div>
         </div>
       </div>

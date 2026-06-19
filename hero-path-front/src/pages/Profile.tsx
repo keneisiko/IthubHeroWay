@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCountUp } from '../useCountUp'
 import { Radar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -73,6 +74,30 @@ interface ProfileData {
   badges_count: number
   duel_wins: number
   skills: Record<string, { current: number; peak: number; history: number[] }>
+  map_progress?: { stage: string; completed: boolean; current: boolean }[]
+}
+
+function useModal(initial = false) {
+  const [open, setOpen] = useState(initial)
+  const ref = useRef<HTMLDivElement>(null)
+  const show = () => setOpen(true)
+  const hide = () => setOpen(false)
+
+  useEffect(() => {
+    if (!open) return
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') hide() }
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) hide()
+    }
+    document.addEventListener('keydown', handleEsc)
+    document.addEventListener('mousedown', handleClick)
+    return () => {
+      document.removeEventListener('keydown', handleEsc)
+      document.removeEventListener('mousedown', handleClick)
+    }
+  }, [open])
+
+  return { open, ref, show, hide }
 }
 
 export default function Profile() {
@@ -84,12 +109,57 @@ export default function Profile() {
   const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 65 })
   const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [editForm, setEditForm] = useState({ callsign: '', full_name: '', track: '' })
+  const editModal = useModal()
+  const avatarModal = useModal()
+  const mentorModal = useModal()
+  const [menteeInfo, setMenteeInfo] = useState<string | null>(null)
 
   useEffect(() => {
-    api.get('/api/v1/profile/me/').then(res => setProfile(res.data)).catch(() => {})
+    setLoading(true)
+    api.get('/api/v1/profile/me/')
+      .then(res => {
+        setProfile(res.data)
+        setEditForm({
+          callsign: res.data.callsign || '',
+          full_name: res.data.full_name || '',
+          track: res.data.track || '',
+        })
+      })
+      .catch(() => {
+        setProfile({
+          callsign: 'Agent_7',
+          full_name: 'Иванов Петр Сергеевич',
+          track: 'Код - программирование',
+          squad: 'Альфа-12',
+          level: 7,
+          status: 'Агент',
+          quests_completed: 34,
+          badges_count: 12,
+          duel_wins: 8,
+          skills: {
+            'Мощность': { current: 17, peak: 14, history: [4, 7, 9, 11, 14, 17] },
+            'Связь': { current: 12, peak: 15, history: [3, 6, 8, 10, 13, 12] },
+            'Фокус': { current: 15, peak: 13, history: [5, 7, 9, 11, 12, 15] },
+            'Ритм': { current: 18, peak: 16, history: [6, 9, 11, 13, 15, 18] },
+            'Отдача': { current: 14, peak: 12, history: [4, 6, 8, 10, 11, 14] },
+          },
+          map_progress: [
+            { stage: 'Вход', completed: true, current: false },
+            { stage: 'Первая победа', completed: true, current: false },
+            { stage: 'Первый провал', completed: true, current: true },
+            { stage: 'Первая миссия', completed: false, current: false },
+            { stage: 'Продукт', completed: false, current: false },
+            { stage: 'Стажировка', completed: false, current: false },
+            { stage: 'Выпуск', completed: false, current: false },
+          ],
+        })
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  const getSkill = (key: string) => profile?.skills?.[key] ?? { current: 17, peak: 14, history: [4, 7, 9, 11, 14, 17] }
+  const getSkill = (key: string) => profile?.skills?.[key] ?? { current: 0, peak: 0, history: [0, 0, 0, 0, 0, 0] }
 
   const radarData = {
     labels: [...AXIS_KEYS],
@@ -136,7 +206,12 @@ export default function Profile() {
     return () => window.removeEventListener('resize', updateIndicator)
   }, [activeTab])
 
-  const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? 'ИП'
+  const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? '??'
+
+  // Анимация чисел в статистике
+  const animQuests = useCountUp(profile?.quests_completed ?? 0, 1100, 200)
+  const animBadges = useCountUp(profile?.badges_count ?? 0, 1100, 350)
+  const animDuels  = useCountUp(profile?.duel_wins ?? 0, 1100, 500)
 
   const historyPoints = useMemo(() => {
     const max = 20
@@ -149,13 +224,54 @@ export default function Profile() {
 
   const polylinePoints = historyPoints.map(p => `${p.x},${p.y}`).join(' ')
 
+  const handleSaveProfile = () => {
+    api.patch('/api/v1/profile/me/', editForm)
+      .then(() => {
+        setProfile(prev => prev ? { ...prev, ...editForm } : null)
+        editModal.hide()
+      })
+      .catch(() => alert('Ошибка сохранения'))
+  }
+
+  const mapProgress = profile?.map_progress ?? [
+    { stage: 'Вход', completed: true, current: false },
+    { stage: 'Первая победа', completed: true, current: false },
+    { stage: 'Первый провал', completed: true, current: true },
+    { stage: 'Первая миссия', completed: false, current: false },
+    { stage: 'Продукт', completed: false, current: false },
+    { stage: 'Стажировка', completed: false, current: false },
+    { stage: 'Выпуск', completed: false, current: false },
+  ]
+
+  if (loading) {
+    return (
+      <div className="profile page-enter">
+        <div className="profile-loading">
+          <div className="loading-spinner">
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+          </div>
+          <p className="loading-text">Загрузка профиля...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="profile page-enter">
       <div className="profile__top">
         <div className="profile__left">
           <section className="profile-card profile-card--primary card-entrance">
             <div className="profile-card__header">
-              <div className="profile-card__avatar" role="img" aria-label="Аватар">
+              <div 
+                className="profile-card__avatar" 
+                role="img" 
+                aria-label="Аватар"
+                onClick={avatarModal.show}
+                style={{ cursor: 'pointer' }}
+                title="Сменить аватар"
+              >
                 {initials}
               </div>
               <div className="profile-card__names">
@@ -183,44 +299,64 @@ export default function Profile() {
             <h3 className="profile-map__title">Карта пути:</h3>
             <div className="profile-map__body">
               <div className="profile-map__row">
-                <button className="profile-map__node profile-map__node--done" type="button" aria-label="Вход" />
-                <span className="profile-map__line profile-map__line--done" />
-                <button className="profile-map__node profile-map__node--done profile-map__node--shadow" type="button" aria-label="Первая победа" />
-                <span className="profile-map__line profile-map__line--done" />
-                <button className="profile-map__node profile-map__node--current" type="button" aria-label="Первый провал" />
-                <span className="profile-map__line profile-map__line--idle" />
-                <button className="profile-map__node profile-map__node--idle profile-map__node--shadow" type="button" aria-label="Первая миссия" />
+                {mapProgress.slice(0, 4).map((stage, i) => (
+                  <span key={`top-${i}`} style={{ display: 'contents' }}>
+                    {i > 0 && (
+                      <span className={`profile-map__line ${stage.completed ? 'profile-map__line--done' : 'profile-map__line--idle'}`} />
+                    )}
+                    <button
+                      className={`profile-map__node ${stage.completed ? 'profile-map__node--done' : ''} ${stage.current ? 'profile-map__node--current' : ''} ${!stage.completed && !stage.current ? 'profile-map__node--idle profile-map__node--shadow' : ''}`}
+                      type="button"
+                      aria-label={stage.stage}
+                      title={stage.stage}
+                    />
+                  </span>
+                ))}
               </div>
               <div className="profile-map__labels profile-map__labels--top">
-                <span>Вход</span><span>Первая<br />победа</span><span>Первый<br />провал</span><span>Первая<br />миссия</span>
+                {mapProgress.slice(0, 4).map(s => <span key={s.stage}>{s.stage}</span>)}
               </div>
               <div className="profile-map__row profile-map__row--bottom">
                 <span className="profile-map__line profile-map__line--idle profile-map__line--first" />
-                <button className="profile-map__node profile-map__node--idle profile-map__node--shadow" type="button" aria-label="Продукт" />
-                <span className="profile-map__line profile-map__line--idle" />
-                <button className="profile-map__node profile-map__node--idle profile-map__node--shadow" type="button" aria-label="Стажировка" />
-                <span className="profile-map__line profile-map__line--idle" />
-                <button className="profile-map__node profile-map__node--idle profile-map__node--shadow" type="button" aria-label="Выпуск" />
+                {mapProgress.slice(4).map((stage, i) => (
+                  <span key={`bot-${i}`} style={{ display: 'contents' }}>
+                    <button
+                      className={`profile-map__node ${stage.completed ? 'profile-map__node--done' : 'profile-map__node--idle'} profile-map__node--shadow`}
+                      type="button"
+                      aria-label={stage.stage}
+                      title={stage.stage}
+                    />
+                    {i < mapProgress.slice(4).length - 1 && (
+                      <span className="profile-map__line profile-map__line--idle" />
+                    )}
+                  </span>
+                ))}
               </div>
               <div className="profile-map__labels profile-map__labels--bottom">
-                <span>Продукт</span><span>Стажировка</span><span>Выпуск</span>
+                {mapProgress.slice(4).map(s => <span key={s.stage}>{s.stage}</span>)}
               </div>
             </div>
           </section>
         </div>
 
         <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
-          <button className="profile-aside__btn btn-press">Настроить профиль</button>
+          <button className="profile-aside__btn btn-press" onClick={editModal.show}>Настроить профиль</button>
           <div className="profile-aside__divider" />
           <h3 className="profile-aside__title">Статистика:</h3>
           <div className="profile-aside__stats">
-            <span className="profile-aside__pill">Выполнено квестов: <strong>{profile?.quests_completed ?? 0}</strong></span>
-            <span className="profile-aside__pill">Получено нашивок: <strong>{profile?.badges_count ?? 0}</strong></span>
-            <span className="profile-aside__pill">Побед в дуэлях: <strong>{profile?.duel_wins ?? 0}</strong></span>
+            <span className="profile-aside__pill">Выполнено квестов: <strong>{animQuests}</strong></span>
+            <span className="profile-aside__pill">Получено нашивок: <strong>{animBadges}</strong></span>
+            <span className="profile-aside__pill">Побед в дуэлях: <strong>{animDuels}</strong></span>
           </div>
           <h3 className="profile-aside__title profile-aside__title--sp">Шефство:</h3>
-          <button className="profile-aside__mentee btn-press">@подшефный</button>
-          <button className="profile-aside__mentor-btn btn-press">Стать наставником</button>
+          <button className="profile-aside__mentee btn-press" onClick={() => {
+            if (!menteeInfo) {
+              api.get('/api/v1/mentorship/mentee/').then(res => setMenteeInfo(res.data?.username ?? '@подшефный')).catch(() => setMenteeInfo('@подшефный'))
+            }
+          }}>
+            {menteeInfo ?? '@подшефный'}
+          </button>
+          <button className="profile-aside__mentor-btn btn-press" onClick={mentorModal.show}>Стать наставником</button>
         </section>
       </div>
 
@@ -275,6 +411,7 @@ export default function Profile() {
                   key={i}
                   className="profile-history__dot"
                   style={{ left: `${p.x}%`, bottom: `${100 - p.y}%` }}
+                  title={`Неделя ${i + 1}: ${p.value}`}
                 />
               ))}
               <svg className="profile-history__line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -295,7 +432,7 @@ export default function Profile() {
           {ACHIEVEMENTS.map((item) => (
             <button key={item.name} className="ach btn-press" type="button">
               <span className="ach__icon" aria-hidden="true"><span className="ach__glyph" /></span>
-              <span className="ach__name">Название</span>
+              <span className="ach__name">{item.name}</span>
               <span className={`ach__rarity ${item.cls}`}>{item.rarity}</span>
             </button>
           ))}
@@ -322,7 +459,7 @@ export default function Profile() {
           {PATH_CARDS.map((card) => (
             <button key={card.name} className="path-card btn-press" type="button">
               <span className={`path-card__icon ${card.iconCls}`} aria-hidden="true"><span className="path-card__glyph" /></span>
-              <span className="path-card__name">Название</span>
+              <span className="path-card__name">{card.name}</span>
               <span className={`path-card__chip ${card.chipCls}`}>{card.rarity}</span>
             </button>
           ))}
@@ -334,6 +471,84 @@ export default function Profile() {
           ))}
         </div>
       </section>
+
+      {/* Модалка настройки профиля */}
+      {editModal.open && (
+        <div className="modal-fixed">
+          <div className="modal-fixed__content" ref={editModal.ref}>
+            <h3 className="popup__title">Настроить профиль</h3>
+            <label className="popup__label">Позывной</label>
+            <input
+              type="text"
+              value={editForm.callsign}
+              onChange={(e) => setEditForm(prev => ({ ...prev, callsign: e.target.value }))}
+              className="popup__input"
+            />
+            <label className="popup__label">ФИО</label>
+            <input
+              type="text"
+              value={editForm.full_name}
+              onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+              className="popup__input"
+            />
+            <label className="popup__label">Трек</label>
+            <input
+              type="text"
+              value={editForm.track}
+              onChange={(e) => setEditForm(prev => ({ ...prev, track: e.target.value }))}
+              className="popup__input"
+            />
+            <div className="shop-modal__buttons">
+              <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={editModal.hide}>
+                Отмена
+              </button>
+              <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={handleSaveProfile}>
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка стать наставником */}
+      {mentorModal.open && (
+        <div className="modal-fixed">
+          <div className="modal-fixed__content" ref={mentorModal.ref}>
+            <h3 className="popup__title">Стать наставником</h3>
+            <p className="popup__label">Вы хотите стать наставником для подшефного?</p>
+            <div className="shop-modal__buttons">
+              <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={mentorModal.hide}>
+                Отмена
+              </button>
+              <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => {
+                api.post('/api/v1/mentorship/become-mentor/')
+                  .catch(() => {})
+                  .finally(() => mentorModal.hide())
+              }}>
+                Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка смены аватара */}
+      {avatarModal.open && (
+        <div className="modal-fixed">
+          <div className="modal-fixed__content" ref={avatarModal.ref}>
+            <h3 className="popup__title">Сменить аватар</h3>
+            <p className="popup__label">Загрузите изображение профиля</p>
+            <div className="avatar-upload-zone">
+              <span className="avatar-upload-icon">📷</span>
+              <span className="avatar-upload-text">Перетащите фото сюда или нажмите для выбора</span>
+              <input type="file" accept="image/*" className="avatar-upload-input" />
+            </div>
+            <button type="button" className="popup__submit btn-press" onClick={avatarModal.hide}>
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
