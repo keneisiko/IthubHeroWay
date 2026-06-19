@@ -43,6 +43,7 @@ interface DashboardData {
     callsign: string
     level: number
     rating_current: number
+    skills?: Record<string, number>
   }
   current_quest: {
     title: string
@@ -183,7 +184,9 @@ export default function Dashboard() {
     )
   }
 
-  const radarValues = [80, 60, 70, 50, 65] // пока статика, бэк не отдаёт радар
+  const radarValues = AXIS_LABELS.map(label =>
+    data?.user?.skills?.[label] ?? 0
+  )
   const radarData = {
     labels: AXIS_LABELS,
     datasets: [

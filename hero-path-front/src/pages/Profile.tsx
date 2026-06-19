@@ -11,6 +11,7 @@ import {
 } from 'chart.js'
 import api from '../api'
 import LoadError from '../components/LoadError'
+import { useToasts } from '../useToasts'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -117,6 +118,9 @@ export default function Profile() {
   const avatarModal = useModal()
   const mentorModal = useModal()
   const [menteeInfo, setMenteeInfo] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const { toasts, addToast } = useToasts()
 
   const loadProfile = useCallback(() => {
     setLoading(true)
@@ -211,8 +215,27 @@ export default function Profile() {
       .then(() => {
         setProfile(prev => prev ? { ...prev, ...editForm } : null)
         editModal.hide()
+        addToast('Профиль сохранён!', 'success')
       })
-      .catch(() => alert('Ошибка сохранения'))
+      .catch(() => addToast('Ошибка сохранения', 'error'))
+  }
+
+  const handleAvatarUpload = () => {
+    if (!avatarFile) return
+    const formData = new FormData()
+    formData.append('avatar', avatarFile)
+    setAvatarUploading(true)
+    api.patch('/api/v1/profile/me/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+      .then(res => {
+        setProfile(prev => prev ? { ...prev, avatar: res.data.avatar } : null)
+        avatarModal.hide()
+        setAvatarFile(null)
+        addToast('Аватар обновлён!', 'success')
+      })
+      .catch(() => addToast('Ошибка загрузки аватара', 'error'))
+      .finally(() => setAvatarUploading(false))
   }
 
   const mapProgress = profile?.map_progress ?? [
@@ -512,9 +535,8 @@ export default function Profile() {
               </button>
               <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => {
                 api.post('/api/v1/mentorship/become-mentor/')
-                  .then(() => alert('Вы стали наставником!'))
-                  .catch(() => alert('Не удалось стать наставником. Попробуйте позже.'))
-                  .finally(() => mentorModal.hide())
+                  .then(() => { addToast('Вы стали наставником!', 'success'); mentorModal.hide() })
+                  .catch(() => { addToast('Не удалось стать наставником. Попробуйте позже.', 'error'); mentorModal.hide() })
               }}>
                 Подтвердить
               </button>
@@ -529,17 +551,44 @@ export default function Profile() {
           <div className="modal-fixed__content" ref={avatarModal.ref}>
             <h3 className="popup__title">Сменить аватар</h3>
             <p className="popup__label">Загрузите изображение профиля</p>
-            <div className="avatar-upload-zone">
+            <div className="avatar-upload-zone" onClick={() => document.getElementById('avatar-file-input')?.click()}>
               <span className="avatar-upload-icon">📷</span>
-              <span className="avatar-upload-text">Перетащите фото сюда или нажмите для выбора</span>
-              <input type="file" accept="image/*" className="avatar-upload-input" />
+              <span className="avatar-upload-text">
+                {avatarFile ? avatarFile.name : 'Перетащите фото сюда или нажмите для выбора'}
+              </span>
+              <input
+                id="avatar-file-input"
+                type="file"
+                accept="image/*"
+                className="avatar-upload-input"
+                onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+              />
             </div>
-            <button type="button" className="popup__submit btn-press" onClick={avatarModal.hide}>
-              Закрыть
-            </button>
+            <div className="shop-modal__buttons">
+              <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={() => { avatarModal.hide(); setAvatarFile(null) }}>
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="shop-modal__btn shop-modal__btn--primary btn-press"
+                onClick={handleAvatarUpload}
+                disabled={!avatarFile || avatarUploading}
+              >
+                {avatarUploading ? 'Загрузка...' : 'Сохранить'}
+              </button>
+            </div>
           </div>
         </div>
       )}
+      {/* Тосты */}
+      <div className="toast-container toast-container--fixed-right">
+        {toasts.map(toast => (
+          <div key={toast.id} className={`toast toast--${toast.type}`}>
+            {toast.type === 'success' ? '✓ ' : '✕ '}
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
