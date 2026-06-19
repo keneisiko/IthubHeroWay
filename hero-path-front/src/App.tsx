@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
+import ProtectedRoute from './components/ProtectedRoute'
 import Sidebar from './components/Sidebar'
 import PageTransition from './PageTransition'
 
@@ -33,7 +34,11 @@ function App() {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/*" element={<AppShell />} />
+        <Route path="/*" element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        } />
       </Routes>
     </Suspense>
   )

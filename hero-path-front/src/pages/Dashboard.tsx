@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Radar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -9,7 +9,9 @@ import {
   Tooltip,
 } from 'chart.js'
 import seriesIcon from '../assets/other/Group 11.svg'
+import LoadError from '../components/LoadError'
 import api from '../api'
+import { useToasts } from '../useToasts'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -139,17 +141,6 @@ function LinkModal({
   )
 }
 
-/* ---------- toast ---------- */
-function useToasts() {
-  const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
-  const addToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const id = Date.now()
-    setToasts(prev => [...prev, { id, message, type }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000)
-  }
-  return { toasts, addToast }
-}
-
 export default function Dashboard() {
   const [hoveredRadar, setHoveredRadar] = useState<string | null>(null)
   const confirm = useDismissable()
@@ -158,19 +149,39 @@ export default function Dashboard() {
   const [reportText, setReportText] = useState('')
   const [questTab, setQuestTab] = useState<QuestTab>('daily')
   const [data, setData] = useState<DashboardData | null>(null)
+  const [loadError, setLoadError] = useState(false)
   const tilt = useTilt()
   const { toasts, addToast } = useToasts()
 
-  useEffect(() => {
-    api.get('/api/v1/dashboard/').then(res => setData(res.data)).catch(() => {})
-  }, [])
+  const loadDashboard = useCallback(() => {
+    setLoadError(false)
+    api.get('/api/v1/dashboard/')
+      .then(res => setData(res.data))
+      .catch(() => {
+        setData(null)
+        setLoadError(true)
+        addToast('Не удалось загрузить дашборд', 'error')
+      })
+  }, [addToast])
 
-  const rating = data?.user.rating_current ?? 199
+  useEffect(() => {
+    loadDashboard()
+  }, [loadDashboard])
+
+  const rating = data?.user.rating_current ?? 0
   const ratingDisplay = useCountUp(rating)
-  const level = data?.user.level ?? 6
-  const questTitle = data?.current_quest?.title ?? 'Сдать КТ по Python'
-  const questProgress = data?.current_quest?.progress_value ?? 77
+  const level = data?.user.level ?? 0
+  const questTitle = data?.current_quest?.title ?? 'Нет активного квеста'
+  const questProgress = data?.current_quest?.progress_value ?? 0
   const isDaily = data?.current_quest?.quest_type === 'daily'
+
+  if (loadError) {
+    return (
+      <div className="dashboard page-enter">
+        <LoadError className="profile-loading" onRetry={loadDashboard} />
+      </div>
+    )
+  }
 
   const radarValues = [80, 60, 70, 50, 65] // пока статика, бэк не отдаёт радар
   const radarData = {

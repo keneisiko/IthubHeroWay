@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useCountUp } from '../useCountUp'
 import api from '../api'
+import LoadError from '../components/LoadError'
 import seriesIcon from '../assets/other/Group 11.svg'
 
 const TABS = ['Активные', 'Выполненные', 'История наград'] as const
@@ -25,25 +26,6 @@ interface Activity {
   reward: string
   time: string
 }
-
-const FALLBACK_QUESTS: Quest[] = [
-  { id: 1, kind: 'Ежедневный', leftDays: '2 дня', progress: 77, title: 'Сдать КТ по Python', desc: 'Сдать контрольную точку по Python до пятницы', reward: '+15 монет', note: 'Выполняется автоматически', confirm: false, teamNote: '' },
-  { id: 2, kind: 'Еженедельный', leftDays: '5 дней', progress: 45, title: 'Помощь одногруппнику', desc: 'Помочь с проектом минимум 2 одногруппникам', reward: '+30 монет', note: '', confirm: true, teamNote: '' },
-  { id: 3, kind: 'Сезонный', leftDays: '12 дней', progress: 23, title: 'Марафон кода', desc: '30 дней без пропусков занятий', reward: '+100 монет', note: 'Выполняется автоматически', confirm: false, teamNote: '' },
-  { id: 4, kind: 'Личный', leftDays: '3 дня', progress: 90, title: 'Первый PR', desc: 'Сделать первый pull request в командный проект', reward: '+50 монет', note: '', confirm: true, teamNote: '' },
-  { id: 5, kind: 'Командный', leftDays: '7 дней', progress: 60, title: 'Хакатон', desc: 'Участие в командном хакатоне', reward: '+75 монет', note: '', confirm: false, teamNote: '8 из 10 сдали заявку' },
-]
-
-const FALLBACK_COMPLETED: Quest[] = [
-  { id: 101, kind: 'Ежедневный', leftDays: 'Завершён', progress: 100, title: 'Регулярность', desc: 'Не опоздать ни на одно занятие', reward: '+15 монет', note: '', confirm: false, teamNote: '', completed: true },
-  { id: 102, kind: 'Еженедельный', leftDays: 'Завершён', progress: 100, title: 'Менторство', desc: 'Помочь новичку разобраться', reward: '+30 монет', note: '', confirm: false, teamNote: '', completed: true },
-]
-
-const FALLBACK_ACTIVITY: Activity[] = [
-  { id: 1, title: 'Награда за серию', reward: '+15 монет', time: '2 часа назад' },
-  { id: 2, title: 'Выполнен квест "Регулярность"', reward: '+15 монет', time: 'Вчера' },
-  { id: 3, title: 'Бонус отряда', reward: '+5 монет', time: '3 дня назад' },
-]
 
 function useModal(initial = false) {
   const [open, setOpen] = useState(initial)
@@ -75,6 +57,7 @@ export default function Quests() {
   const [completedQuests, setCompletedQuests] = useState<Quest[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
 
   const [streakDays] = useState(12)
@@ -94,18 +77,28 @@ export default function Quests() {
     }, 3000)
   }
 
-  useEffect(() => {
+  const loadQuests = useCallback(() => {
     setLoading(true)
+    setLoadError(false)
     Promise.all([
-      api.get('/api/v1/quests/active/').catch(() => ({ data: FALLBACK_QUESTS })),
-      api.get('/api/v1/quests/completed/').catch(() => ({ data: FALLBACK_COMPLETED })),
-      api.get('/api/v1/quests/history/').catch(() => ({ data: FALLBACK_ACTIVITY })),
+      api.get('/api/v1/quests/active/'),
+      api.get('/api/v1/quests/completed/'),
+      api.get('/api/v1/quests/history/'),
     ]).then(([activeRes, completedRes, historyRes]) => {
-      setQuests(activeRes.data?.length ? activeRes.data : FALLBACK_QUESTS)
-      setCompletedQuests(completedRes.data?.length ? completedRes.data : FALLBACK_COMPLETED)
-      setActivity(historyRes.data?.length ? historyRes.data : FALLBACK_ACTIVITY)
+      setQuests(activeRes.data ?? [])
+      setCompletedQuests(completedRes.data ?? [])
+      setActivity(historyRes.data ?? [])
+    }).catch(() => {
+      setQuests([])
+      setCompletedQuests([])
+      setActivity([])
+      setLoadError(true)
     }).finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadQuests()
+  }, [loadQuests])
 
   const handleReportSubmit = useCallback(() => {
     api.post('/api/v1/quests/report/', { link: reportText })
@@ -135,10 +128,7 @@ export default function Quests() {
         setSelectedWeekly(choice)
         addToast('Выбор сохранён!', 'success')
       })
-      .catch(() => {
-        setSelectedWeekly(choice)
-        addToast('Выбор сохранён (offline)', 'success')
-      })
+      .catch(() => addToast('Не удалось сохранить выбор', 'error'))
   }
 
   const openConfirm = (id: number) => {
@@ -166,6 +156,14 @@ export default function Quests() {
           </div>
           <p className="loading-text">Загрузка квестов...</p>
         </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="q1 page-enter">
+        <LoadError className="q1__loading" onRetry={loadQuests} />
       </div>
     )
   }

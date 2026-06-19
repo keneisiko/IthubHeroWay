@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useCountUp } from '../useCountUp'
 import { Radar } from 'react-chartjs-2'
 import {
@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from 'chart.js'
 import api from '../api'
+import LoadError from '../components/LoadError'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -110,14 +111,16 @@ export default function Profile() {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 65 })
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [editForm, setEditForm] = useState({ callsign: '', full_name: '', track: '' })
   const editModal = useModal()
   const avatarModal = useModal()
   const mentorModal = useModal()
   const [menteeInfo, setMenteeInfo] = useState<string | null>(null)
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     setLoading(true)
+    setLoadError(false)
     api.get('/api/v1/profile/me/')
       .then(res => {
         setProfile(res.data)
@@ -128,36 +131,15 @@ export default function Profile() {
         })
       })
       .catch(() => {
-        setProfile({
-          callsign: 'Agent_7',
-          full_name: 'Иванов Петр Сергеевич',
-          track: 'Код - программирование',
-          squad: 'Альфа-12',
-          level: 7,
-          status: 'Агент',
-          quests_completed: 34,
-          badges_count: 12,
-          duel_wins: 8,
-          skills: {
-            'Мощность': { current: 17, peak: 14, history: [4, 7, 9, 11, 14, 17] },
-            'Связь': { current: 12, peak: 15, history: [3, 6, 8, 10, 13, 12] },
-            'Фокус': { current: 15, peak: 13, history: [5, 7, 9, 11, 12, 15] },
-            'Ритм': { current: 18, peak: 16, history: [6, 9, 11, 13, 15, 18] },
-            'Отдача': { current: 14, peak: 12, history: [4, 6, 8, 10, 11, 14] },
-          },
-          map_progress: [
-            { stage: 'Вход', completed: true, current: false },
-            { stage: 'Первая победа', completed: true, current: false },
-            { stage: 'Первый провал', completed: true, current: true },
-            { stage: 'Первая миссия', completed: false, current: false },
-            { stage: 'Продукт', completed: false, current: false },
-            { stage: 'Стажировка', completed: false, current: false },
-            { stage: 'Выпуск', completed: false, current: false },
-          ],
-        })
+        setProfile(null)
+        setLoadError(true)
       })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadProfile()
+  }, [loadProfile])
 
   const getSkill = (key: string) => profile?.skills?.[key] ?? { current: 0, peak: 0, history: [0, 0, 0, 0, 0, 0] }
 
@@ -254,6 +236,14 @@ export default function Profile() {
           </div>
           <p className="loading-text">Загрузка профиля...</p>
         </div>
+      </div>
+    )
+  }
+
+  if (loadError || !profile) {
+    return (
+      <div className="profile page-enter">
+        <LoadError onRetry={loadProfile} />
       </div>
     )
   }
@@ -522,7 +512,8 @@ export default function Profile() {
               </button>
               <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => {
                 api.post('/api/v1/mentorship/become-mentor/')
-                  .catch(() => {})
+                  .then(() => alert('Вы стали наставником!'))
+                  .catch(() => alert('Не удалось стать наставником. Попробуйте позже.'))
                   .finally(() => mentorModal.hide())
               }}>
                 Подтвердить

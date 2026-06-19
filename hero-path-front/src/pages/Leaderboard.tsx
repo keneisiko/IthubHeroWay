@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import LoadError from '../components/LoadError'
 import { useCountUp } from '../useCountUp'
 
 type LeaderTab = 'agents' | 'squads'
@@ -15,20 +16,6 @@ interface LeaderItem {
 }
 
 const FILTER_OPTIONS = ['Все курсы', 'Курс 1', 'Курс 2', 'Курс 3', 'Курс 4']
-
-const AGENT_NAMES = [
-  'CyberWolf', 'PixelMaster', 'DataNinja', 'CloudRider', 'ByteHunter',
-  'NeonFox', 'CodePhantom', 'DevSpark', 'StarCoder', 'QuantumBit',
-  'IronHeart', 'SkyWalker', 'NightOwl', 'FireStorm', 'IceBreaker',
-  'ThunderBolt', 'FastTrack', 'DeepMind', 'AlphaWave', 'ZeroCool'
-]
-
-const SQUAD_NAMES = [
-  'Альфа', 'Бета', 'Гамма', 'Дельта', 'Эпсилон',
-  'Зета', 'Эта', 'Тета', 'Йота', 'Каппа',
-  'Лямбда', 'Мю', 'Ню', 'Кси', 'Омикрон',
-  'Пи', 'Ро', 'Сигма', 'Тау', 'Ипсилон'
-]
 
 const TRACKS = ['Код', 'Дизайн', 'Менеджмент']
 
@@ -89,8 +76,9 @@ export default function Leaderboard() {
   const [selectedFilter, setSelectedFilter] = useState('Все курсы')
   const [agents, setAgents] = useState<LeaderItem[]>([])
   const [squads, setSquads] = useState<LeaderItem[]>([])
-  const [myRank, setMyRank] = useState({ rank: 56, delta: '+47' })
+  const [myRank, setMyRank] = useState({ rank: 0, delta: '+0' })
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
 
   // Анимация чисел
@@ -105,52 +93,45 @@ export default function Leaderboard() {
     }, 280)
   }
 
-  useEffect(() => {
+  const loadLeaderboard = useCallback(() => {
     setLoading(true)
+    setLoadError(false)
     Promise.all([
-      api.get('/api/v1/leaderboard/agents/').catch(() => ({ data: [] })),
-      api.get('/api/v1/leaderboard/squads/').catch(() => ({ data: [] })),
-      api.get('/api/v1/leaderboard/me/').catch(() => ({ data: { rank: 56, delta: '+47' } })),
+      api.get('/api/v1/leaderboard/agents/'),
+      api.get('/api/v1/leaderboard/squads/'),
+      api.get('/api/v1/leaderboard/me/'),
     ]).then(([agentsRes, squadsRes, meRes]) => {
-      const agentsData = agentsRes.data?.length ? agentsRes.data : generateFallbackAgents()
-      const squadsData = squadsRes.data?.length ? squadsRes.data : generateFallbackSquads()
+      const agentsData = agentsRes.data ?? []
+      const squadsData = squadsRes.data ?? []
 
-      setAgents(agentsData.map((item: any, i: number) => ({
+      setAgents(agentsData.map((item: { id?: number; callsign?: string; title?: string; delta?: string; track?: string }, i: number) => ({
         id: item.id ?? i + 1,
         rank: i + 1,
-        title: item.callsign ?? item.title ?? AGENT_NAMES[i] ?? 'Агент',
-        delta: item.delta ?? `+${Math.max(1, 50 - i * 2)}`,
+        title: item.callsign ?? item.title ?? 'Агент',
+        delta: item.delta ?? '+0',
         badgeClass: getBadgeClass(i + 1),
         track: item.track ?? TRACKS[i % 3],
       })))
 
-      setSquads(squadsData.map((item: any, i: number) => ({
+      setSquads(squadsData.map((item: { id?: number; name?: string; title?: string; delta?: string }, i: number) => ({
         id: item.id ?? i + 1,
         rank: i + 1,
-        title: item.name ?? item.title ?? SQUAD_NAMES[i] ?? 'Отряд',
-        delta: item.delta ?? `+${Math.max(1, 48 - i * 2)}`,
+        title: item.name ?? item.title ?? 'Отряд',
+        delta: item.delta ?? '+0',
         badgeClass: getBadgeClass(i + 1),
       })))
 
-      setMyRank({ rank: meRes.data?.rank ?? 56, delta: meRes.data?.delta ?? '+0' })
+      setMyRank({ rank: meRes.data?.rank ?? 0, delta: meRes.data?.delta ?? '+0' })
+    }).catch(() => {
+      setAgents([])
+      setSquads([])
+      setLoadError(true)
     }).finally(() => setLoading(false))
   }, [])
 
-  const generateFallbackAgents = () =>
-    Array.from({ length: 20 }, (_, i) => ({
-      id: i + 1,
-      callsign: AGENT_NAMES[i],
-      delta: `+${Math.max(1, 50 - i * 2)}`,
-      track: TRACKS[i % 3],
-    }))
-
-  const generateFallbackSquads = () =>
-    Array.from({ length: 20 }, (_, i) => ({
-      id: i + 1,
-      name: SQUAD_NAMES[i],
-      delta: `+${Math.max(1, 48 - i * 2)}`,
-      course: (i % 4) + 1,
-    }))
+  useEffect(() => {
+    loadLeaderboard()
+  }, [loadLeaderboard])
 
   const items = activeTab === 'agents' ? agents : squads
   const filteredItems = items.filter(item =>
@@ -174,6 +155,14 @@ export default function Leaderboard() {
           </div>
           <p className="loading-text">Загрузка лидерборда...</p>
         </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="dashboard leaderboard-page page-enter">
+        <LoadError className="leaderboard-loading" onRetry={loadLeaderboard} />
       </div>
     )
   }

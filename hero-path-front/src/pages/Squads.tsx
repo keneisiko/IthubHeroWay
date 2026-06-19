@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import userAvatar from '../assets/branding/user-avatar.png'
 import api from '../api'
+import { useToasts } from '../useToasts'
 
 type SortKey = 'name' | 'track' | 'status'
 
@@ -113,50 +114,34 @@ function SortDropdown({
   )
 }
 
-const TRACKS = ['Код', 'Дизайн', 'Менеджмент']
-const STATUSES = ['Активен', 'Неактивен', 'В академе']
-
-function generateFallbackMembers(): Member[] {
-  const names = ['CyberWolf', 'PixelMaster', 'DataNinja', 'CloudRider', 'ByteHunter', 'NeonFox', 'CodePhantom', 'DevSpark', 'StarCoder', 'QuantumBit', 'IronHeart', 'SkyWalker']
-  return names.map((name, i) => ({
-    id: i + 1,
-    name,
-    track: TRACKS[i % TRACKS.length],
-    status: STATUSES[i % STATUSES.length],
-  }))
-}
 
 export default function Squads() {
   const [showInvite, setShowInvite] = useState(false)
   const [inviteSearch, setInviteSearch] = useState('')
   const [memberQuery, setMemberQuery] = useState('')
   const [showSort, setShowSort] = useState(false)
-  const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
+  const { toasts, addToast } = useToasts()
   const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [members, setMembers] = useState<Member[]>(generateFallbackMembers())
+  const [members, setMembers] = useState<Member[]>([])
   const [squad, setSquad] = useState<SquadData | null>(null)
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([
-    { id: 101, name: 'Агент_1' },
-    { id: 102, name: 'Агент_2' },
-    { id: 103, name: 'Агент_3' },
-  ])
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
 
   useEffect(() => {
-    api.get('/api/v1/squad/my/').then(res => setSquad(res.data)).catch(() => {})
+    api.get('/api/v1/squad/my/').then(res => setSquad(res.data)).catch(() => addToast('Не удалось загрузить отряд', 'error'))
     api.get('/api/v1/squad/members/').then(res => {
       if (res.data?.length) setMembers(res.data)
-    }).catch(() => {})
-  }, [])
+    }).catch(() => addToast('Не удалось загрузить участников', 'error'))
+  }, [addToast])
 
   useEffect(() => {
     if (!inviteSearch) return
     const timer = setTimeout(() => {
       api.get(`/api/v1/users/search/?q=${encodeURIComponent(inviteSearch)}`).then(res => {
-        if (res.data?.length) setSearchResults(res.data)
-      }).catch(() => {})
+        setSearchResults(res.data ?? [])
+      }).catch(() => addToast('Ошибка поиска пользователей', 'error'))
     }, 300)
     return () => clearTimeout(timer)
-  }, [inviteSearch])
+  }, [inviteSearch, addToast])
 
   const sortedMembers = useMemo(() => {
     return [...members].sort((a, b) => a[sortKey].localeCompare(b[sortKey]))
@@ -171,14 +156,6 @@ export default function Squads() {
       m.status.toLowerCase().includes(q)
     )
   }, [sortedMembers, memberQuery])
-
-  const addToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const id = Date.now()
-    setToasts(prev => [...prev, { id, message, type }])
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 3000)
-  }
 
   const handleShare = useCallback(() => {
     const shareUrl = `${window.location.origin}/squads`
@@ -198,7 +175,7 @@ export default function Squads() {
     } else {
       addToast('Не удалось скопировать ссылку', 'error')
     }
-  }, [squad])
+  }, [squad, addToast])
 
   const filteredResults = useMemo(() => {
     if (!inviteSearch) return searchResults
@@ -207,11 +184,11 @@ export default function Squads() {
 
   const handleInvite = useCallback((userId: number) => {
     api.post(`/api/v1/squad/invite/${userId}/`).then(() => {
-      alert('Приглашение отправлено!')
+      addToast('Приглашение отправлено!', 'success')
     }).catch(() => {
-      alert('Ошибка при отправке приглашения')
+      addToast('Ошибка при отправке приглашения', 'error')
     })
-  }, [])
+  }, [addToast])
 
   return (
     <div className="dashboard squad-page page-enter">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import palmSky from '../assets/shop/palm-sky.png'
 import api from '../api'
+import { useToasts } from '../useToasts'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
@@ -85,6 +86,7 @@ export default function Shop() {
     { name: 'Награда за квест', amount: '+15.00', date: '8 мая 2026' },
   ])
   const [coins, setCoins] = useState('0')
+  const { toasts, addToast } = useToasts()
 
   const tabsRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Record<number, HTMLButtonElement | null>>({})
@@ -93,20 +95,20 @@ export default function Shop() {
   useEffect(() => {
     api.get('/api/v1/shop/items/').then(res => {
       if (res.data?.length) setProducts(res.data)
-    }).catch(() => {})
+    }).catch(() => addToast('Не удалось загрузить товары', 'error'))
 
     api.get('/api/v1/shop/purchases/').then(res => {
       if (res.data?.length) setPurchases(res.data)
-    }).catch(() => {})
+    }).catch(() => addToast('Не удалось загрузить покупки', 'error'))
 
     api.get('/api/v1/shop/history/').then(res => {
       if (res.data?.length) setHistory(res.data)
-    }).catch(() => {})
+    }).catch(() => addToast('Не удалось загрузить историю', 'error'))
 
     api.get('/api/v1/profile/me/').then(res => {
       setCoins(res.data.coins ?? '0')
-    }).catch(() => {})
-  }, [])
+    }).catch(() => addToast('Не удалось загрузить баланс', 'error'))
+  }, [addToast])
 
   useEffect(() => {
     const container = tabsRef.current
@@ -122,9 +124,10 @@ export default function Shop() {
   const handleBuy = useCallback(() => {
     if (showPurchase === null) return
     api.post('/api/v1/shop/buy/', { item_id: showPurchase })
-      .catch(() => {})
+      .then(() => addToast('Покупка оформлена!', 'success'))
+      .catch(() => addToast('Не удалось оформить покупку', 'error'))
       .finally(() => setShowPurchase(null))
-  }, [showPurchase])
+  }, [showPurchase, addToast])
 
   const handleApply = useCallback((purchaseId: number) => {
     api.post(`/api/v1/shop/apply/${purchaseId}/`)
@@ -132,9 +135,10 @@ export default function Shop() {
         setPurchases(prev => prev.map(p =>
           p.id === purchaseId ? { ...p, status: 'Применено' } : p
         ))
+        addToast('Покупка применена', 'success')
       })
-      .catch(() => {})
-  }, [])
+      .catch(() => addToast('Не удалось применить покупку', 'error'))
+  }, [addToast])
 
   return (
     <div className="dashboard shop-page page-enter">
@@ -272,6 +276,15 @@ export default function Shop() {
           ))}
         </div>
       </Modal>
+
+      <div className="toast-container toast-container--fixed-right">
+        {toasts.map(toast => (
+          <div key={toast.id} className={`toast toast--${toast.type}`}>
+            {toast.type === 'success' ? '✓ ' : '✕ '}
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

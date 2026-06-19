@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ithubLogo from '../assets/other/лого-26 1.svg'
 import api from '../api'
+import { clearAuthTokens } from '../auth'
 
 interface ProfileData {
   callsign: string
@@ -20,6 +21,9 @@ export default function Header() {
   }, [])
 
   useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
@@ -35,11 +39,7 @@ export default function Header() {
     }
   }, [menuOpen])
 
-  const handleEsc = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') setMenuOpen(false)
-  }
-
-  const username = profile?.callsign || localStorage.getItem('username') || 'имя пользователя'
+  const username = profile?.callsign || 'Агент'
   const coins = profile?.coins ?? 0
   const avatarUrl = profile?.avatar
   const initials = username.slice(0, 2).toUpperCase()
@@ -97,7 +97,7 @@ export default function Header() {
             <button
               type="button"
               role="menuitem"
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); localStorage.clear(); navigate('/login') }}
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); clearAuthTokens(); navigate('/login') }}
               className="header-user-menu__item"
             >
               <svg width="24" height="24" viewBox="0 0 32 32" fill="none">

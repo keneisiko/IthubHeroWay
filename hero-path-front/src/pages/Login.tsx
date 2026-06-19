@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import ithubLogo from '../assets/other/лого-26 1.svg'
 import api from '../api'
 
@@ -11,11 +11,13 @@ export default function Login() {
   const [shake, setShake] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const redirectTo = (location.state as { from?: string } | null)?.from || '/dashboard'
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
-    if (token) navigate('/dashboard')
-  }, [navigate])
+    if (token) navigate(redirectTo, { replace: true })
+  }, [navigate, redirectTo])
 
   const validate = () => {
     if (!username.trim()) return 'Введите логин'
@@ -40,7 +42,7 @@ export default function Login() {
       const res = await api.post('/api/token/', { username, password })
       localStorage.setItem('access_token', res.data.access)
       localStorage.setItem('refresh_token', res.data.refresh)
-      navigate('/dashboard')
+      navigate(redirectTo, { replace: true })
     } catch (err: any) {
       const msg = err.response?.status === 401 
         ? 'Неверный логин или пароль' 
