@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.accounts.models import Role
-from apps.integrations.services.lxp_graphql_client import LXPGraphQLClient, LXPRequestError
+from apps.integrations.services.lxp_graphql_client import LXPAuthError, LXPGraphQLClient, LXPRequestError
+from apps.integrations.services.telegram_alert import send_alert_to_admin
 
 
 SEARCH_STUDENTS_QUERY = """
@@ -71,7 +72,17 @@ class Command(BaseCommand):
             raise CommandError("--email-domain must not be empty")
 
         client = LXPGraphQLClient()
-        token = client.get_token()
+        try:
+            token = client.get_token()
+        except LXPAuthError as e:
+            send_alert_to_admin(
+                title="Ошибка импорта студентов LXP",
+                message=f"Не удалось получить токен:\n{e}",
+                error_type="lxp",
+                deduplicate_key="import_lxp_no_token",
+                is_critical=False,
+            )
+            raise CommandError(f"LXP auth: {e}") from e
         User = get_user_model()
 
         page = 1
@@ -93,6 +104,13 @@ class Command(BaseCommand):
                     timeout=40,
                 )
             except LXPRequestError as e:
+                send_alert_to_admin(
+                    title="Ошибка импорта студентов LXP",
+                    message=f"LXP request failed on page {page}: {e}",
+                    error_type="lxp",
+                    deduplicate_key=f"import_lxp_page_{page}",
+                    is_critical=False,
+                )
                 raise CommandError(f"LXP request failed on page {page}: {e}") from e
 
             if response.errors:

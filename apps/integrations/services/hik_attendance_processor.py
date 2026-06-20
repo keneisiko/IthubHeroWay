@@ -154,6 +154,7 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
     seen = 0
     ext_created = 0
     skipped_no_user = 0
+    process_errors = 0
 
     code_to_user: dict[str, User] = {}
     qs = User.objects.filter(
@@ -209,5 +210,17 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
                     _apply_late_penalty_if_needed(user, event_id=he.event_id, late_minutes=int(late_minutes))
                 HikEvent.objects.filter(pk=he.pk).update(processed=True)
         except Exception:
+            process_errors += 1
             logger.exception("HikEvent process failed id=%s", he.pk)
+
+    if process_errors > 0:
+        from apps.integrations.services.telegram_alert import send_alert_to_admin
+
+        send_alert_to_admin(
+            title="Ошибки обработки событий Hik-Connect",
+            message=f"Не удалось обработать {process_errors} из {seen} событий (см. логи приложения).",
+            error_type="hik",
+            deduplicate_key="hik_process_errors",
+            is_critical=False,
+        )
     return seen, ext_created, skipped_no_user

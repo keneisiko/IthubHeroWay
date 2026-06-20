@@ -223,7 +223,22 @@ class LXPGraphQLClient:
         token = cache.get(self.TOKEN_CACHE_KEY)
         if token:
             return str(token)
-        return self.login()
+        try:
+            return self.login()
+        except LXPAuthError as e:
+            from apps.integrations.services.telegram_alert import send_alert_to_admin
+
+            send_alert_to_admin(
+                title="Ошибка обновления токена LXP",
+                message=(
+                    f"Не удалось получить токен LXP:\n{e}\n\n"
+                    f"Email: {self.bot_email}\nEndpoint: {self.endpoint}"
+                ),
+                error_type="auth",
+                deduplicate_key="lxp_auth",
+                is_critical=True,
+            )
+            raise
 
     def _cached_query(
         self,

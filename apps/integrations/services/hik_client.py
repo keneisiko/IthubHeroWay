@@ -21,11 +21,23 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
+from apps.integrations.services.telegram_alert import send_alert_to_admin
+
 logger = logging.getLogger(__name__)
 
 
 class HikClientError(RuntimeError):
     pass
+
+
+def _alert_hik_failure(*, title: str, message: str, deduplicate_key: str) -> None:
+    send_alert_to_admin(
+        title=title,
+        message=message,
+        error_type="hik",
+        deduplicate_key=deduplicate_key,
+        is_critical=False,
+    )
 
 
 def _combine_host_port(host_raw: str, port: int) -> str:
@@ -183,14 +195,44 @@ class HikCentralClient:
                     delay = min(delay * 2, 30)
                     continue
                 if resp.status_code >= 400:
-                    raise HikClientError(f"HTTP {resp.status_code}: {resp.text[:500]}")
+                    err = HikClientError(f"HTTP {resp.status_code}: {resp.text[:500]}")
+                    if attempt + 1 >= self.max_retries:
+                        _alert_hik_failure(
+                            title="Ошибка Hik-Connect API",
+                            message=f"HTTP {resp.status_code}\nURL: {joined}\n{resp.text[:400]}",
+                            deduplicate_key=f"hik_http_{resp.status_code}",
+                        )
+                    raise err
                 return resp.json() if resp.text else {}
-            except requests.RequestException as e:
+            except requests.Timeout as e:
                 last_exc = e
+                if attempt + 1 >= self.max_retries:
+                    _alert_hik_failure(
+                        title="Таймаут Hik-Connect API",
+                        message=f"Превышено время ожидания:\nURL: {joined}\nМетод: {method.upper()}",
+                        deduplicate_key="hik_timeout",
+                    )
                 if attempt + 1 < self.max_retries:
                     time.sleep(delay)
                     delay = min(delay * 2, 30)
                     continue
+            except requests.RequestException as e:
+                last_exc = e
+                if attempt + 1 >= self.max_retries:
+                    _alert_hik_failure(
+                        title="Ошибка подключения к Hik-Connect",
+                        message=f"Не удалось подключиться:\nURL: {joined}\n{e}",
+                        deduplicate_key="hik_connection_error",
+                    )
+                if attempt + 1 < self.max_retries:
+                    time.sleep(delay)
+                    delay = min(delay * 2, 30)
+                    continue
+        _alert_hik_failure(
+            title="Ошибка Hik-Connect API",
+            message=str(last_exc) if last_exc else "HIK request failed",
+            deduplicate_key="hik_request_failed",
+        )
         raise HikClientError(str(last_exc) if last_exc else "HIK request failed")
 
     def _extract_event_rows(self, page_data: dict) -> list[dict]:

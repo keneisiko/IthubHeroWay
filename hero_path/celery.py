@@ -10,6 +10,8 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 app.autodiscover_tasks()
 
+import apps.integrations.celery_signals  # noqa: E402, F401 — task_failure alerts
+
 
 @app.task
 def ping() -> str:

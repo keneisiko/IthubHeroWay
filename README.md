@@ -31,16 +31,29 @@ Backend for gamification platform "Path of Hero" built with Django + DRF.
 
 Ключевые группы: PostgreSQL, Redis, Telegram, LXP (GraphQL и опционально браузерный токен), HikCentral (`HIK_*`), YouGile, Sentry.
 
+## Telegram-алерты об ошибках
+
+Централизованный сервис: [`apps/integrations/services/telegram_alert.py`](apps/integrations/services/telegram_alert.py).
+
+- **Переменные:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID`, `TELEGRAM_ALERTS_ENABLED=1`, `TELEGRAM_ALERT_DEDUP_TTL=3600`, `ENVIRONMENT_NAME=production`
+- **Что шлётся:** падения Celery (`task_failure`), ошибки LXP auth, Hik API, Django 500 (middleware), рейтинг (`IntegrityError`), health-monitor каждые 30 мин
+- **Дедупликация:** одинаковые некритичные алерты — не чаще 1 раза в час; critical — всегда
+- **Тест:**
+
+```bash
+docker compose exec web python manage.py test_alert
+```
+
 ## LXP: операции (Celery, алерты, рейтинг)
 
 - **Расписание** (`CELERY_BEAT_SCHEDULE`, часовой пояс проекта — `TIME_ZONE`): задача `refresh-lxp-token` в **01:45**, снимок `fetch-lxp-snapshot` в **02:00**. Перед сбором снимка токен дополнительно обновляется синхронно внутри задачи.
 - **Связь с LXP**: у пользователя поле `lxp_user_id` (проставляется при `import_lxp_students` или `backfill_lxp_user_ids`).
 - **Рейтинг из снимка**: после сохранения `LXPSnapshot` вызывается `recalculate_rating_for_date` (маппинг и коэффициенты — [docs/RATING_FROM_LXP.md](docs/RATING_FROM_LXP.md)).
 - **Каталог запросов GraphQL**: [docs/LXP_GRAPHQL_CATALOG.md](docs/LXP_GRAPHQL_CATALOG.md).
-- **Проверка Telegram-алерта админу** (должно вернуть `(True, 'ok')` при корректных `TELEGRAM_*`):
+- **Проверка Telegram-алерта админу:**
 
 ```bash
-docker compose exec web python manage.py shell -c "from apps.integrations.services.telegram_notify import send_admin_alert; print(send_admin_alert('[LXP][TEST] ping'))"
+docker compose exec web python manage.py test_alert
 ```
 
 **Backfill `lxp_user_id`** для уже импортированных пользователей:

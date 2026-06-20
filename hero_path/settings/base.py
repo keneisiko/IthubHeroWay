@@ -61,6 +61,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "hero_path.middleware.TelegramErrorMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_prometheus.middleware.PrometheusAfterMiddleware",
@@ -209,6 +210,9 @@ PROFILE_CACHE_TTL = 60       # 1 minute
 # Integrations
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
+ENVIRONMENT_NAME = os.getenv("ENVIRONMENT_NAME", "development")
+TELEGRAM_ALERTS_ENABLED = os.getenv("TELEGRAM_ALERTS_ENABLED", "1").lower() in {"1", "true", "yes"}
+TELEGRAM_ALERT_DEDUP_TTL = _env_int("TELEGRAM_ALERT_DEDUP_TTL", 3600)
 LXP_VERIFY_URL = os.getenv("LXP_VERIFY_URL", "")
 YOUGILE_API_URL = os.getenv("YOUGILE_API_URL", "")
 YOUGILE_API_TOKEN = os.getenv("YOUGILE_API_TOKEN", "")
@@ -354,6 +358,10 @@ CELERY_BEAT_SCHEDULE = {
     "process-late-events-hourly": {
         "task": "apps.integrations.tasks.process_late_events",
         "schedule": crontab(minute=30),
+    },
+    "monitor-health-and-alert": {
+        "task": "apps.progress.tasks.monitor_health_and_alert",
+        "schedule": crontab(minute="*/30"),
     },
 }
 
