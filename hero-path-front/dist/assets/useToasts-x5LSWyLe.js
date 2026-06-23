@@ -1,0 +1,1 @@
+import{a as e,n as t}from"./jsx-runtime-m7G7yzlP.js";var n=e(t(),1);function r(){let[e,t]=(0,n.useState)([]);return{toasts:e,addToast:(0,n.useCallback)((e,n=`success`)=>{let r=Date.now();t(t=>[...t,{id:r,message:e,type:n}]),setTimeout(()=>{t(e=>e.filter(e=>e.id!==r))},3e3)},[])}}export{r as t};
