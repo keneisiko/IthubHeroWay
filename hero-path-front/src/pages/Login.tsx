@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import ithubLogo from '../assets/other/лого-26 1.svg'
 import api from '../api'
+import { clearAuthTokens, extractLoginError } from '../auth'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -16,7 +17,11 @@ export default function Login() {
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
-    if (token) navigate(redirectTo, { replace: true })
+    if (!token) return
+
+    api.get('/api/v1/profile/me/')
+      .then(() => navigate(redirectTo, { replace: true }))
+      .catch(() => clearAuthTokens())
   }, [navigate, redirectTo])
 
   const validate = () => {
@@ -39,15 +44,12 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      const res = await api.post('/api/token/', { username, password })
+      const res = await api.post('/api/v1/auth/login/', { login: username.trim(), password })
       localStorage.setItem('access_token', res.data.access)
       localStorage.setItem('refresh_token', res.data.refresh)
       navigate(redirectTo, { replace: true })
-    } catch (err: any) {
-      const msg = err.response?.status === 401 
-        ? 'Неверный логин или пароль' 
-        : 'Ошибка соединения. Попробуйте позже'
-      setError(msg)
+    } catch (err: unknown) {
+      setError(extractLoginError(err))
       setShake(true)
       setTimeout(() => setShake(false), 500)
     } finally {

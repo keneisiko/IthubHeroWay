@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { useCountUp } from '../useCountUp'
 import { Radar } from 'react-chartjs-2'
 import {
@@ -12,6 +13,7 @@ import {
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useToasts } from '../useToasts'
+import { RARITY_LABELS, unwrapList } from '../lib/apiData'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -52,31 +54,45 @@ const VALUE_POSITIONS = [
   { outer: 'profile-radar__value--outer-bottom-right', inner: 'profile-radar__value--inner-bottom-right' },
 ]
 
-const ACHIEVEMENTS = [
-  { name: 'Первый рывок', rarity: 'Обычный', cls: 'ach__rarity--common' },
-  { name: 'Чистая серия', rarity: 'Редкий', cls: 'ach__rarity--rare' },
-  { name: 'Командный импульс', rarity: 'Эпический', cls: 'ach__rarity--epic' },
-]
-
-const PATH_CARDS = [
-  { name: 'Старт пути', rarity: 'Обычный', iconCls: 'path-card__icon--common', chipCls: 'path-card__chip--common' },
-  { name: 'Ритм недели', rarity: 'Редкий', iconCls: 'path-card__icon--rare', chipCls: 'path-card__chip--rare' },
-  { name: 'Фокус', rarity: 'Эпический', iconCls: 'path-card__icon--epic', chipCls: 'path-card__chip--epic' },
-  { name: 'Лидер отряда', rarity: 'Легендарный', iconCls: 'path-card__icon--legendary', chipCls: 'path-card__chip--legendary' },
-]
+const BADGE_TAB_CATEGORIES: Record<string, string | null> = {
+  'Путь': null,
+  'Ритм': 'progress',
+  'Мастерство': 'academic',
+  'Сообщество': 'social',
+  'Вклад': 'progress',
+  'Статус': 'special',
+  'Особые': 'special',
+}
 
 interface ProfileData {
+  username: string
   callsign: string
-  full_name: string
+  avatar?: string | null
   track: string
   squad: string
   level: number
-  status: string
-  quests_completed: number
-  badges_count: number
-  duel_wins: number
-  skills: Record<string, { current: number; peak: number; history: number[] }>
-  map_progress?: { stage: string; completed: boolean; current: boolean }[]
+  rating_current: number | null
+  coins_balance?: number
+}
+
+interface UserBadge {
+  id: number
+  is_pinned?: boolean
+  badge: {
+    code: string
+    title: string
+    rarity: string
+    category: string
+  }
+  acquired_at: string
+}
+
+interface CharacteristicItem {
+  pillar: string
+  label: string
+  current: number
+  peak: number
+  history: number[]
 }
 
 function useModal(initial = false) {
@@ -103,6 +119,8 @@ function useModal(initial = false) {
 }
 
 export default function Profile() {
+  const { username: routeUsername } = useParams<{ username?: string }>()
+  const isOwnProfile = !routeUsername
   const tabs = useMemo(() => ['Путь', 'Ритм', 'Мастерство', 'Сообщество', 'Вклад', 'Статус', 'Особые'], [])
   const [activeTab, setActiveTab] = useState('Путь')
   const [activeAxis, setActiveAxis] = useState<string | null>(null)
@@ -111,13 +129,19 @@ export default function Profile() {
   const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 65 })
   const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [characteristics, setCharacteristics] = useState<CharacteristicItem[]>([])
+  const [badges, setBadges] = useState<UserBadge[]>([])
+  const [questsCompleted, setQuestsCompleted] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const [editForm, setEditForm] = useState({ callsign: '', full_name: '', track: '' })
+  const [notFound, setNotFound] = useState(false)
+  const [myRating, setMyRating] = useState<number | null>(null)
+  const [socialBusy, setSocialBusy] = useState(false)
+  const [editForm, setEditForm] = useState({ callsign: '' })
   const editModal = useModal()
   const avatarModal = useModal()
   const mentorModal = useModal()
-  const [menteeInfo, setMenteeInfo] = useState<string | null>(null)
+  const [menteeUsername, setMenteeUsername] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const { toasts, addToast } = useToasts()
@@ -125,27 +149,70 @@ export default function Profile() {
   const loadProfile = useCallback(() => {
     setLoading(true)
     setLoadError(false)
-    api.get('/api/v1/profile/me/')
-      .then(res => {
-        setProfile(res.data)
-        setEditForm({
-          callsign: res.data.callsign || '',
-          full_name: res.data.full_name || '',
-          track: res.data.track || '',
+    setNotFound(false)
+    const profileUrl = isOwnProfile
+      ? '/api/v1/profile/me/'
+      : `/api/v1/profile/${encodeURIComponent(routeUsername!)}/`
+
+    const requests: Promise<unknown>[] = [
+      api.get(profileUrl).then((res) => {
+        const data = res.data as ProfileData
+        setProfile(data)
+        setEditForm({ callsign: data.callsign || '' })
+        if (!isOwnProfile) {
+          setBadges([])
+          setQuestsCompleted(0)
+          setCharacteristics([])
+          return
+        }
+        return Promise.all([
+          api.get('/api/v1/badges/my/'),
+          api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
+          api.get('/api/v1/profile/me/characteristics/'),
+        ]).then(([badgesRes, questsRes, charsRes]) => {
+          const badgeRows = unwrapList<UserBadge>(badgesRes.data)
+          badgeRows.sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned))
+          setBadges(badgeRows)
+          setQuestsCompleted(unwrapList(questsRes.data).length)
+          setCharacteristics(unwrapList<CharacteristicItem>(charsRes.data))
         })
-      })
-      .catch(() => {
+      }),
+    ]
+
+    if (!isOwnProfile) {
+      requests.push(
+        api.get('/api/v1/rating/me/').then((res) => {
+          setMyRating(res.data?.rating_current ?? null)
+        }),
+      )
+    } else {
+      setMyRating(null)
+    }
+
+    return Promise.all(requests)
+      .catch((err) => {
         setProfile(null)
-        setLoadError(true)
+        if (err?.response?.status === 404) {
+          setNotFound(true)
+        } else {
+          setLoadError(true)
+        }
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [isOwnProfile, routeUsername])
 
   useEffect(() => {
     loadProfile()
   }, [loadProfile])
 
-  const getSkill = (key: string) => profile?.skills?.[key] ?? { current: 0, peak: 0, history: [0, 0, 0, 0, 0, 0] }
+  const getSkill = useCallback((key: string) => {
+    const item = characteristics.find(c => c.label === key)
+    return {
+      current: item?.current ?? 0,
+      peak: item?.peak ?? 0,
+      history: item?.history ?? [0, 0, 0, 0, 0, 0],
+    }
+  }, [characteristics])
 
   const radarData = {
     labels: [...AXIS_KEYS],
@@ -195,9 +262,8 @@ export default function Profile() {
   const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? '??'
 
   // Анимация чисел в статистике
-  const animQuests = useCountUp(profile?.quests_completed ?? 0, 1100, 200)
-  const animBadges = useCountUp(profile?.badges_count ?? 0, 1100, 350)
-  const animDuels  = useCountUp(profile?.duel_wins ?? 0, 1100, 500)
+  const animQuests = useCountUp(questsCompleted, 1100, 200)
+  const animBadges = useCountUp(badges.length, 1100, 350)
 
   const historyPoints = useMemo(() => {
     const max = 20
@@ -211,9 +277,9 @@ export default function Profile() {
   const polylinePoints = historyPoints.map(p => `${p.x},${p.y}`).join(' ')
 
   const handleSaveProfile = () => {
-    api.patch('/api/v1/profile/me/', editForm)
-      .then(() => {
-        setProfile(prev => prev ? { ...prev, ...editForm } : null)
+    api.patch('/api/v1/profile/me/', { callsign: editForm.callsign.trim() })
+      .then((res) => {
+        setProfile((prev) => prev ? { ...prev, callsign: res.data.callsign } : null)
         editModal.hide()
         addToast('Профиль сохранён!', 'success')
       })
@@ -238,15 +304,62 @@ export default function Profile() {
       .finally(() => setAvatarUploading(false))
   }
 
-  const mapProgress = profile?.map_progress ?? [
-    { stage: 'Вход', completed: true, current: false },
-    { stage: 'Первая победа', completed: true, current: false },
-    { stage: 'Первый провал', completed: true, current: true },
-    { stage: 'Первая миссия', completed: false, current: false },
-    { stage: 'Продукт', completed: false, current: false },
-    { stage: 'Стажировка', completed: false, current: false },
-    { stage: 'Выпуск', completed: false, current: false },
-  ]
+  const rarityClass = (rarity: string) => {
+    if (rarity === 'legendary') return 'ach__rarity--epic'
+    if (rarity === 'epic') return 'ach__rarity--epic'
+    if (rarity === 'rare') return 'ach__rarity--rare'
+    return 'ach__rarity--common'
+  }
+
+  const showRating = isOwnProfile || profile?.rating_current != null
+  const showCharacteristics = isOwnProfile
+  const pinnedBadges = useMemo(
+    () => badges.filter((b) => b.is_pinned).slice(0, 3),
+    [badges],
+  )
+  const filteredBadges = useMemo(() => {
+    const category = BADGE_TAB_CATEGORIES[activeTab]
+    if (!category) return badges
+    return badges.filter((b) => b.badge.category === category)
+  }, [badges, activeTab])
+
+  const handlePinBadge = (code: string) => {
+    api.post(`/api/v1/badges/${encodeURIComponent(code)}/pin/`)
+      .then(() => {
+        addToast('Нашивка закреплена!', 'success')
+        loadProfile()
+      })
+      .catch(() => addToast('Не удалось закрепить нашивку', 'error'))
+  }
+
+  const handleRespect = () => {
+    if (!profile?.username) return
+    setSocialBusy(true)
+    api.post('/api/v1/social/respects/', { to_username: profile.username })
+      .then(() => addToast('Респект отправлен!', 'success'))
+      .catch((err) => {
+        const detail = err.response?.data?.detail
+        addToast(typeof detail === 'string' ? detail : 'Не удалось отправить респект', 'error')
+      })
+      .finally(() => setSocialBusy(false))
+  }
+
+  const handleDuel = () => {
+    if (!profile?.username) return
+    setSocialBusy(true)
+    api.post('/api/v1/social/duels/', { opponent_username: profile.username })
+      .then(() => addToast('Вызов на дуэль отправлен!', 'success'))
+      .catch((err) => {
+        const detail = err.response?.data?.detail
+        addToast(typeof detail === 'string' ? detail : 'Не удалось вызвать на дуэль', 'error')
+      })
+      .finally(() => setSocialBusy(false))
+  }
+
+  const canDuel = !isOwnProfile
+    && profile?.rating_current != null
+    && myRating != null
+    && Math.abs(myRating - (profile.rating_current ?? 0)) <= 150
 
   if (loading) {
     return (
@@ -258,6 +371,16 @@ export default function Profile() {
             <span className="loading-spinner-dot" />
           </div>
           <p className="loading-text">Загрузка профиля...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (notFound) {
+    return (
+      <div className="profile page-enter">
+        <div className="profile-loading">
+          <p className="loading-text">Профиль не найден</p>
         </div>
       </div>
     )
@@ -281,77 +404,54 @@ export default function Profile() {
                 className="profile-card__avatar" 
                 role="img" 
                 aria-label="Аватар"
-                onClick={avatarModal.show}
-                style={{ cursor: 'pointer' }}
-                title="Сменить аватар"
+                onClick={isOwnProfile ? avatarModal.show : undefined}
+                style={{ cursor: isOwnProfile ? 'pointer' : 'default' }}
+                title={isOwnProfile ? 'Сменить аватар' : undefined}
               >
-                {initials}
+                {profile.avatar ? (
+                  <img
+                    src={profile.avatar}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div className="profile-card__names">
-                <div className="profile-card__nickname">{profile?.callsign ?? 'Никнейм'}</div>
-                <div className="profile-card__fio">{profile?.full_name ?? 'ФИО'}</div>
+                <div className="profile-card__nickname">{profile?.callsign ?? '—'}</div>
+                <div className="profile-card__fio">@{profile?.username ?? '—'}</div>
               </div>
             </div>
             <div className="profile-card__rows">
               <div className="profile-row">
                 <span className="profile-row__label">Трек:</span>
-                <span className="profile-row__chip profile-row__chip--dark">{profile?.track ?? 'Код - программирование'}</span>
+                <span className="profile-row__chip profile-row__chip--dark">{profile?.track || '—'}</span>
               </div>
               <div className="profile-row">
                 <span className="profile-row__label">Отряд:</span>
-                <span className="profile-row__chip profile-row__chip--light">{profile?.squad ?? 'Учебная группа'}</span>
+                <span className="profile-row__chip profile-row__chip--light">{profile?.squad || '—'}</span>
               </div>
               <div className="profile-row">
-                <span className="profile-row__label">Статус:</span>
-                <span className="profile-row__chip profile-row__chip--dark">{profile?.status ?? 'Стажёр'} ур. {profile?.level ?? 3}</span>
+                <span className="profile-row__label">Рейтинг:</span>
+                <span className="profile-row__chip profile-row__chip--dark">
+                  {showRating ? (profile?.rating_current ?? '—') : 'Скрыт'}
+                </span>
+              </div>
+              <div className="profile-row">
+                <span className="profile-row__label">Уровень:</span>
+                <span className="profile-row__chip profile-row__chip--dark">{profile?.level ?? 1}</span>
               </div>
             </div>
           </section>
 
           <section className="profile-card profile-card--map card-entrance" style={{ animationDelay: '0.1s' }}>
-            <h3 className="profile-map__title">Карта пути:</h3>
-            <div className="profile-map__body">
-              <div className="profile-map__row">
-                {mapProgress.slice(0, 4).map((stage, i) => (
-                  <span key={`top-${i}`} style={{ display: 'contents' }}>
-                    {i > 0 && (
-                      <span className={`profile-map__line ${stage.completed ? 'profile-map__line--done' : 'profile-map__line--idle'}`} />
-                    )}
-                    <button
-                      className={`profile-map__node ${stage.completed ? 'profile-map__node--done' : ''} ${stage.current ? 'profile-map__node--current' : ''} ${!stage.completed && !stage.current ? 'profile-map__node--idle profile-map__node--shadow' : ''}`}
-                      type="button"
-                      aria-label={stage.stage}
-                      title={stage.stage}
-                    />
-                  </span>
-                ))}
-              </div>
-              <div className="profile-map__labels profile-map__labels--top">
-                {mapProgress.slice(0, 4).map(s => <span key={s.stage}>{s.stage}</span>)}
-              </div>
-              <div className="profile-map__row profile-map__row--bottom">
-                <span className="profile-map__line profile-map__line--idle profile-map__line--first" />
-                {mapProgress.slice(4).map((stage, i) => (
-                  <span key={`bot-${i}`} style={{ display: 'contents' }}>
-                    <button
-                      className={`profile-map__node ${stage.completed ? 'profile-map__node--done' : 'profile-map__node--idle'} profile-map__node--shadow`}
-                      type="button"
-                      aria-label={stage.stage}
-                      title={stage.stage}
-                    />
-                    {i < mapProgress.slice(4).length - 1 && (
-                      <span className="profile-map__line profile-map__line--idle" />
-                    )}
-                  </span>
-                ))}
-              </div>
-              <div className="profile-map__labels profile-map__labels--bottom">
-                {mapProgress.slice(4).map(s => <span key={s.stage}>{s.stage}</span>)}
-              </div>
-            </div>
+            <h3 className="profile-map__title">Карта пути</h3>
+            <p className="loading-text" style={{ margin: 0 }}>Раздел в разработке — данные появятся в следующих версиях.</p>
           </section>
         </div>
 
+        {isOwnProfile && (
         <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
           <button className="profile-aside__btn btn-press" onClick={editModal.show}>Настроить профиль</button>
           <div className="profile-aside__divider" />
@@ -359,18 +459,35 @@ export default function Profile() {
           <div className="profile-aside__stats">
             <span className="profile-aside__pill">Выполнено квестов: <strong>{animQuests}</strong></span>
             <span className="profile-aside__pill">Получено нашивок: <strong>{animBadges}</strong></span>
-            <span className="profile-aside__pill">Побед в дуэлях: <strong>{animDuels}</strong></span>
+            <span className="profile-aside__pill">Монет: <strong>{profile?.coins_balance ?? 0}</strong></span>
           </div>
-          <h3 className="profile-aside__title profile-aside__title--sp">Шефство:</h3>
-          <button className="profile-aside__mentee btn-press" onClick={() => {
-            if (!menteeInfo) {
-              api.get('/api/v1/mentorship/mentee/').then(res => setMenteeInfo(res.data?.username ?? '@подшефный')).catch(() => setMenteeInfo('@подшефный'))
-            }
-          }}>
-            {menteeInfo ?? '@подшефный'}
-          </button>
+          <h3 className="profile-aside__title profile-aside__title--sp">Наставничество:</h3>
           <button className="profile-aside__mentor-btn btn-press" onClick={mentorModal.show}>Стать наставником</button>
         </section>
+        )}
+
+        {!isOwnProfile && (
+        <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
+          <h3 className="profile-aside__title">Социальные действия:</h3>
+          <button
+            className="profile-aside__btn btn-press"
+            type="button"
+            onClick={handleRespect}
+            disabled={socialBusy}
+          >
+            Отправить респект
+          </button>
+          <button
+            className="profile-aside__mentor-btn btn-press"
+            type="button"
+            onClick={handleDuel}
+            disabled={socialBusy || !canDuel}
+            title={canDuel ? undefined : 'Дуэль доступна при разнице рейтинга ≤ 150'}
+          >
+            Вызвать на дуэль
+          </button>
+        </section>
+        )}
       </div>
 
       <section className="profile-radar card-entrance" style={{ animationDelay: '0.3s' }}>
@@ -392,7 +509,7 @@ export default function Profile() {
             >
               <span className="profile-radar__axis-icon" aria-hidden="true" />
               <span>{key}</span>
-              {(isHovered || isActive) && (
+              {(isHovered || isActive) && showCharacteristics && (
                 <span className="profile-radar__tooltip">
                   {key}: {skill.current} / 20 (пик: {skill.peak})
                 </span>
@@ -401,16 +518,17 @@ export default function Profile() {
           )
         })}
 
-        {VALUE_POSITIONS.map((pos, i) => {
+        {showCharacteristics && VALUE_POSITIONS.map((pos, i) => {
           const skill = getSkill(AXES[i].key)
           return <span key={`outer-${i}`} className={`profile-radar__value ${pos.outer}`}>{skill.current}</span>
         })}
 
-        {VALUE_POSITIONS.map((pos, i) => {
+        {showCharacteristics && VALUE_POSITIONS.map((pos, i) => {
           const skill = getSkill(AXES[i].key)
           return <span key={`inner-${i}`} className={`profile-radar__value ${pos.inner} profile-radar__value--inner`}>{skill.peak}</span>
         })}
 
+        {showCharacteristics && (
         <section className={`profile-history${activeAxis ? ' profile-history--visible' : ''}`} aria-hidden={!activeAxis}>
           <span className="profile-history__title">История: {selectedAxis}</span>
           <div className="profile-history__chart">
@@ -437,16 +555,22 @@ export default function Profile() {
             <span className="profile-history__x-label">Недели</span>
           </div>
         </section>
+        )}
       </section>
 
+      {isOwnProfile && (
       <section className="profile-path profile-card card-entrance" style={{ animationDelay: '0.4s' }}>
-        <h3 className="profile-achievements__title">Достижения:</h3>
+        <h3 className="profile-achievements__title">Нашивки:</h3>
         <div className="profile-achievements__row">
-          {ACHIEVEMENTS.map((item) => (
-            <button key={item.name} className="ach btn-press" type="button">
+          {pinnedBadges.length === 0 ? (
+            <p className="loading-text">Пока нет закреплённых нашивок</p>
+          ) : pinnedBadges.map((item) => (
+            <button key={item.id} className="ach btn-press" type="button">
               <span className="ach__icon" aria-hidden="true"><span className="ach__glyph" /></span>
-              <span className="ach__name">{item.name}</span>
-              <span className={`ach__rarity ${item.cls}`}>{item.rarity}</span>
+              <span className="ach__name">{item.badge.title}</span>
+              <span className={`ach__rarity ${rarityClass(item.badge.rarity)}`}>
+                {RARITY_LABELS[item.badge.rarity] ?? item.badge.rarity}
+              </span>
             </button>
           ))}
         </div>
@@ -469,21 +593,33 @@ export default function Profile() {
         </div>
 
         <div className="profile-path__grid">
-          {PATH_CARDS.map((card) => (
-            <button key={card.name} className="path-card btn-press" type="button">
-              <span className={`path-card__icon ${card.iconCls}`} aria-hidden="true"><span className="path-card__glyph" /></span>
-              <span className="path-card__name">{card.name}</span>
-              <span className={`path-card__chip ${card.chipCls}`}>{card.rarity}</span>
+          {filteredBadges.map((card) => (
+            <button key={card.id} className="path-card btn-press" type="button">
+              <span className="path-card__icon path-card__icon--common" aria-hidden="true"><span className="path-card__glyph" /></span>
+              <span className="path-card__name">{card.badge.title}</span>
+              <span className="path-card__chip path-card__chip--common">
+                {RARITY_LABELS[card.badge.rarity] ?? card.badge.rarity}
+              </span>
+              {!card.is_pinned && (
+                <span
+                  className="path-card__chip path-card__chip--common"
+                  style={{ marginTop: 4, cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handlePinBadge(card.badge.code)
+                  }}
+                >
+                  Закрепить
+                </span>
+              )}
             </button>
           ))}
-          {Array.from({ length: 8 }).map((_, i) => (
-            <button key={`locked-${i}`} className="path-card path-card--locked" type="button" disabled>
-              <span className="path-card__icon path-card__icon--locked" aria-hidden="true"><span className="path-card__glyph path-card__glyph--locked" /></span>
-              <span className="path-card__locked">Условие не выполнено</span>
-            </button>
-          ))}
+          {filteredBadges.length === 0 && (
+            <p className="loading-text" style={{ gridColumn: '1 / -1' }}>Нет нашивок</p>
+          )}
         </div>
       </section>
+      )}
 
       {/* Модалка настройки профиля */}
       {editModal.open && (
@@ -495,20 +631,6 @@ export default function Profile() {
               type="text"
               value={editForm.callsign}
               onChange={(e) => setEditForm(prev => ({ ...prev, callsign: e.target.value }))}
-              className="popup__input"
-            />
-            <label className="popup__label">ФИО</label>
-            <input
-              type="text"
-              value={editForm.full_name}
-              onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
-              className="popup__input"
-            />
-            <label className="popup__label">Трек</label>
-            <input
-              type="text"
-              value={editForm.track}
-              onChange={(e) => setEditForm(prev => ({ ...prev, track: e.target.value }))}
               className="popup__input"
             />
             <div className="shop-modal__buttons">
@@ -528,15 +650,27 @@ export default function Profile() {
         <div className="modal-fixed">
           <div className="modal-fixed__content" ref={mentorModal.ref}>
             <h3 className="popup__title">Стать наставником</h3>
-            <p className="popup__label">Вы хотите стать наставником для подшефного?</p>
+            <label className="popup__label">Username подшефного</label>
+            <input
+              type="text"
+              value={menteeUsername}
+              onChange={(e) => setMenteeUsername(e.target.value)}
+              placeholder="username агента"
+              className="popup__input"
+            />
             <div className="shop-modal__buttons">
               <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={mentorModal.hide}>
                 Отмена
               </button>
               <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => {
-                api.post('/api/v1/mentorship/become-mentor/')
-                  .then(() => { addToast('Вы стали наставником!', 'success'); mentorModal.hide() })
-                  .catch(() => { addToast('Не удалось стать наставником. Попробуйте позже.', 'error'); mentorModal.hide() })
+                const username = menteeUsername.trim()
+                if (!username) {
+                  addToast('Укажите username подшефного', 'error')
+                  return
+                }
+                api.post('/api/v1/social/mentorships/', { mentee_username: username })
+                  .then(() => { addToast('Наставничество оформлено!', 'success'); mentorModal.hide(); setMenteeUsername('') })
+                  .catch(() => { addToast('Не удалось оформить наставничество', 'error') })
               }}>
                 Подтвердить
               </button>

@@ -1,8 +1,9 @@
 import axios from 'axios'
-import { clearAuthTokens } from './auth'
+import toast from 'react-hot-toast'
+import { clearAuthTokens, isAuthApiPath } from './auth'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -31,13 +32,21 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+    const requestUrl = String(originalRequest?.url || '')
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthApiPath(requestUrl)
+    ) {
       const refreshToken = localStorage.getItem('refresh_token')
 
       if (!refreshToken) {
         clearAuthTokens()
-        window.location.href = '/login'
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
         return Promise.reject(error)
       }
 
@@ -54,10 +63,7 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        const res = await axios.post(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/token/refresh/`,
-          { refresh: refreshToken }
-        )
+        const res = await api.post('/api/v1/auth/jwt/refresh/', { refresh: refreshToken })
         const newAccess = res.data.access
         localStorage.setItem('access_token', newAccess)
         api.defaults.headers.common['Authorization'] = `Bearer ${newAccess}`
@@ -67,11 +73,20 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null)
         clearAuthTokens()
-        window.location.href = '/login'
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
       }
+    }
+
+    const status = error.response?.status
+    if (status === 403) {
+      toast.error('Недостаточно прав')
+    } else if (status === 500 || status === 502 || status === 503) {
+      toast.error('Сервер временно недоступен')
     }
 
     return Promise.reject(error)

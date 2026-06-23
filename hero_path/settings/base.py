@@ -162,6 +162,7 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS: list[str] = [
     "http://localhost:3000",
+    "http://localhost:5173",
 ]
 
 JAZZMIN_SETTINGS = {
@@ -260,6 +261,17 @@ HIK_FETCH_ENABLED = (
     and os.getenv("HIK_FETCH_ENABLED", "1").lower() in {"1", "true", "yes"}
 )
 
+# api — live HikCentral OpenAPI; snapshot — ручной импорт (pull_hik_attendance); off — без Hik
+_hik_mode_raw = os.getenv("HIK_DATA_MODE", "").strip().lower()
+if _hik_mode_raw in {"api", "snapshot", "off"}:
+    HIK_DATA_MODE = _hik_mode_raw
+elif HIK_FETCH_ENABLED:
+    HIK_DATA_MODE = "api"
+else:
+    HIK_DATA_MODE = "snapshot"
+
+HIK_PROCESS_ENABLED = HIK_DATA_MODE != "off"
+
 def _hk_extra():
     raw = os.getenv("HIK_EVENT_QUERY_EXTRA_JSON", "").strip()
     if not raw:
@@ -331,6 +343,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.quests.tasks.send_daily_quest",
         "schedule": crontab(hour=7, minute=30),
     },
+    "verify-auto-quests-evening": {
+        "task": "apps.quests.tasks.verify_auto_quests",
+        "schedule": crontab(hour=20, minute=15),
+    },
+    "verify-auto-quests-morning": {
+        "task": "apps.quests.tasks.verify_auto_quests",
+        "schedule": crontab(hour=6, minute=15),
+    },
     "check_strikes_daily": {
         "task": "apps.progress.tasks.apply_strike_bonuses_daily",
         "schedule": crontab(hour=23, minute=30),
@@ -354,6 +374,10 @@ CELERY_BEAT_SCHEDULE = {
     "process-hik-events-daily": {
         "task": "apps.integrations.tasks.process_hik_events_daily",
         "schedule": crontab(hour=20, minute=0),
+    },
+    "process-hik-snapshot-daily": {
+        "task": "apps.integrations.tasks.process_hik_snapshot_daily",
+        "schedule": crontab(hour=20, minute=10),
     },
     "process-late-events-hourly": {
         "task": "apps.integrations.tasks.process_late_events",

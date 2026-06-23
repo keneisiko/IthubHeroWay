@@ -1,12 +1,9 @@
 from django.utils import timezone
 from django.db import transaction
-from django.core.cache import cache
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 
 from apps.accounts.permissions import IsKnownRole
-from apps.progress.models import RatingChangeSource
-from apps.progress.services.rewards import apply_rating_delta_with_cap, remaining_daily_coin_budget
 from .models import (
     Quest,
     QuestRewardTransaction,
@@ -23,6 +20,8 @@ from .serializers import (
     UpdateQuestProgressSerializer,
     UserQuestProgressSerializer,
 )
+from .services.quest_completion import complete_quest_idempotent
+from .services.quest_conditions import is_manual_complete_allowed
 
 
 class ActiveQuestListView(generics.ListAPIView):
@@ -60,6 +59,12 @@ class QuestProgressUpdateView(views.APIView):
         serializer.is_valid(raise_exception=True)
 
         quest = generics.get_object_or_404(Quest, code=code, is_active=True)
+        if not is_manual_complete_allowed(quest):
+            return Response(
+                {"detail": "Progress for this quest is updated automatically."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         progress, _ = UserQuestProgress.objects.get_or_create(user=request.user, quest=quest)
         data = serializer.validated_data
 
@@ -79,47 +84,26 @@ class QuestCompleteView(views.APIView):
         serializer = CompleteQuestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        with transaction.atomic():
-            quest = generics.get_object_or_404(Quest, code=code, is_active=True)
-            progress, _ = UserQuestProgress.objects.select_for_update().get_or_create(
-                user=request.user, quest=quest
-            )
-
-            progress.is_completed = True
-            progress.progress_value = max(progress.progress_value, 1)
-            progress.completed_at = timezone.now()
-            if "proof_payload" in serializer.validated_data:
-                progress.proof_payload = serializer.validated_data["proof_payload"]
-            progress.save(
-                update_fields=["is_completed", "progress_value", "completed_at", "proof_payload", "updated_at"]
-            )
-
-            reward_tx, created = QuestRewardTransaction.objects.get_or_create(
-                user=request.user,
-                quest=quest,
-                defaults={
-                    "progress": progress,
-                    "coins_delta": quest.reward_coins,
-                    "rating_delta": quest.reward_rating_delta,
+        quest = generics.get_object_or_404(Quest, code=code, is_active=True)
+        if not is_manual_complete_allowed(quest):
+            return Response(
+                {
+                    "detail": (
+                        "Этот квест проверяется автоматически по данным Hik/LXP/YouGile. "
+                        "Выполните условие и дождитесь проверки."
+                    )
                 },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-            # Idempotency guard: reward is granted only once per (user, quest).
-            if created:
-                user = request.user
-                allowed_coins = min(reward_tx.coins_delta, remaining_daily_coin_budget(user))
-                if allowed_coins:
-                    user.coins_balance += allowed_coins
-                    user.save(update_fields=["coins_balance"])
-                apply_rating_delta_with_cap(
-                    user=user,
-                    delta=reward_tx.rating_delta,
-                    source=RatingChangeSource.QUEST,
-                    reason=f"Quest complete: {quest.code}",
-                    source_id=str(quest.id),
-                )
-                cache.delete(f"profile:{user.username}")
-                cache.delete_pattern("leaderboard:*")
+        evidence = serializer.validated_data.get("proof_payload")
+        with transaction.atomic():
+            progress, _ = complete_quest_idempotent(
+                request.user,
+                quest,
+                reason=f"Manual complete: {quest.code}",
+                evidence=evidence if evidence is not None else None,
+            )
 
         return Response(UserQuestProgressSerializer(progress).data, status=status.HTTP_200_OK)
 
@@ -170,11 +154,9 @@ class SelfReportCreateView(views.APIView):
             defaults={"comment": serializer.validated_data["comment"], "status": SelfReportProofStatus.PENDING},
         )
         if not created:
-            # Update comment only while pending.
             if proof.status == SelfReportProofStatus.PENDING:
                 proof.comment = serializer.validated_data["comment"]
                 proof.save(update_fields=["comment"])
             return Response({"status": proof.status, "proof_id": proof.id}, status=status.HTTP_200_OK)
 
         return Response({"status": "pending", "proof_id": proof.id}, status=status.HTTP_201_CREATED)
-

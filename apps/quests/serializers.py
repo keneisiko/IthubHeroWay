@@ -4,6 +4,9 @@ from .models import Quest, QuestRewardTransaction, UserQuestProgress
 
 
 class QuestSerializer(serializers.ModelSerializer):
+    auto_verify = serializers.SerializerMethodField()
+    manual_complete_allowed = serializers.SerializerMethodField()
+
     class Meta:
         model = Quest
         fields = [
@@ -18,11 +21,25 @@ class QuestSerializer(serializers.ModelSerializer):
             "is_active",
             "start_at",
             "end_at",
+            "auto_verify",
+            "manual_complete_allowed",
         ]
+
+    def get_auto_verify(self, obj: Quest) -> bool:
+        from .services.quest_conditions import is_auto_verified
+
+        return is_auto_verified(obj)
+
+    def get_manual_complete_allowed(self, obj: Quest) -> bool:
+        from .services.quest_conditions import is_manual_complete_allowed
+
+        return is_manual_complete_allowed(obj)
 
 
 class UserQuestProgressSerializer(serializers.ModelSerializer):
     quest = QuestSerializer(read_only=True)
+    auto_verify = serializers.SerializerMethodField()
+    verification_message = serializers.SerializerMethodField()
 
     class Meta:
         model = UserQuestProgress
@@ -34,7 +51,18 @@ class UserQuestProgressSerializer(serializers.ModelSerializer):
             "completed_at",
             "proof_payload",
             "updated_at",
+            "auto_verify",
+            "verification_message",
         ]
+
+    def get_auto_verify(self, obj: UserQuestProgress) -> bool:
+        from .services.quest_conditions import is_auto_verified
+
+        return is_auto_verified(obj.quest)
+
+    def get_verification_message(self, obj: UserQuestProgress) -> str:
+        payload = obj.proof_payload if isinstance(obj.proof_payload, dict) else {}
+        return str(payload.get("message") or "")
 
 
 class UpdateQuestProgressSerializer(serializers.Serializer):

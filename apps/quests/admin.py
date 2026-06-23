@@ -10,12 +10,12 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_curator, is_hq, is_superadmin, is_tutor
-from apps.progress.models import RatingChangeSource
-from apps.progress.services.rewards import apply_rating_delta_with_cap, remaining_daily_coin_budget
+from apps.quests.services.quest_completion import complete_quest_idempotent
 
 from .models import (
     Quest,
     QuestRewardTransaction,
+    QuestTemplate,
     SeasonalEvent,
     SelfReportProof,
     SelfReportProofStatus,
@@ -25,40 +25,33 @@ from .models import (
 
 
 def _complete_quest_idempotent(user, quest, reviewer):
-    with transaction.atomic():
-        progress, _ = UserQuestProgress.objects.select_for_update().get_or_create(user=user, quest=quest)
-        if not progress.is_completed:
-            progress.is_completed = True
-            progress.progress_value = max(progress.progress_value, 1)
-            progress.completed_at = timezone.now()
-            progress.save(update_fields=["is_completed", "progress_value", "completed_at", "updated_at"])
+    progress, created = complete_quest_idempotent(
+        user,
+        quest,
+        reason=f"Quest approved (self-report): {quest.code}",
+    )
+    from django.contrib.admin.models import CHANGE, LogEntry
+    from django.contrib.contenttypes.models import ContentType
 
-        reward_tx, created = QuestRewardTransaction.objects.get_or_create(
-            user=user,
-            quest=quest,
-            defaults={"progress": progress, "coins_delta": quest.reward_coins, "rating_delta": quest.reward_rating_delta},
-        )
-        if created:
-            allowed_coins = min(reward_tx.coins_delta, remaining_daily_coin_budget(user))
-            if allowed_coins:
-                user.coins_balance += allowed_coins
-                user.save(update_fields=["coins_balance"])
-            apply_rating_delta_with_cap(
-                user=user,
-                delta=reward_tx.rating_delta,
-                source=RatingChangeSource.QUEST,
-                reason=f"Quest approved (self-report): {quest.code}",
-                source_id=str(quest.id),
-            )
-            cache.delete_pattern("leaderboard:*")
-            cache.delete_pattern(f"profile:{user.username}*")
-        LogEntry.objects.log_action(
-            user_id=reviewer.pk,
-            content_type_id=ContentType.objects.get_for_model(UserQuestProgress).pk,
-            object_id=progress.pk,
-            object_repr=str(progress),
-            action_flag=CHANGE,
-            change_message=f"Self-report approve for quest {quest.code}. reward_created={created}",
+    LogEntry.objects.log_action(
+        user_id=reviewer.pk,
+        content_type_id=ContentType.objects.get_for_model(UserQuestProgress).pk,
+        object_id=progress.pk,
+        object_repr=str(progress),
+        action_flag=CHANGE,
+        change_message=f"Self-report approve for quest {quest.code}. reward_created={created}",
+    )
+
+
+@admin.register(QuestTemplate)
+class QuestTemplateAdmin(ManagedRoleAdminMixin):
+    list_display = ("code", "title", "quest_type", "verifier", "reward_coins", "is_active")
+    list_filter = ("quest_type", "verifier", "is_active")
+    search_fields = ("code", "title")
+
+    def has_module_permission(self, request):
+        return super().has_module_permission(request) and (
+            request.user.is_superuser or request.user.role in {"admin", "curator", "tutor", "hq"}
         )
 
 

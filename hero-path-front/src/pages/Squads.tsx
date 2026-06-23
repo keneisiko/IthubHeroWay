@@ -1,18 +1,24 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import userAvatar from '../assets/branding/user-avatar.png'
 import api from '../api'
 import { useToasts } from '../useToasts'
+import { unwrapList } from '../lib/apiData'
 
 type SortKey = 'name' | 'track' | 'status'
 
 interface Member {
   id: number
+  username: string
   name: string
   track: string
   status: string
+  avatar?: string | null
+  rating?: number | null
 }
 
 interface SquadData {
+  code: string
   name: string
   course: number
   rating: number
@@ -23,47 +29,17 @@ interface SquadData {
   bonus_completed: number
   bonus_total: number
   coins_month: number
+  share_url: string
 }
 
-interface SearchResult {
-  id: number
+interface AvailableSquad {
+  code: string
   name: string
-}
-
-function Modal({
-  open, onClose, title, children, width = '460px'
-}: {
-  open: boolean
-  onClose: () => void
-  title?: string
-  children: React.ReactNode
-  width?: string
-}) {
-  const [visible, setVisible] = useState(false)
-  const [closing, setClosing] = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      setClosing(false)
-      const t = setTimeout(() => setVisible(true), 10)
-      return () => clearTimeout(t)
-    } else {
-      setClosing(true)
-      const t = setTimeout(() => setVisible(false), 220)
-      return () => clearTimeout(t)
-    }
-  }, [open])
-
-  if (!visible && !open) return null
-
-  return (
-    <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose} style={{ background: 'transparent' }}>
-      <div className={`popup${closing ? ' popup--closing' : ''}`} onClick={e => e.stopPropagation()} style={{ width, maxWidth: '90vw' }}>
-        {title && <h3 className="popup__title">{title}</h3>}
-        {children}
-      </div>
-    </div>
-  )
+  course: number | null
+  capacity: number | null
+  agents_count: number
+  avg_rating: number
+  can_join: boolean
 }
 
 function SortDropdown({
@@ -114,54 +90,171 @@ function SortDropdown({
   )
 }
 
+function memberAvatarUrl(avatar?: string | null): string {
+  if (!avatar) return userAvatar
+  if (avatar.startsWith('http')) return avatar
+  return avatar.startsWith('/') ? avatar : `/${avatar}`
+}
 
 export default function Squads() {
-  const [showInvite, setShowInvite] = useState(false)
-  const [inviteSearch, setInviteSearch] = useState('')
+  const navigate = useNavigate()
   const [memberQuery, setMemberQuery] = useState('')
   const [showSort, setShowSort] = useState(false)
   const { toasts, addToast } = useToasts()
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [members, setMembers] = useState<Member[]>([])
   const [squad, setSquad] = useState<SquadData | null>(null)
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [availableSquads, setAvailableSquads] = useState<AvailableSquad[]>([])
+  const [loading, setLoading] = useState(true)
+  const [noSquad, setNoSquad] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [createName, setCreateName] = useState('')
+  const [createCourse, setCreateCourse] = useState('2')
+  const [submitting, setSubmitting] = useState(false)
+  const [debouncedMemberQuery, setDebouncedMemberQuery] = useState('')
 
   useEffect(() => {
-    api.get('/api/v1/squad/my/').then(res => setSquad(res.data)).catch(() => addToast('Не удалось загрузить отряд', 'error'))
-    api.get('/api/v1/squad/members/').then(res => {
-      if (res.data?.length) setMembers(res.data)
-    }).catch(() => addToast('Не удалось загрузить участников', 'error'))
+    const timer = setTimeout(() => setDebouncedMemberQuery(memberQuery.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [memberQuery])
+
+  const mapMembers = (rows: {
+    username: string
+    callsign: string
+    track?: string
+    status?: string
+    avatar?: string | null
+    rating_current?: number | null
+  }[]) => rows.map((m, index) => ({
+    id: index + 1,
+    username: m.username,
+    name: m.callsign || m.username,
+    track: m.track || '—',
+    status: m.status || '—',
+    avatar: m.avatar,
+    rating: m.rating_current ?? null,
+  }))
+
+  const loadMembers = useCallback((code: string, search: string, ordering: SortKey) => {
+    const params: Record<string, string> = {
+      ordering: ordering === 'name' ? 'alpha' : 'rating',
+    }
+    if (search) params.search = search
+    return api.get(`/api/v1/squads/${code}/members/`, { params })
+      .then((membersRes) => {
+        const rows = unwrapList<{
+          username: string
+          callsign: string
+          track?: string
+          status?: string
+          avatar?: string | null
+          rating_current?: number | null
+        }>(membersRes.data)
+        setMembers(mapMembers(rows))
+      })
+  }, [])
+
+  const loadSquad = useCallback(() => {
+    setLoading(true)
+    setNoSquad(false)
+    api.get('/api/v1/squads/me/')
+      .then(async (res) => {
+        const my = res.data?.my_squad
+        const bonus = res.data?.team_bonus ?? {}
+        const actions = res.data?.actions ?? {}
+        if (!my) {
+          setNoSquad(true)
+          setSquad(null)
+          setMembers([])
+          const listRes = await api.get('/api/v1/squads/')
+          setAvailableSquads(unwrapList<AvailableSquad>(listRes.data))
+          return null
+        }
+        setNoSquad(false)
+        setSquad({
+          code: my.code,
+          name: my.name,
+          course: my.course,
+          rating: my.squad_rating_avg ?? 0,
+          members_count: my.agents_count ?? 0,
+          delta: my.delta_week >= 0 ? `+${my.delta_week}` : String(my.delta_week),
+          rank: `${my.place} место из ${my.total_squads}`,
+          bonus_progress: bonus.percent ?? 0,
+          bonus_completed: bonus.completed ?? 0,
+          bonus_total: bonus.total ?? 0,
+          coins_month: actions.month_coins ?? 0,
+          share_url: actions.share_url ?? `/squads/${my.code}`,
+        })
+        return my.code as string
+      })
+      .catch(() => {
+        addToast('Не удалось загрузить отряд', 'error')
+      })
+      .finally(() => setLoading(false))
   }, [addToast])
 
   useEffect(() => {
-    if (!inviteSearch) return
-    const timer = setTimeout(() => {
-      api.get(`/api/v1/users/search/?q=${encodeURIComponent(inviteSearch)}`).then(res => {
-        setSearchResults(res.data ?? [])
-      }).catch(() => addToast('Ошибка поиска пользователей', 'error'))
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [inviteSearch, addToast])
+    loadSquad()
+  }, [loadSquad])
 
-  const sortedMembers = useMemo(() => {
-    return [...members].sort((a, b) => a[sortKey].localeCompare(b[sortKey]))
-  }, [members, sortKey])
+  useEffect(() => {
+    if (!squad?.code || loading) return
+    loadMembers(squad.code, debouncedMemberQuery, sortKey).catch(() => {
+      addToast('Не удалось обновить список участников', 'error')
+    })
+  }, [squad?.code, debouncedMemberQuery, sortKey, loading, loadMembers, addToast])
 
-  const visibleMembers = useMemo(() => {
-    const q = memberQuery.trim().toLowerCase()
-    if (!q) return sortedMembers
-    return sortedMembers.filter(m =>
-      m.name.toLowerCase().includes(q) ||
-      m.track.toLowerCase().includes(q) ||
-      m.status.toLowerCase().includes(q)
-    )
-  }, [sortedMembers, memberQuery])
+  const handleJoin = useCallback((code: string) => {
+    const trimmed = code.trim()
+    if (!trimmed) {
+      addToast('Введите код отряда', 'error')
+      return
+    }
+    setSubmitting(true)
+    api.post('/api/v1/squads/join/', { code: trimmed })
+      .then(() => {
+        addToast('Вы вступили в отряд!', 'success')
+        setJoinCode('')
+        loadSquad()
+      })
+      .catch((err) => {
+        const msg = err.response?.data?.detail || 'Не удалось вступить в отряд'
+        addToast(typeof msg === 'string' ? msg : 'Не удалось вступить в отряд', 'error')
+      })
+      .finally(() => setSubmitting(false))
+  }, [addToast, loadSquad])
+
+  const handleCreate = useCallback(() => {
+    const name = createName.trim()
+    if (!name) {
+      addToast('Введите название отряда', 'error')
+      return
+    }
+    setSubmitting(true)
+    api.post('/api/v1/squads/', {
+      name,
+      course: Number(createCourse) || undefined,
+      capacity: 20,
+    })
+      .then(() => {
+        addToast('Отряд создан!', 'success')
+        setCreateName('')
+        loadSquad()
+      })
+      .catch((err) => {
+        const msg = err.response?.data?.detail || 'Не удалось создать отряд'
+        addToast(typeof msg === 'string' ? msg : 'Не удалось создать отряд', 'error')
+      })
+      .finally(() => setSubmitting(false))
+  }, [addToast, createCourse, createName, loadSquad])
+
+  const visibleMembers = members
 
   const handleShare = useCallback(() => {
-    const shareUrl = `${window.location.origin}/squads`
+    const shareUrl = `${window.location.origin}${squad?.share_url ?? '/squads'}`
     const shareData = {
-      title: `Отряд ${squad?.name ?? 'Альфа-12'}`,
-      text: `Присоединяйся к моему отряду «${squad?.name ?? 'Альфа-12'}» в IThub Путь Героя!`,
+      title: `Отряд ${squad?.name ?? ''}`,
+      text: squad?.name ? `Отряд «${squad.name}» в IThub Путь Героя` : 'IThub Путь Героя',
       url: shareUrl,
     }
     if (navigator.share) {
@@ -177,41 +270,143 @@ export default function Squads() {
     }
   }, [squad, addToast])
 
-  const filteredResults = useMemo(() => {
-    if (!inviteSearch) return searchResults
-    return searchResults.filter(r => r.name.toLowerCase().includes(inviteSearch.toLowerCase()))
-  }, [searchResults, inviteSearch])
+  if (loading) {
+    return (
+      <div className="dashboard squad-page page-enter">
+        <div className="profile-loading" style={{ minHeight: '40vh' }}>
+          <div className="loading-spinner">
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+          </div>
+          <p className="loading-text">Загрузка отряда...</p>
+        </div>
+      </div>
+    )
+  }
 
-  const handleInvite = useCallback((userId: number) => {
-    api.post(`/api/v1/squad/invite/${userId}/`).then(() => {
-      addToast('Приглашение отправлено!', 'success')
-    }).catch(() => {
-      addToast('Ошибка при отправке приглашения', 'error')
-    })
-  }, [addToast])
+  if (noSquad || !squad) {
+    return (
+      <div className="dashboard squad-page page-enter">
+        <section className="card card--light" style={{ maxWidth: 720, margin: '0 auto 24px', padding: 24 }}>
+          <h2 className="squad-my__title" style={{ marginBottom: 8 }}>Вы пока не состоите в отряде</h2>
+          <p className="loading-text" style={{ marginBottom: 20 }}>Вступите по коду или создайте свой отряд</p>
+
+          <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value)}
+              placeholder="Код отряда (например alpha-2025)"
+              className="squad-members__search-input"
+              style={{ flex: 1, minWidth: 200 }}
+            />
+            <button
+              type="button"
+              className="squad-actions__btn squad-actions__btn--share btn-press"
+              disabled={submitting}
+              onClick={() => handleJoin(joinCode)}
+            >
+              Вступить
+            </button>
+          </div>
+
+          <h3 className="squad-members__title" style={{ marginBottom: 12 }}>Создать отряд</h3>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={createName}
+              onChange={e => setCreateName(e.target.value)}
+              placeholder="Название отряда"
+              className="squad-members__search-input"
+              style={{ flex: 1, minWidth: 160 }}
+            />
+            <input
+              type="number"
+              min={1}
+              max={6}
+              value={createCourse}
+              onChange={e => setCreateCourse(e.target.value)}
+              placeholder="Курс"
+              className="squad-members__search-input"
+              style={{ width: 100 }}
+            />
+            <button
+              type="button"
+              className="squad-actions__btn btn-press"
+              disabled={submitting}
+              onClick={handleCreate}
+            >
+              Создать
+            </button>
+          </div>
+
+          {availableSquads.length > 0 && (
+            <>
+              <h3 className="squad-members__title" style={{ marginBottom: 12 }}>Доступные отряды</h3>
+              <ul className="squad-members__list" style={{ listStyle: 'none', padding: 0 }}>
+                {availableSquads.map(s => (
+                  <li key={s.code} className="squad-member-row hover-lift" style={{ marginBottom: 8 }}>
+                    <div className="squad-member-row__main">
+                      <div className="squad-member-row__tags">
+                        <span className="squad-member-tag squad-member-tag--dark">{s.name}</span>
+                        <span className="squad-member-tag squad-member-tag--purple">
+                          {s.agents_count}{s.capacity ? ` / ${s.capacity}` : ''} агентов
+                        </span>
+                        {s.course != null && (
+                          <span className="squad-member-tag squad-member-tag--purple">Курс {s.course}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="squad-member-row__rating btn-press"
+                      disabled={!s.can_join || submitting}
+                      onClick={() => handleJoin(s.code)}
+                    >
+                      {s.can_join ? 'Вступить' : 'Нет мест'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+
+        <div className="toast-container toast-container--fixed-right">
+          {toasts.map(toast => (
+            <div key={toast.id} className={`toast toast--${toast.type}`}>
+              {toast.type === 'success' ? '✓ ' : '✕ '}
+              {toast.message}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="dashboard squad-page page-enter">
       <div className="squad-page__top">
         <section className="squad-my" aria-labelledby="squad-my-title">
           <div className="squad-my__title-row">
-            <h2 id="squad-my-title" className="squad-my__title">{squad?.name ?? 'Альфа-12'}</h2>
-            <div className="squad-my__course"><span>Курс: {squad?.course ?? 2}</span></div>
+            <h2 id="squad-my-title" className="squad-my__title">{squad.name}</h2>
+            <div className="squad-my__course"><span>Курс: {squad.course}</span></div>
           </div>
           <dl className="squad-my__stats">
             <div className="squad-my__row">
               <dt className="squad-my__label">Рейтинг:</dt>
-              <dd><span className="squad-pill squad-pill--dark squad-pill--firs">{squad?.rating ?? 199}</span></dd>
+              <dd><span className="squad-pill squad-pill--dark squad-pill--firs">{squad.rating}</span></dd>
             </div>
             <div className="squad-my__row">
               <dt className="squad-my__label">Агентов:</dt>
-              <dd><span className="squad-pill squad-pill--light">{squad?.members_count ?? members.length}</span></dd>
+              <dd><span className="squad-pill squad-pill--light">{squad.members_count}</span></dd>
             </div>
             <div className="squad-my__row">
               <dt className="squad-my__label">Дельта роста:</dt>
               <dd>
                 <span className="squad-pill squad-pill--dark squad-pill--delta">
-                  {squad?.delta ?? '+47'}
+                  {squad.delta}
                   <svg className="squad-pill__arrow" width="14" height="7" viewBox="0 0 14 7" fill="none" aria-hidden="true">
                     <path d="M2 6L7 1L12 6" stroke="#6CD63E" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -220,26 +415,26 @@ export default function Squads() {
             </div>
             <div className="squad-my__row">
               <dt className="squad-my__label">Место в рейтинге:</dt>
-              <dd><span className="squad-pill squad-pill--dark squad-pill--wide">{squad?.rank ?? '3 место из 18'}</span></dd>
+              <dd><span className="squad-pill squad-pill--dark squad-pill--wide">{squad.rank}</span></dd>
             </div>
           </dl>
         </section>
 
         <div className="squad-page__right">
           <section className="squad-bonus" aria-label="Прогресс командного бонуса">
-            <p className="squad-bonus__lead">{squad?.bonus_progress ?? 80}% отряда выполнили еженедельный квест</p>
+            <p className="squad-bonus__lead">{squad.bonus_progress}% отряда выполнили еженедельный квест</p>
             <div className="squad-bonus__chip squad-bonus__chip--purple">При 80% — +5 монет в пятницу</div>
             <div className="squad-bonus__chip squad-bonus__chip--dark">
-              <span className="squad-bonus__chip-num">{squad?.bonus_completed ?? Math.min(members.length, 12)}</span>
-              <span> из {squad?.bonus_total ?? members.length} агентов</span>
+              <span className="squad-bonus__chip-num">{squad.bonus_completed}</span>
+              <span> из {squad.bonus_total} агентов</span>
             </div>
             <div className="squad-bonus__progress-block">
-              <p className="squad-bonus__hint">До бонуса осталось {(squad?.bonus_total ?? members.length) - (squad?.bonus_completed ?? Math.min(members.length, 12))} человек</p>
+              <p className="squad-bonus__hint">До бонуса осталось {Math.max(0, squad.bonus_total - squad.bonus_completed)} человек</p>
               <div className="squad-bonus__progress">
                 <span className="squad-bonus__dot squad-bonus__dot--start" aria-hidden="true" />
                 <div className="squad-bonus__track">
                   <div className="squad-bonus__track-slot">
-                    <div className="squad-bonus__fill" style={{ width: `${squad?.bonus_progress ?? 80}%` }} />
+                    <div className="squad-bonus__fill" style={{ width: `${Math.min(100, squad.bonus_progress)}%` }} />
                   </div>
                 </div>
                 <span className="squad-bonus__dot squad-bonus__dot--end" aria-hidden="true" />
@@ -250,11 +445,10 @@ export default function Squads() {
           <section className="squad-actions" aria-label="Действия отряда">
             <div className="squad-actions__coins">
               <span className="squad-actions__coins-text">В этом месяце:</span>
-              <span className="squad-actions__coins-badge">{squad?.coins_month ?? 340}</span>
+              <span className="squad-actions__coins-badge">{squad.coins_month}</span>
               <span className="squad-actions__coins-text">монет</span>
             </div>
             <button type="button" className="squad-actions__btn squad-actions__btn--share btn-press" onClick={handleShare}>Поделиться</button>
-            <button type="button" className="squad-actions__btn squad-actions__btn--invite btn-press" onClick={() => setShowInvite(true)}>Пригласить</button>
           </section>
         </div>
       </div>
@@ -294,50 +488,31 @@ export default function Squads() {
             {visibleMembers.map((m, i) => (
               <li key={m.id} className="squad-member-row hover-lift" style={{ animationDelay: `${i * 40}ms` }}>
                 <div className="squad-member-row__main">
-                  <img className="squad-member-row__avatar" src={userAvatar} alt="" width={50} height={50} />
+                  <img className="squad-member-row__avatar" src={memberAvatarUrl(m.avatar)} alt="" width={50} height={50} />
                   <div className="squad-member-row__tags">
                     <span className="squad-member-tag squad-member-tag--dark">{m.name}</span>
                     <span className="squad-member-tag squad-member-tag--purple">{m.track}</span>
                     <span className="squad-member-tag squad-member-tag--purple">{m.status}</span>
                   </div>
                 </div>
-                <button type="button" className="squad-member-row__rating btn-press">Рейтинг</button>
+                <button
+                  type="button"
+                  className="squad-member-row__rating btn-press"
+                  onClick={() => navigate(`/profile/${m.username}`)}
+                >
+                  {m.rating != null ? m.rating : 'Рейтинг'}
+                </button>
               </li>
             ))}
             {visibleMembers.length === 0 && (
               <li className="squad-members__empty">Никого не найдено</li>
             )}
+            {visibleMembers.length === 1 && !debouncedMemberQuery && (
+              <li className="squad-members__empty">В отряде пока только вы</li>
+            )}
           </ul>
         </div>
       </section>
-
-      <Modal open={showInvite} onClose={() => setShowInvite(false)} title="Пригласить в отряд">
-        <div className="squad-modal__search">
-          <input
-            type="text" value={inviteSearch} onChange={e => setInviteSearch(e.target.value)}
-            placeholder="Поиск агента..."
-            className="popup__input"
-          />
-          <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
-            <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
-          </svg>
-        </div>
-        <div className="squad-modal__results">
-          {filteredResults.map(result => (
-            <div key={result.id} className="squad-modal__result">
-              <img src={userAvatar} alt="" className="squad-modal__result-avatar" />
-              <span className="squad-modal__result-name">{result.name}</span>
-              <button type="button" className="squad-modal__invite-btn btn-press" onClick={() => handleInvite(result.id)}>
-                Пригласить
-              </button>
-            </div>
-          ))}
-          {filteredResults.length === 0 && (
-            <div className="squad-modal__empty">Ничего не найдено</div>
-          )}
-        </div>
-      </Modal>
 
       <div className="toast-container toast-container--fixed-right">
         {toasts.map(toast => (
@@ -350,3 +525,4 @@ export default function Squads() {
     </div>
   )
 }
+

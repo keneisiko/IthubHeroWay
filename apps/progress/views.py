@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, views
 from rest_framework.response import Response
@@ -16,7 +17,14 @@ class RatingMeView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def get(self, request, *args, **kwargs):
-        return Response(RatingMeSerializer(request.user).data)
+        user = request.user
+        data = RatingMeSerializer(user).data
+        rank = (
+            User.objects.filter(telegram_link__is_active=True, rating_current__gt=user.rating_current).count()
+            + 1
+        )
+        data["rank"] = rank
+        return Response(data)
 
 
 class RatingHistoryView(generics.ListAPIView):
@@ -41,10 +49,13 @@ class AgentLeaderboardView(generics.ListAPIView):
         queryset = User.objects.filter(telegram_link__is_active=True).order_by("-rating_current", "id")
         track = self.request.query_params.get("track")
         course = self.request.query_params.get("course")
+        search = self.request.query_params.get("search")
         if track:
             queryset = queryset.filter(track__code=track)
         if course:
             queryset = queryset.filter(squad__course=course)
+        if search:
+            queryset = queryset.filter(Q(callsign__icontains=search) | Q(username__icontains=search))
         return queryset
 
     def list(self, request, *args, **kwargs):
@@ -52,7 +63,8 @@ class AgentLeaderboardView(generics.ListAPIView):
         page_size = int(request.query_params.get("page_size", 20))
         track = request.query_params.get("track", "")
         course = request.query_params.get("course", "")
-        cache_key = f"leaderboard:agents:p{page}:s{page_size}:t{track}:c{course}"
+        search = request.query_params.get("search", "")
+        cache_key = f"leaderboard:agents:p{page}:s{page_size}:t{track}:c{course}:s{search}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)

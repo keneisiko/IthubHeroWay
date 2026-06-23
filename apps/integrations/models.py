@@ -60,6 +60,22 @@ class LXPSnapshot(models.Model):
         return f"Снимок LXP ({self.date})"
 
 
+class HikSnapshot(models.Model):
+    """Снимок проходов Hik-Connect / HikCentral на дату (ручной импорт или экспорт)."""
+
+    date = models.DateField("Дата", unique=True)
+    data = models.JSONField("Данные")
+    created_at = models.DateTimeField("Создан", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Снимок Hik"
+        verbose_name_plural = "Снимки Hik"
+        ordering = ["-date"]
+
+    def __str__(self) -> str:
+        return f"Снимок Hik ({self.date})"
+
+
 class HikEvent(models.Model):
     """Сырое событие доступа из HikCentral / Hik-Connect."""
 

@@ -2,11 +2,13 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import palmSky from '../assets/shop/palm-sky.png'
 import api from '../api'
 import { useToasts } from '../useToasts'
+import { formatDateRu, SHOP_TAB_TYPES, unwrapList } from '../lib/apiData'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
 interface Product {
   id: number
+  code: string
   title: string
   price: string
   desc: string
@@ -18,6 +20,7 @@ interface Purchase {
   title: string
   price: string
   status: string
+  date: string
 }
 
 interface HistoryItem {
@@ -72,43 +75,91 @@ export default function Shop() {
   const [showPurchases, setShowPurchases] = useState(false)
   const [showDetail, setShowDetail] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
-  const [products, setProducts] = useState<Product[]>(Array.from({ length: 9 }, (_, i) => ({
-    id: i + 1, title: 'Название', price: '9.99',
-    desc: 'Описание товара. Краткое описание для демонстрации MVP функционала магазина.',
-  })))
-  const [purchases, setPurchases] = useState<Purchase[]>([
-    { id: 1, title: 'Название', price: '9.99', status: 'Применено' },
-    { id: 2, title: 'Название', price: '4.50', status: 'Не применено' },
-  ])
-  const [history, setHistory] = useState<HistoryItem[]>([
-    { name: 'Название', amount: '-9.99', date: '12 мая 2026' },
-    { name: 'Название', amount: '-4.50', date: '10 мая 2026' },
-    { name: 'Награда за квест', amount: '+15.00', date: '8 мая 2026' },
-  ])
+  const [products, setProducts] = useState<Product[]>([])
+  const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [history, setHistory] = useState<HistoryItem[]>([])
   const [coins, setCoins] = useState('0')
+  const [purchasedCodes, setPurchasedCodes] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
   const tabsRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const [pillStyle, setPillStyle] = useState({ left: 0, width: 50 })
 
+  const loadShop = useCallback(() => {
+    setLoading(true)
+    const itemType = SHOP_TAB_TYPES[activeTab]
+
+    Promise.all([
+      api.get('/api/v1/shop/items/', { params: { item_type: itemType } }),
+      api.get('/api/v1/shop/my-purchases/'),
+      api.get('/api/v1/quests/rewards/history/'),
+      api.get('/api/v1/profile/me/'),
+    ]).then(([itemsRes, purchasesRes, rewardsRes, profileRes]) => {
+      const items = unwrapList<{
+        id: number
+        code: string
+        title: string
+        description?: string
+        price_coins: number
+      }>(itemsRes.data)
+
+      setProducts(items.map((item) => ({
+        id: item.id,
+        code: item.code,
+        title: item.title,
+        price: String(item.price_coins),
+        desc: item.description || '',
+      })))
+
+      const purchaseRows = unwrapList<{
+        id: number
+        coins_spent: number
+        created_at: string
+        item: { title: string; code?: string }
+      }>(purchasesRes.data)
+
+      setPurchasedCodes(new Set(
+        purchaseRows.map((p) => p.item?.code).filter((code): code is string => Boolean(code)),
+      ))
+
+      setPurchases(purchaseRows.map((p) => ({
+        id: p.id,
+        title: p.item?.title ?? 'Покупка',
+        price: String(p.coins_spent),
+        status: p.created_at ? `Куплено · ${formatDateRu(p.created_at)}` : 'Куплено',
+        date: formatDateRu(p.created_at),
+      })))
+
+      const rewardRows = unwrapList<{
+        quest_title: string
+        coins_delta: number
+        granted_at: string
+      }>(rewardsRes.data)
+
+      const purchaseHistory: HistoryItem[] = purchaseRows.map((p) => ({
+        name: p.item?.title ?? 'Покупка',
+        amount: `-${p.coins_spent}`,
+        date: formatDateRu(p.created_at),
+      }))
+      const rewardHistory: HistoryItem[] = rewardRows.map((r) => ({
+        name: r.quest_title,
+        amount: r.coins_delta >= 0 ? `+${r.coins_delta}` : String(r.coins_delta),
+        date: formatDateRu(r.granted_at),
+      }))
+      setHistory([...purchaseHistory, ...rewardHistory].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      ))
+
+      setCoins(String(profileRes.data.coins_balance ?? 0))
+    }).catch(() => addToast('Не удалось загрузить магазин', 'error'))
+      .finally(() => setLoading(false))
+  }, [activeTab, addToast])
+
   useEffect(() => {
-    api.get('/api/v1/shop/items/').then(res => {
-      if (res.data?.length) setProducts(res.data)
-    }).catch(() => addToast('Не удалось загрузить товары', 'error'))
-
-    api.get('/api/v1/shop/purchases/').then(res => {
-      if (res.data?.length) setPurchases(res.data)
-    }).catch(() => addToast('Не удалось загрузить покупки', 'error'))
-
-    api.get('/api/v1/shop/history/').then(res => {
-      if (res.data?.length) setHistory(res.data)
-    }).catch(() => addToast('Не удалось загрузить историю', 'error'))
-
-    api.get('/api/v1/profile/me/').then(res => {
-      setCoins(res.data.coins ?? '0')
-    }).catch(() => addToast('Не удалось загрузить баланс', 'error'))
-  }, [addToast])
+    loadShop()
+  }, [loadShop])
 
   useEffect(() => {
     const container = tabsRef.current
@@ -123,25 +174,30 @@ export default function Shop() {
 
   const handleBuy = useCallback(() => {
     if (showPurchase === null) return
-    api.post('/api/v1/shop/buy/', { item_id: showPurchase })
-      .then(() => addToast('Покупка оформлена!', 'success'))
+    const product = products.find((p) => p.id === showPurchase)
+    if (!product) return
+    api.post('/api/v1/shop/purchase/', { item_code: product.code })
+      .then(() => {
+        addToast('Покупка оформлена!', 'success')
+        loadShop()
+      })
       .catch(() => addToast('Не удалось оформить покупку', 'error'))
       .finally(() => setShowPurchase(null))
-  }, [showPurchase, addToast])
-
-  const handleApply = useCallback((purchaseId: number) => {
-    api.post(`/api/v1/shop/apply/${purchaseId}/`)
-      .then(() => {
-        setPurchases(prev => prev.map(p =>
-          p.id === purchaseId ? { ...p, status: 'Применено' } : p
-        ))
-        addToast('Покупка применена', 'success')
-      })
-      .catch(() => addToast('Не удалось применить покупку', 'error'))
-  }, [addToast])
+  }, [showPurchase, products, addToast, loadShop])
 
   return (
     <div className="dashboard shop-page page-enter">
+      {loading ? (
+        <div className="profile-loading" style={{ minHeight: '40vh' }}>
+          <div className="loading-spinner">
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+          </div>
+          <p className="loading-text">Загрузка магазина...</p>
+        </div>
+      ) : (
+      <>
       <div className="shop-page__band shop-page__band--tabs">
         <nav className="shop-tabs" aria-label="Категории магазина">
           <div className="shop-tabs__labels" role="tablist" ref={tabsRef}>
@@ -184,7 +240,11 @@ export default function Shop() {
       </div>
 
       <div className="shop-grid">
-        {products.map((item, i) => (
+        {products.length === 0 ? (
+          <p className="loading-text" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>Товаров в этой категории пока нет</p>
+        ) : products.map((item, i) => {
+          const isPurchased = purchasedCodes.has(item.code)
+          return (
           <article key={item.id} className="shop-card hover-lift" style={{ animationDelay: `${i * 50}ms` }}>
             <img className="shop-card__thumb" src={item.image ?? palmSky} alt="" width={300} height={184} loading="lazy" />
             <h2 className="shop-card__title">{item.title}</h2>
@@ -193,15 +253,20 @@ export default function Shop() {
               <span className="shop-card__price-value">{item.price}</span>
             </div>
             <div className="shop-card__actions">
-              <button type="button" className="shop-card__buy btn-press" onClick={() => setShowPurchase(item.id)}>
-                Купить
+              <button
+                type="button"
+                className="shop-card__buy btn-press"
+                onClick={() => setShowPurchase(item.id)}
+                disabled={isPurchased}
+              >
+                {isPurchased ? 'Куплено' : 'Купить'}
               </button>
               <button type="button" className="shop-card__detail btn-press" onClick={() => setShowDetail(item.id)}>
                 ?
               </button>
             </div>
           </article>
-        ))}
+        )})}
       </div>
 
       <Modal open={showPurchase !== null} onClose={() => setShowPurchase(null)} title="Подтвердите покупку">
@@ -240,7 +305,9 @@ export default function Shop() {
 
       <Modal open={showPurchases} onClose={() => setShowPurchases(false)} title="Мои покупки" width="600px">
         <div className="shop-modal__purchases">
-          {purchases.map(p => (
+          {purchases.length === 0 ? (
+            <p className="loading-text">Покупок пока нет</p>
+          ) : purchases.map(p => (
             <div key={p.id} className="shop-modal__purchase-item">
               <img src={palmSky} alt="" className="shop-modal__purchase-img" />
               <div className="shop-modal__purchase-info">
@@ -249,21 +316,21 @@ export default function Shop() {
                   <span className="shop-wallet__coin" aria-hidden="true" />
                   <span>{p.price}</span>
                 </div>
+                <span className="shop-modal__history-date">{p.date}</span>
               </div>
-              <span className={`shop-modal__purchase-status${p.status === 'Применено' ? ' shop-modal__purchase-status--applied' : ''}`}>
+              <span className="shop-modal__purchase-status shop-modal__purchase-status--applied">
                 {p.status}
               </span>
-              {p.status === 'Не применено' && (
-                <button type="button" className="shop-modal__btn shop-modal__btn--small btn-press" onClick={() => handleApply(p.id)}>Применить</button>
-              )}
             </div>
           ))}
         </div>
       </Modal>
 
-      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="История покупок" width="500px">
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="История операций" width="500px">
         <div className="shop-modal__history">
-          {history.map((h, i) => (
+          {history.length === 0 ? (
+            <p className="loading-text">История пуста</p>
+          ) : history.map((h, i) => (
             <div key={i} className="shop-modal__history-item">
               <div>
                 <div className="shop-modal__history-name">{h.name}</div>
@@ -285,6 +352,8 @@ export default function Shop() {
           </div>
         ))}
       </div>
+      </>
+      )}
     </div>
   )
 }

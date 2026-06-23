@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useCountUp } from '../useCountUp'
+import { unwrapList } from '../lib/apiData'
 
 type LeaderTab = 'agents' | 'squads'
 
 interface LeaderItem {
-  id: number
+  username: string
   rank: number
   title: string
   delta: string
@@ -15,9 +16,13 @@ interface LeaderItem {
   track?: string
 }
 
-const FILTER_OPTIONS = ['Все курсы', 'Курс 1', 'Курс 2', 'Курс 3', 'Курс 4']
+const FILTER_OPTIONS = ['Все треки', 'Backend-разработка', 'Frontend-разработка']
 
-const TRACKS = ['Код', 'Дизайн', 'Менеджмент']
+const trackParam = (filter: string): string | undefined => {
+  if (filter === 'Backend-разработка') return 'dev-backend'
+  if (filter === 'Frontend-разработка') return 'dev-frontend'
+  return undefined
+}
 
 const getBadgeClass = (rank: number) => {
   if (rank === 1) return 'rank-badge rank-badge--first'
@@ -73,13 +78,19 @@ export default function Leaderboard() {
   const [activeTab, setActiveTab] = useState<LeaderTab>('agents')
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [selectedFilter, setSelectedFilter] = useState('Все курсы')
+  const [selectedFilter, setSelectedFilter] = useState('Все треки')
   const [agents, setAgents] = useState<LeaderItem[]>([])
   const [squads, setSquads] = useState<LeaderItem[]>([])
-  const [myRank, setMyRank] = useState({ rank: 0, delta: '+0' })
+  const [myRank, setMyRank] = useState({ rank: 0, delta: '0' })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Анимация чисел
   const animMyRank = useCountUp(myRank.rank, 1200)
@@ -96,53 +107,74 @@ export default function Leaderboard() {
   const loadLeaderboard = useCallback(() => {
     setLoading(true)
     setLoadError(false)
+    const track = trackParam(selectedFilter)
+    const agentsParams: Record<string, string | number> = { page: 1, page_size: 20 }
+    if (track) agentsParams.track = track
+    if (debouncedSearch) agentsParams.search = debouncedSearch
+
     Promise.all([
-      api.get('/api/v1/leaderboard/agents/'),
-      api.get('/api/v1/leaderboard/squads/'),
-      api.get('/api/v1/leaderboard/me/'),
+      api.get('/api/v1/leaderboard/agents/', { params: agentsParams }),
+      api.get('/api/v1/squads/leaderboard/', { params: { limit: 10 } }),
+      api.get('/api/v1/rating/me/'),
     ]).then(([agentsRes, squadsRes, meRes]) => {
-      const agentsData = agentsRes.data ?? []
-      const squadsData = squadsRes.data ?? []
+      const page = 1
+      const pageSize = 20
+      const agentsData = unwrapList<{
+        username: string
+        callsign: string
+        rating_current: number
+        level: number
+      }>(agentsRes.data)
 
-      setAgents(agentsData.map((item: { id?: number; callsign?: string; title?: string; delta?: string; track?: string }, i: number) => ({
-        id: item.id ?? i + 1,
-        rank: i + 1,
-        title: item.callsign ?? item.title ?? 'Агент',
-        delta: item.delta ?? '+0',
-        badgeClass: getBadgeClass(i + 1),
-        track: item.track ?? TRACKS[i % 3],
+      const squadsData = unwrapList<{
+        code: string
+        name: string
+        avg_rating: number
+        agents_count: number
+        course: number
+      }>(squadsRes.data)
+
+      setAgents(agentsData.map((item, i) => ({
+        username: item.username,
+        rank: (page - 1) * pageSize + i + 1,
+        title: item.callsign || item.username,
+        delta: String(item.rating_current ?? 0),
+        badgeClass: getBadgeClass((page - 1) * pageSize + i + 1),
       })))
 
-      setSquads(squadsData.map((item: { id?: number; name?: string; title?: string; delta?: string }, i: number) => ({
-        id: item.id ?? i + 1,
+      setSquads(squadsData.map((item, i) => ({
+        username: item.code,
         rank: i + 1,
-        title: item.name ?? item.title ?? 'Отряд',
-        delta: item.delta ?? '+0',
+        title: item.name,
+        delta: String(item.avg_rating ?? 0),
         badgeClass: getBadgeClass(i + 1),
       })))
 
-      setMyRank({ rank: meRes.data?.rank ?? 0, delta: meRes.data?.delta ?? '+0' })
+      setMyRank({
+        rank: meRes.data?.rank ?? 0,
+        delta: String(meRes.data?.rating_current ?? 0),
+      })
     }).catch(() => {
       setAgents([])
       setSquads([])
       setLoadError(true)
     }).finally(() => setLoading(false))
-  }, [])
+  }, [selectedFilter, debouncedSearch])
 
   useEffect(() => {
     loadLeaderboard()
   }, [loadLeaderboard])
 
-  const items = activeTab === 'agents' ? agents : squads
-  const filteredItems = items.filter(item =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const navigate = useNavigate()
-
   const handleFilterSelect = useCallback((filter: string) => {
     setSelectedFilter(filter)
   }, [])
+
+  const items = activeTab === 'agents' ? agents : squads
+  const filteredItems = activeTab === 'agents'
+    ? items
+    : items.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase()))
+
+  const navigate = useNavigate()
 
   if (loading) {
     return (
@@ -212,7 +244,7 @@ export default function Leaderboard() {
           <input
             type="text" value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value) }}
-            placeholder="Поиск по названию..."
+            placeholder={activeTab === 'agents' ? 'Поиск по позывному...' : 'Поиск по названию...'}
             style={{
               border: 'none', outline: 'none', background: 'transparent',
               fontFamily: 'Montserrat, sans-serif', fontSize: '20px',
@@ -230,20 +262,21 @@ export default function Leaderboard() {
             {filteredItems.map((item, i) => (
               <div 
                 className="leaderboard-item hover-lift" 
-                key={item.id} 
+                key={item.username} 
                 style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
               >
                 <div className={item.badgeClass}>{item.rank}</div>
                 <div className="leaderboard-item__card">
                   <div className="leaderboard-item__tags">
                     <span className="tag tag--title">{item.title}</span>
-                    {item.track && (
-                      <span className="tag tag--track">{item.track}</span>
-                    )}
-                    <span className="tag tag--delta">Дельта:</span>
+                    <span className="tag tag--delta">{activeTab === 'agents' ? 'Рейтинг:' : 'Ср. рейтинг:'}</span>
                     <span className="tag tag--gain">{item.delta}</span>
                   </div>
-                  <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate(`/profile/${item.id}`)}>Рейтинг</button>
+                  {activeTab === 'agents' ? (
+                    <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate(`/profile/${item.username}`)}>Профиль</button>
+                  ) : (
+                    <button type="button" className="leaderboard-item__button btn-press" disabled>Отряд</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -265,10 +298,10 @@ export default function Leaderboard() {
             <div className="leaderboard-item__card leaderboard-item__card--bottom">
               <div className="leaderboard-item__tags">
                 <span className="tag tag--title">{activeTab === 'agents' ? 'Моя позиция' : 'Мой отряд'}</span>
-                <span className="tag tag--delta">Дельта:</span>
+                <span className="tag tag--delta">{activeTab === 'agents' ? 'Рейтинг:' : 'Ср. рейтинг:'}</span>
                 <span className="tag tag--gain">{myRank.delta}</span>
               </div>
-              <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate('/profile')}>Рейтинг</button>
+              <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate('/profile')}>Мой профиль</button>
             </div>
           </div>
         </div>

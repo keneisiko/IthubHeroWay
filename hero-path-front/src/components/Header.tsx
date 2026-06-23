@@ -6,8 +6,8 @@ import { clearAuthTokens } from '../auth'
 
 interface ProfileData {
   callsign: string
-  coins: number
-  avatar?: string
+  coins_balance: number
+  avatar?: string | null
 }
 
 export default function Header() {
@@ -40,7 +40,7 @@ export default function Header() {
   }, [menuOpen])
 
   const username = profile?.callsign || 'Агент'
-  const coins = profile?.coins ?? 0
+  const coins = profile?.coins_balance ?? 0
   const avatarUrl = profile?.avatar
   const initials = username.slice(0, 2).toUpperCase()
 

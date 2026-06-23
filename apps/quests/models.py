@@ -11,6 +11,56 @@ class QuestType(models.TextChoices):
     MIXED = "mixed", "Смешанный"
 
 
+class QuestVerifierKind(models.TextChoices):
+    MANUAL = "manual", "Вручную"
+    HIK_ON_TIME = "hik_on_time", "Hik: вовремя"
+    HIK_NO_LATE = "hik_no_late", "Hik: без опозданий"
+    LXP_ATTENDANCE = "lxp_attendance", "LXP: посещаемость"
+    LXP_CT_CLOSED = "lxp_ct_closed", "LXP: закрытые КТ"
+    YOUGILE_TASKS = "yougile_tasks", "YouGile: задачи"
+    LATE_STREAK = "late_streak", "Серия без опозданий"
+
+
+class QuestTemplate(models.Model):
+    """Шаблон квеста с правилом автопроверки."""
+
+    code = models.CharField("Код", max_length=64, unique=True)
+    title = models.CharField("Название", max_length=255)
+    description = models.TextField("Описание", blank=True)
+    quest_type = models.CharField(
+        "Тип квеста", max_length=16, choices=QuestType.choices, default=QuestType.DAILY
+    )
+    verifier = models.CharField(
+        "Проверка",
+        max_length=32,
+        choices=QuestVerifierKind.choices,
+        default=QuestVerifierKind.MANUAL,
+    )
+    verifier_params = models.JSONField("Параметры проверки", default=dict, blank=True)
+    reward_coins = models.PositiveIntegerField("Награда (монеты)", default=0)
+    reward_rating_delta = models.IntegerField("Награда (рейтинг)", default=0)
+    is_active = models.BooleanField("Активен", default=True)
+    created_at = models.DateTimeField("Создан", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Шаблон квеста"
+        verbose_name_plural = "Шаблоны квестов"
+        ordering = ["quest_type", "code"]
+
+    def __str__(self) -> str:
+        return f"{self.code} ({self.verifier})"
+
+    def build_conditions(self) -> dict:
+        manual = self.verifier == QuestVerifierKind.MANUAL
+        return {
+            "template_code": self.code,
+            "verifier": self.verifier,
+            "params": self.verifier_params or {},
+            "auto_verify": not manual,
+            "manual_complete_allowed": manual,
+        }
+
+
 class Quest(models.Model):
     code = models.CharField("Код", max_length=64, unique=True)
     title = models.CharField("Название", max_length=255)

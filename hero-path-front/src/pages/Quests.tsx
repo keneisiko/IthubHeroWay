@@ -1,24 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useCountUp } from '../useCountUp'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import seriesIcon from '../assets/other/Group 11.svg'
+import {
+  mapCompletedQuests,
+  mapRewardActivities,
+  mergeActiveQuests,
+  pickSelfReportQuestCode,
+  type UiQuest,
+} from '../lib/quests'
 
 const TABS = ['Активные', 'Выполненные', 'История наград'] as const
-
-interface Quest {
-  id: number
-  kind: string
-  leftDays: string
-  progress: number
-  title: string
-  desc: string
-  reward: string
-  note: string
-  confirm: boolean
-  teamNote: string
-  completed?: boolean
-}
 
 interface Activity {
   id: number
@@ -52,21 +44,19 @@ function useModal(initial = false) {
 
 export default function Quests() {
   const [activeTab, setActiveTab] = useState(0)
-  const [selectedWeekly, setSelectedWeekly] = useState<'A' | 'B' | null>(null)
-  const [quests, setQuests] = useState<Quest[]>([])
-  const [completedQuests, setCompletedQuests] = useState<Quest[]>([])
+  const [quests, setQuests] = useState<UiQuest[]>([])
+  const [completedQuests, setCompletedQuests] = useState<UiQuest[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
+  const [selfReportQuestCode, setSelfReportQuestCode] = useState<string | null>(null)
+  const [lateStrike, setLateStrike] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
 
-  const [streakDays] = useState(12)
-  const animStreak = useCountUp(streakDays, 1000, 300)
-
   const reportModal = useModal()
   const confirmModal = useModal()
   const [reportText, setReportText] = useState('')
-  const [confirmQuestId, setConfirmQuestId] = useState<number | null>(null)
+  const [confirmQuestCode, setConfirmQuestCode] = useState<string | null>(null)
   const [confirmLink, setConfirmLink] = useState('')
 
   const addToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -82,12 +72,16 @@ export default function Quests() {
     setLoadError(false)
     Promise.all([
       api.get('/api/v1/quests/active/'),
-      api.get('/api/v1/quests/completed/'),
-      api.get('/api/v1/quests/history/'),
-    ]).then(([activeRes, completedRes, historyRes]) => {
-      setQuests(activeRes.data ?? [])
-      setCompletedQuests(completedRes.data ?? [])
-      setActivity(historyRes.data ?? [])
+      api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
+      api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
+      api.get('/api/v1/quests/rewards/history/'),
+      api.get('/api/v1/dashboard/'),
+    ]).then(([activeRes, progressRes, completedRes, historyRes, dashRes]) => {
+      setQuests(mergeActiveQuests(activeRes.data, progressRes.data))
+      setCompletedQuests(mapCompletedQuests(completedRes.data))
+      setActivity(mapRewardActivities(historyRes.data))
+      setSelfReportQuestCode(pickSelfReportQuestCode(activeRes.data))
+      setLateStrike(dashRes.data?.strike?.late_strike ?? null)
     }).catch(() => {
       setQuests([])
       setCompletedQuests([])
@@ -101,38 +95,43 @@ export default function Quests() {
   }, [loadQuests])
 
   const handleReportSubmit = useCallback(() => {
-    api.post('/api/v1/quests/report/', { link: reportText })
+    if (!selfReportQuestCode) {
+      addToast('Нет квеста для самоотчёта', 'error')
+      return
+    }
+    const comment = reportText.trim()
+    if (comment.length < 10) {
+      addToast('Комментарий минимум 10 символов', 'error')
+      return
+    }
+    api.post(`/api/v1/quests/${selfReportQuestCode}/self-report/`, { comment })
       .then(() => {
         addToast('Самоотчёт отправлен!', 'success')
         reportModal.hide()
         setReportText('')
+        loadQuests()
       })
       .catch(() => addToast('Ошибка отправки', 'error'))
-  }, [reportText])
+  }, [reportText, selfReportQuestCode, loadQuests])
 
   const handleConfirmSubmit = useCallback(() => {
-    if (!confirmQuestId) return
-    api.post(`/api/v1/quests/${confirmQuestId}/confirm/`, { link: confirmLink })
+    if (!confirmQuestCode) return
+    const proof = confirmLink.trim()
+      ? { link: confirmLink.trim() }
+      : {}
+    api.post(`/api/v1/quests/${confirmQuestCode}/complete/`, { proof_payload: proof })
       .then(() => {
         addToast('Квест подтверждён!', 'success')
         confirmModal.hide()
-        setConfirmQuestId(null)
+        setConfirmQuestCode(null)
         setConfirmLink('')
+        loadQuests()
       })
       .catch(() => addToast('Ошибка подтверждения', 'error'))
-  }, [confirmQuestId, confirmLink])
+  }, [confirmQuestCode, confirmLink, loadQuests])
 
-  const handleWeeklySelect = (choice: 'A' | 'B') => {
-    api.post('/api/v1/quests/weekly-choice/', { choice })
-      .then(() => {
-        setSelectedWeekly(choice)
-        addToast('Выбор сохранён!', 'success')
-      })
-      .catch(() => addToast('Не удалось сохранить выбор', 'error'))
-  }
-
-  const openConfirm = (id: number) => {
-    setConfirmQuestId(id)
+  const openConfirm = (code: string) => {
+    setConfirmQuestCode(code)
     confirmModal.show()
   }
 
@@ -243,7 +242,7 @@ export default function Quests() {
                       <div className="q1__card-mid">
                         <div className="q1__card-name">{q.title}</div>
                         <div className="q1__card-desc">{q.desc}</div>
-                        {q.teamNote && <div className="q1__card-team">{q.teamNote}</div>}
+                        {q.note && <div className="q1__card-team">{q.note}</div>}
                       </div>
                       <div className="q1__card-steps" aria-hidden="true">
                         <span className="q1__step q1__step--red" style={{ opacity: q.progress >= 25 ? 1 : 0.3 }} />
@@ -264,7 +263,7 @@ export default function Quests() {
                         Награда: <span className="q1__card-reward-coins">{q.reward}</span>
                       </div>
                       {!q.completed && q.confirm && (
-                        <button type="button" className="q1__card-confirm btn-press" onClick={() => openConfirm(q.id)}>
+                        <button type="button" className="q1__card-confirm btn-press" onClick={() => openConfirm(q.code)}>
                           Подтвердить
                         </button>
                       )}
@@ -286,11 +285,8 @@ export default function Quests() {
 
       <aside className="q1__right">
         <div className="q1__report">
-          <button type="button" className="q1__report-btn q1__report-btn--primary btn-press" onClick={reportModal.show}>
+          <button type="button" className="q1__report-btn q1__report-btn--primary btn-press" onClick={reportModal.show} disabled={!selfReportQuestCode}>
             Самоотчёт
-          </button>
-          <button type="button" className="q1__report-btn q1__report-btn--dark btn-press" onClick={() => addToast('Функция жалобы будет доступна позже', 'error')}>
-            Пожаловаться
           </button>
         </div>
 
@@ -298,25 +294,12 @@ export default function Quests() {
           <div className="q1__series-head">
             <img className="q1__series-icon-img" src={seriesIcon} alt="" aria-hidden="true" />
             <div className="q1__series-text">
-              <div className="q1__series-label">Серия:</div>
-              <div className="q1__series-sub">{animStreak} дней без опозданий</div>
-            </div>
-          </div>
-          <div className="q1__series-progress">
-            <div className="q1__series-marks">
-              <span className="q1__series-m q1__series-m--muted">7 дней</span>
-              <span className="q1__series-m q1__series-m--dark">14 дней</span>
-            </div>
-            <div className="q1__series-bar">
-              <span className="q1__series-dot" />
-              <div className="q1__series-rail">
-                <div className="q1__series-fill" style={{ width: '55%', transition: 'width 1.5s cubic-bezier(0.16, 1, 0.3, 1)' }} />
+              <div className="q1__series-label">Серия без опозданий</div>
+              <div className="q1__series-sub">
+                {lateStrike != null
+                  ? `${lateStrike} ${lateStrike === 1 ? 'день' : lateStrike >= 2 && lateStrike <= 4 ? 'дня' : 'дней'} подряд`
+                  : 'Данные обновляются после синхронизации с HikCentral'}
               </div>
-              <span className="q1__series-dot" />
-            </div>
-            <div className="q1__series-marks">
-              <span className="q1__series-m q1__series-m--muted">+5 монет</span>
-              <span className="q1__series-m q1__series-m--purple">+15 монет</span>
             </div>
           </div>
         </section>
@@ -336,40 +319,6 @@ export default function Quests() {
           </div>
           <button type="button" className="q1__activity-more btn-press" onClick={() => setActiveTab(2)}>Показать ещё</button>
         </section>
-
-        {/* Еженедельный выбор */}
-        {activeTab === 0 && (
-          <section className="q1__weekly">
-            <h2 className="q1__weekly-title">Еженедельный выбор</h2>
-            <div className="q1__weekly-inner">
-              <p className="q1__weekly-prompt">Выбери одно из двух заданий</p>
-              <div className="q1__weekly-cards">
-                <article className={`q1__wcard hover-lift${selectedWeekly === 'A' ? ' q1__wcard--selected' : ''}`}>
-                  <h3 className="q1__wcard-title">Вариант A</h3>
-                  <div className="q1__wcard-desc">
-                    <p>Сдать все КТ недели</p>
-                    <p>Помочь однокурснику с проектом</p>
-                  </div>
-                  <div className="q1__wcard-reward">+10 монет</div>
-                  <button type="button" className="q1__wcard-pick btn-press" onClick={() => handleWeeklySelect('A')}>
-                    {selectedWeekly === 'A' ? '✓ Выбрано' : 'Выбрать'}
-                  </button>
-                </article>
-                <article className={`q1__wcard hover-lift${selectedWeekly === 'B' ? ' q1__wcard--selected' : ''}`}>
-                  <h3 className="q1__wcard-title">Вариант B</h3>
-                  <div className="q1__wcard-desc">
-                    <p>Помочь однокурснику с проектом</p>
-                    <p>Сдать КТ по Python до пятницы</p>
-                  </div>
-                  <div className="q1__wcard-reward">+10 монет</div>
-                  <button type="button" className="q1__wcard-pick btn-press" onClick={() => handleWeeklySelect('B')}>
-                    {selectedWeekly === 'B' ? '✓ Выбрано' : 'Выбрать'}
-                  </button>
-                </article>
-              </div>
-            </div>
-          </section>
-        )}
       </aside>
 
       {/* Модалка самоотчёта */}
@@ -377,11 +326,12 @@ export default function Quests() {
         <div className="modal-fixed">
           <div className="modal-fixed__content" ref={reportModal.ref}>
             <h3 className="popup__title">Самоотчёт</h3>
-            <label className="popup__label">Ссылка на работу</label>
-            <input
-              type="url" value={reportText} onChange={e => setReportText(e.target.value)}
-              placeholder="https://..."
+            <label className="popup__label">Комментарий или ссылка на работу</label>
+            <textarea
+              value={reportText} onChange={e => setReportText(e.target.value)}
+              placeholder="Опишите выполненное задание (мин. 10 символов)"
               className="popup__input"
+              rows={4}
             />
             <button type="button" className="popup__submit btn-press" onClick={handleReportSubmit}>
               Отправить

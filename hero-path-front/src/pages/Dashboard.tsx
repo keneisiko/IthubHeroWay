@@ -44,12 +44,30 @@ interface DashboardData {
     level: number
     rating_current: number
     skills?: Record<string, number>
+    skills_peak?: Record<string, number>
   }
   current_quest: {
+    code: string
     title: string
     quest_type: string
     progress_value: number
     reward_coins: number
+    auto_verify?: boolean
+    manual_complete_allowed?: boolean
+    verification_message?: string
+  } | null
+  strike?: {
+    late_strike: number
+    bonus_at_7: number
+    bonus_at_14: number
+    bonus_at_21: number
+    overall_progress_percent: number
+  } | null
+  rating_progress?: {
+    zone_label: string
+    next_zone_label: string | null
+    points_to_next: number
+    progress_percent: number
   } | null
   feed: { text: string; time: string }[]
 }
@@ -150,12 +168,14 @@ export default function Dashboard() {
   const [reportText, setReportText] = useState('')
   const [questTab, setQuestTab] = useState<QuestTab>('daily')
   const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const tilt = useTilt()
   const { toasts, addToast } = useToasts()
 
   const loadDashboard = useCallback(() => {
     setLoadError(false)
+    setLoading(true)
     api.get('/api/v1/dashboard/')
       .then(res => setData(res.data))
       .catch(() => {
@@ -163,6 +183,7 @@ export default function Dashboard() {
         setLoadError(true)
         addToast('Не удалось загрузить дашборд', 'error')
       })
+      .finally(() => setLoading(false))
   }, [addToast])
 
   useEffect(() => {
@@ -172,9 +193,12 @@ export default function Dashboard() {
   const rating = data?.user.rating_current ?? 0
   const ratingDisplay = useCountUp(rating)
   const level = data?.user.level ?? 0
-  const questTitle = data?.current_quest?.title ?? 'Нет активного квеста'
+  const questTitle = data?.current_quest?.title ?? 'На сегодня всё. Отдыхай.'
   const questProgress = data?.current_quest?.progress_value ?? 0
+  const hasQuest = Boolean(data?.current_quest)
   const isDaily = data?.current_quest?.quest_type === 'daily'
+  const questAutoVerify = data?.current_quest?.auto_verify ?? false
+  const questManualAllowed = data?.current_quest?.manual_complete_allowed !== false
 
   if (loadError) {
     return (
@@ -184,9 +208,31 @@ export default function Dashboard() {
     )
   }
 
+  if (loading || !data) {
+    return (
+      <div className="dashboard page-enter">
+        <div className="profile-loading">
+          <div className="loading-spinner">
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+            <span className="loading-spinner-dot" />
+          </div>
+          <p className="loading-text">Загрузка дашборда...</p>
+        </div>
+      </div>
+    )
+  }
+
   const radarValues = AXIS_LABELS.map(label =>
     data?.user?.skills?.[label] ?? 0
   )
+  const radarPeakValues = AXIS_LABELS.map(label =>
+    data?.user?.skills_peak?.[label] ?? radarValues[AXIS_LABELS.indexOf(label)] ?? 0
+  )
+  const strike = data?.strike
+  const lateDays = strike?.late_strike ?? 0
+  const strikeProgress = strike?.overall_progress_percent ?? 0
+  const ratingProgress = data?.rating_progress
   const radarData = {
     labels: AXIS_LABELS,
     datasets: [
@@ -204,7 +250,7 @@ export default function Dashboard() {
       },
       {
         label: 'Пик',
-        data: [90, 75, 80, 65, 75],
+        data: radarPeakValues,
         backgroundColor: 'rgba(154, 51, 244, 0.08)',
         borderColor: 'rgba(154, 51, 244, 0.65)',
         borderWidth: 3,
@@ -214,13 +260,7 @@ export default function Dashboard() {
     ],
   }
 
-  const activity = data?.feed?.length
-    ? data.feed
-    : [
-        { text: 'Получена нашивка «Железный ритм»', time: '1 час назад' },
-        { text: '+3 монеты от @ivan за респект', time: '2 часа назад' },
-        { text: 'Серия 7 дней · +5 монет', time: '3 часа назад' },
-      ]
+  const activity = data?.feed ?? []
 
   return (
     <div className="dashboard page-enter">
@@ -234,7 +274,7 @@ export default function Dashboard() {
               <img className="series__icon-image" src={seriesIcon} alt="" aria-hidden="true" />
               <div className="series__title-wrap">
                 <h3>Серия:</h3>
-                <p>12 дней без опозданий</p>
+                <p>{lateDays} {lateDays === 1 ? 'день' : lateDays >= 2 && lateDays <= 4 ? 'дня' : 'дней'} без опозданий</p>
               </div>
             </div>
             <div className="series__meta series__meta--top">
@@ -242,11 +282,13 @@ export default function Dashboard() {
             </div>
             <div className="series__progress-row">
               <span className="series__circle series__circle--left" />
-              <div className="series__progress"><div className="series__progress-fill" /></div>
+              <div className="series__progress">
+                <div className="series__progress-fill" style={{ width: `${Math.min(100, strikeProgress)}%` }} />
+              </div>
               <span className="series__circle series__circle--right" />
             </div>
             <div className="series__meta series__meta--bottom">
-              <span>+5 монет</span><span>+15 монет</span>
+              <span>+{strike?.bonus_at_7 ?? 5} монет</span><span>+{strike?.bonus_at_21 ?? 15} монет</span>
             </div>
           </section>
 
@@ -255,22 +297,32 @@ export default function Dashboard() {
             <div className="rating__value">{ratingDisplay}</div>
             <div className="rating__line">
               <span>Статус:</span>
-              <span className="chip chip--light rating__chip">Игрок</span>
+              <span className="chip chip--light rating__chip">{ratingProgress?.zone_label ?? '—'}</span>
               <span className="chip chip--light rating__chip">{level} ур.</span>
             </div>
-            <div className="rating__line">
-              <span>до</span>
-              <span className="chip chip--dark rating__chip rating__chip--leader">Лидера</span>
-              <span>осталось:</span>
-            </div>
-            <span className="chip chip--light rating__target">150 баллов</span>
+            {ratingProgress?.next_zone_label && (
+              <>
+                <div className="rating__line">
+                  <span>до</span>
+                  <span className="chip chip--dark rating__chip rating__chip--leader">{ratingProgress.next_zone_label}</span>
+                  <span>осталось:</span>
+                </div>
+                <span className="chip chip--light rating__target">{ratingProgress.points_to_next} баллов</span>
+              </>
+            )}
             <div className="rating__progress-row">
               <span className="rating__circle rating__circle--left" />
-              <div className="rating__progress"><div className="rating__progress-fill" /></div>
+              <div className="rating__progress">
+                <div
+                  className="rating__progress-fill"
+                  style={{ width: `${Math.min(100, ratingProgress?.progress_percent ?? 0)}%` }}
+                />
+              </div>
               <span className="rating__circle rating__circle--right" />
             </div>
             <div className="rating__meta">
-              <span>Игрок</span><span>Лидер</span>
+              <span>{ratingProgress?.zone_label ?? '—'}</span>
+              <span>{ratingProgress?.next_zone_label ?? 'Макс.'}</span>
             </div>
           </section>
         </div>
@@ -328,9 +380,11 @@ export default function Dashboard() {
             Лента активности
           </h3>
           <div className="activity">
-            {activity.map((item: any, i: number) => (
+            {activity.length === 0 ? (
+              <p className="loading-text" style={{ padding: '12px 0' }}>Лента пока пуста</p>
+            ) : activity.map((item, i) => (
               <article
-                key={item.text}
+                key={`${item.text}-${i}`}
                 className="activity__item dash-in-item"
                 style={{ animationDelay: `${320 + i * 80}ms` }}
               >
@@ -343,6 +397,10 @@ export default function Dashboard() {
 
         <section className="quest dash-in" style={{ animationDelay: '320ms' }}>
           <h3>Активный квест</h3>
+          {!hasQuest ? (
+            <p className="loading-text" style={{ padding: '16px 0' }}>На сегодня всё. Отдыхай.</p>
+          ) : (
+          <>
           <div className="quest__tabs">
             <button
               className={`quest__tab${questTab === 'daily' ? ' quest__tab--active' : ''}`}
@@ -365,11 +423,22 @@ export default function Dashboard() {
               <span className="dot dot--green" />
             </div>
           </div>
-          <button className="quest__confirm btn-press" onClick={confirm.show}>Подтвердить</button>
+          <button
+            className="quest__confirm btn-press"
+            onClick={confirm.show}
+            disabled={questAutoVerify || !questManualAllowed}
+          >
+            {questAutoVerify ? 'Проверяется автоматически' : 'Подтвердить'}
+          </button>
+          {questAutoVerify && data?.current_quest?.verification_message && (
+            <p className="loading-text" style={{ marginTop: 8 }}>{data.current_quest.verification_message}</p>
+          )}
           <div className="quest__row">
             <span>Текст</span><span>+</span>
           </div>
           <button className="quest__self btn-press" onClick={report.show}>Самоотчёт</button>
+          </>
+          )}
         </section>
       </div>
 
@@ -382,8 +451,14 @@ export default function Dashboard() {
         onChange={setConfirmLink}
         onClose={confirm.hide}
         onSubmit={() => {
-          api.post('/api/v1/quests/confirm/', { link: confirmLink })
-            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Квест подтверждён!', 'success') })
+          const code = data?.current_quest?.code
+          if (!code) {
+            addToast('Нет активного квеста', 'error')
+            return
+          }
+          const proof = confirmLink.trim() ? { link: confirmLink.trim() } : {}
+          api.post(`/api/v1/quests/${code}/complete/`, { proof_payload: proof })
+            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Квест подтверждён!', 'success'); loadDashboard() })
             .catch(() => addToast('Ошибка подтверждения', 'error'))
         }}
       />
@@ -397,7 +472,17 @@ export default function Dashboard() {
         onChange={setReportText}
         onClose={report.hide}
         onSubmit={() => {
-          api.post('/api/v1/quests/report/', { link: reportText })
+          const code = data?.current_quest?.code
+          if (!code) {
+            addToast('Нет квеста для самоотчёта', 'error')
+            return
+          }
+          const comment = reportText.trim()
+          if (comment.length < 10) {
+            addToast('Комментарий минимум 10 символов', 'error')
+            return
+          }
+          api.post(`/api/v1/quests/${code}/self-report/`, { comment })
             .then(() => { report.hide(); setReportText(''); addToast('Самоотчёт отправлен!', 'success') })
             .catch(() => addToast('Ошибка отправки', 'error'))
         }}

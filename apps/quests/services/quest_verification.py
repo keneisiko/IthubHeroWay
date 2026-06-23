@@ -1,0 +1,116 @@
+"""Orchestration: evaluate auto-verifiable quests and apply progress/completion."""
+
+from __future__ import annotations
+
+import logging
+from datetime import date
+
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+from django.utils import timezone
+
+from apps.accounts.models import Role
+from apps.quests.models import Quest, QuestType, QuestVerifierKind
+from apps.quests.services.quest_completion import complete_quest_idempotent, update_quest_progress
+from apps.quests.services.quest_conditions import is_auto_verified, resolve_verifier_config
+from apps.quests.services.verifiers import run_verifier
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+def _active_quests_queryset(quest_types: list[str] | None = None):
+    now = timezone.now()
+    qs = Quest.objects.filter(is_active=True).filter(
+        Q(start_at__isnull=True) | Q(start_at__lte=now)
+    ).filter(Q(end_at__isnull=True) | Q(end_at__gte=now))
+    if quest_types:
+        qs = qs.filter(quest_type__in=quest_types)
+    return qs.order_by("id")
+
+
+def _eligible_users():
+    return (
+        User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
+        .select_related("telegram_link")
+        .order_by("id")
+    )
+
+
+def verify_quest_for_user(user, quest: Quest, target_date: date | None = None) -> dict:
+    target_date = target_date or timezone.localdate()
+    if not is_auto_verified(quest):
+        return {"skipped": True, "reason": "not_auto"}
+
+    verifier, params = resolve_verifier_config(quest)
+    if not verifier or verifier == QuestVerifierKind.MANUAL:
+        return {"skipped": True, "reason": "manual_verifier"}
+
+    result = run_verifier(user, verifier, params, target_date)
+    evidence = {
+        **result.evidence,
+        "message": result.message,
+        "verified_at": timezone.now().isoformat(),
+        "target_date": target_date.isoformat(),
+    }
+
+    if result.completed:
+        progress, reward_created = complete_quest_idempotent(
+            user,
+            quest,
+            reason=f"Auto-verify {quest.code}: {result.message}",
+            evidence=evidence,
+            progress_value=1.0,
+        )
+        return {
+            "completed": True,
+            "reward_created": reward_created,
+            "progress": progress.progress_value,
+            "message": result.message,
+        }
+
+    update_quest_progress(user, quest, progress_value=result.progress, evidence=evidence)
+    return {
+        "completed": False,
+        "progress": result.progress,
+        "message": result.message,
+    }
+
+
+def verify_all_auto_quests(
+    target_date: date | None = None,
+    quest_types: list[str] | None = None,
+) -> dict:
+    target_date = target_date or timezone.localdate()
+    if quest_types is None:
+        quest_types = [QuestType.DAILY, QuestType.WEEKLY]
+
+    quests = [q for q in _active_quests_queryset(quest_types) if is_auto_verified(q)]
+    users = list(_eligible_users())
+
+    stats = {
+        "date": target_date.isoformat(),
+        "quests": len(quests),
+        "users": len(users),
+        "completed": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0,
+    }
+
+    for quest in quests:
+        for user in users:
+            try:
+                outcome = verify_quest_for_user(user, quest, target_date)
+                if outcome.get("skipped"):
+                    stats["skipped"] += 1
+                elif outcome.get("completed"):
+                    stats["completed"] += 1
+                else:
+                    stats["updated"] += 1
+            except Exception:
+                stats["errors"] += 1
+                logger.exception("quest_verify_failed quest=%s user=%s", quest.code, user.pk)
+
+    logger.info("verify_all_auto_quests %s", stats)
+    return stats

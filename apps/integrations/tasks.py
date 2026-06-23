@@ -11,10 +11,20 @@ from apps.integrations.lxp_task_helpers import refresh_lxp_token_sync
 from apps.integrations.models import LXPSnapshot
 from apps.integrations.services.hik_attendance_processor import process_unprocessed_hik_events, save_hik_row_as_event
 from apps.integrations.services.hik_client import HikCentralClient, HikClientError
+from apps.integrations.services.hik_snapshot_service import apply_hik_snapshot
 from apps.integrations.services.lxp_graphql_client import LXPGraphQLClient
 from apps.integrations.services.telegram_alert import send_alert_to_admin
 
 logger = logging.getLogger(__name__)
+
+
+def _hik_process_pending(label: str) -> str:
+    if not getattr(settings, "HIK_PROCESS_ENABLED", True):
+        return "hik_off"
+    proc_seen, ext_n, skipped = process_unprocessed_hik_events(
+        limit=int(getattr(settings, "HIK_PROCESS_BATCH", 8000))
+    )
+    return f"{label} processed={proc_seen} external={ext_n} skipped_users={skipped}"
 
 
 @shared_task
@@ -42,11 +52,18 @@ def fetch_lxp_snapshot() -> str:
 @shared_task
 def fetch_hik_events() -> str:
     """
-    Забирает события доступа из HikCentral → HikEvent, затем выпускает ExternalEvent
-    для пользователей с привязанной картой (hik_card_code).
+    api: HikCentral → HikEvent.
+    snapshot: обработка очереди (данные кладутся через pull_hik_attendance).
     """
+    mode = getattr(settings, "HIK_DATA_MODE", "snapshot")
+    if mode == "off":
+        return "hik_off"
+    if mode == "snapshot":
+        return _hik_process_pending("hik_snapshot_mode")
+
     if not getattr(settings, "HIK_FETCH_ENABLED", False):
-        return "hik_disabled"
+        return "hik_api_not_configured"
+
     client = HikCentralClient()
     window = timedelta(hours=int(getattr(settings, "HIK_FETCH_LOOKBACK_HOURS", 2)))
     end = timezone.now()
@@ -74,23 +91,31 @@ def fetch_hik_events() -> str:
         _, created = save_hik_row_as_event(row)
         if created:
             inserted += 1
-    proc_seen, ext_n, skipped = process_unprocessed_hik_events(limit=int(getattr(settings, "HIK_PROCESS_BATCH", 8000)))
-    logger.info(
-        "fetch_hik_events rows=%s new_db=%s process_seen=%s external_new=%s no_user_skip=%s",
-        seen,
-        inserted,
-        proc_seen,
-        ext_n,
-        skipped,
+    proc_msg = _hik_process_pending("hik_api")
+    logger.info("fetch_hik_events rows=%s new_db=%s %s", seen, inserted, proc_msg)
+    return f"hik_saved={inserted}/{seen} {proc_msg}"
+
+
+@shared_task
+def process_hik_snapshot_daily() -> str:
+    """Импорт и обработка HikSnapshot за вчера (режим snapshot)."""
+    if getattr(settings, "HIK_DATA_MODE", "snapshot") == "off":
+        return "hik_off"
+    yesterday = timezone.localdate() - timedelta(days=1)
+    result = apply_hik_snapshot(yesterday, skip_process=False)
+    if result.get("error"):
+        return f"hik_snapshot_missing:{yesterday.isoformat()}"
+    return (
+        f"hik_snapshot date={yesterday} import={result.get('import_inserted')} "
+        f"external={result.get('external_created')}"
     )
-    return f"hik_saved={inserted}/{seen} external={ext_n} skipped_users={skipped}"
 
 
 @shared_task
 def process_hik_events_daily() -> str:
-    """Доработка очереди необработанных событий (больший лимит)."""
-    if not getattr(settings, "HIK_FETCH_ENABLED", False):
-        return "hik_disabled"
+    """Доработка очереди необработанных HikEvent."""
+    if not getattr(settings, "HIK_PROCESS_ENABLED", True):
+        return "hik_off"
     proc_seen, ext_n, skipped = process_unprocessed_hik_events(limit=50_000)
     return f"hik_daily processed={proc_seen} external={ext_n} skipped_users={skipped}"
 
@@ -98,9 +123,4 @@ def process_hik_events_daily() -> str:
 @shared_task
 def process_late_events() -> str:
     """Обработка HikEvent: опоздания, ExternalEvent, штрафы рейтинга."""
-    if not getattr(settings, "HIK_FETCH_ENABLED", False):
-        return "hik_disabled"
-    proc_seen, ext_n, skipped = process_unprocessed_hik_events(
-        limit=int(getattr(settings, "HIK_PROCESS_BATCH", 8000))
-    )
-    return f"hik_late processed={proc_seen} external={ext_n} skipped_users={skipped}"
+    return _hik_process_pending("hik_late")

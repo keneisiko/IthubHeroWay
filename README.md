@@ -64,20 +64,58 @@ docker compose exec web python manage.py backfill_lxp_user_ids --email-domain na
 
 ## HikCentral: проходы (турникеты)
 
-- Документация: [docs/HIKCENTRAL.md](docs/HIKCENTRAL.md).
-- В админке у пользователя задайте **`hik_card_code`** (совпадает с `personCode` / номер карты из Hik).
-- Celery Beat: **`fetch-hik-events-hourly`** (каждый час с `:05`) и **`process-hik-events-daily`** (`process_hik_events_daily` — догрузка большой очереди в 20:00; основная обработка также вызывается из `fetch_hik_events`).
-- Ручной запуск выгрузки:
+Два режима (`HIK_DATA_MODE` в `.env`):
+
+| Режим | Когда | Как получать данные |
+|-------|--------|---------------------|
+| **`snapshot`** (по умолчанию без API) | Нет `HIK_APP_KEY` / ручная выгрузка | `pull_hik_attendance` → **`HikSnapshot`** |
+| **`api`** | Настроен HikCentral OpenAPI | Celery `fetch-hik-events-hourly` |
+| **`off`** | Hik отключён | — |
+
+Общее для обоих режимов:
+- В админке у пользователя **`hik_card_code`** = `personCode` из Hik.
+- Расписание отряда (`Schedule`) — для расчёта опозданий.
+- Цепочка: **HikSnapshot / API → HikEvent → ExternalEvent** → штрафы, квесты `daily-hik-*`.
+
+### Ручной забор (аналог LXP `pull_lxp_performance`)
 
 ```bash
+# Пример формата JSON
+docker compose exec web python manage.py pull_hik_attendance --export-template
+
+# Импорт из файла (экспорт из Hik-Connect / Excel→JSON)
+docker compose exec web python manage.py pull_hik_attendance --from-file docs/examples/hik_snapshot.example.json --date=2026-05-30
+
+# Демо без Hik: синтетические проходы + карты HIK-DEMO-<id>
+docker compose exec web python manage.py pull_hik_attendance --synthetic --assign-hik-cards --verify-quests
+
+# Только переобработать уже сохранённый снимок
+docker compose exec web python manage.py pull_hik_attendance --process-only --yesterday
+```
+
+Формат снимка: [`docs/examples/hik_snapshot.example.json`](docs/examples/hik_snapshot.example.json) — поле `events[]` с `eventId`, `personCode`, `eventTime`.
+
+Celery в режиме **snapshot**: `:05` каждый час обрабатывает очередь `HikEvent`; **20:10** — `process_hik_snapshot_daily` (если снимок за вчера уже загружен).
+
+API-режим (если появится ключ):
+
+```bash
+# .env: HIK_DATA_MODE=api, HIK_HOST=..., HIK_APP_KEY=..., HIK_APP_SECRET=...
 docker compose exec web python manage.py sync_hik_events
 ```
 
-События с маппингом сохраняются в **`ExternalEvent`** (`source=hik`). Учёт опозданий от расписания и автоприменение штрафов рейтинга к опоре «Ритм» — отдельный этап.
+Документация API: [docs/HIKCENTRAL.md](docs/HIKCENTRAL.md).
+
+## Frontend (`hero-path-front`)
+
+React + TypeScript + Vite: дашборд, профиль, квесты, магазин, отряды, рейтинг.
+
+- Локально без Docker: `cd hero-path-front && npm ci && npm run dev` → [http://localhost:5173](http://localhost:5173)
+- API задаётся через `VITE_API_URL` (см. [hero-path-front/.env.example](hero-path-front/.env.example))
 
 ## Full run (Docker)
 
-1) Build and run services:
+1) Build and run services (backend + Celery + фронт):
 
 ```bash
 docker compose up -d --build
@@ -95,10 +133,25 @@ docker compose exec web python manage.py migrate
 docker compose exec web python manage.py createsuperuser
 ```
 
+3.1) Seed demo data for frontend testing (shop, quests, squads, badges):
+
+```bash
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py sync_quest_templates
+docker compose exec web python manage.py seed_demo_data
+```
+
+Quest templates create auto-verified daily/weekly quests (Hik, LXP, YouGile). Manual verification runs via Celery at 06:15 and 20:15, or on demand:
+
+```bash
+docker compose exec web python manage.py verify_quests
+docker compose exec web python manage.py verify_quests --date=2026-05-30 --types=daily
+```
+
 4) Run tests:
 
 ```bash
-docker compose exec web python manage.py test apps.accounts.tests apps.social.tests apps.integrations apps.progress
+docker compose exec web python manage.py test apps.quests.tests_self_reports apps.quests.tests_quest_verification apps.accounts.tests apps.accounts.tests_squads_api apps.social.tests apps.integrations apps.progress
 ```
 
 ## Full run (without Docker)
@@ -129,6 +182,7 @@ py -3 manage.py runserver 0.0.0.0:8000
 
 ## Verify that project is running
 
+- Frontend (Vite): `http://localhost:5173/`
 - API base: `http://localhost:8000/`
 - Swagger UI: `http://localhost:8000/swagger/`
 - OpenAPI schema: `http://localhost:8000/schema/`

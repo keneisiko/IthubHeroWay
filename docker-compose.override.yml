@@ -11,3 +11,7 @@ services:
     build:
       context: .
       network: host
+  frontend:
+    build:
+      context: ./hero-path-front
+      network: host

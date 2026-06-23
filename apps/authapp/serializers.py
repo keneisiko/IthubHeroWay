@@ -17,11 +17,16 @@ class AuthUserSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(TokenObtainPairSerializer):
-    login = serializers.CharField(write_only=True)
-    password = serializers.CharField(write_only=True)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        username_field = self.username_field
+        if username_field in self.fields:
+            self.fields[username_field].required = False
+            self.fields[username_field].allow_blank = True
+        self.fields["login"] = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        login = (attrs.get("login") or "").strip()
+        login = (attrs.get("login") or attrs.get(self.username_field) or "").strip()
         password = attrs.get("password") or ""
         if not login or not password:
             raise AuthenticationFailed("Invalid credentials.")
