@@ -1,6 +1,8 @@
 from datetime import timedelta
-from django.utils import timezone
+
+from django.conf import settings
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 
@@ -26,15 +28,19 @@ class RespectCreateView(views.APIView):
         to_user = generics.get_object_or_404(User, username=serializer.validated_data["to_username"])
         if to_user.pk == request.user.pk:
             return Response({"detail": "Cannot send respect to yourself."}, status=status.HTTP_400_BAD_REQUEST)
+        limits = getattr(settings, "RATING_LIMITS", {})
+        respect_weekly = int(limits.get("RESPECT_WEEKLY_LIMIT", 1))
+        same_user_cooldown_days = int(limits.get("RESPECT_SAME_USER_COOLDOWN", 14))
         now = timezone.now()
-        # 1 respect per week per sender.
-        if Respect.objects.filter(from_user=request.user, created_at__gte=now - timedelta(days=7)).exists():
+        if respect_weekly > 0 and Respect.objects.filter(
+            from_user=request.user,
+            created_at__gte=now - timedelta(days=7),
+        ).count() >= respect_weekly:
             return Response({"detail": "Weekly respect limit reached."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
-        # Can't send to the same recipient in two consecutive weeks.
         if Respect.objects.filter(
             from_user=request.user,
             to_user=to_user,
-            created_at__gte=now - timedelta(days=14),
+            created_at__gte=now - timedelta(days=same_user_cooldown_days),
         ).exists():
             return Response(
                 {"detail": "You can respect this user again in two weeks."},
@@ -63,8 +69,12 @@ class DuelCreateView(views.APIView):
             return Response({"detail": "You already have an active duel."}, status=status.HTTP_400_BAD_REQUEST)
         if Duel.objects.filter(active_q).filter(Q(challenger=opponent) | Q(opponent=opponent)).exists():
             return Response({"detail": "Opponent already has an active duel."}, status=status.HTTP_400_BAD_REQUEST)
-        if abs(request.user.rating_current - opponent.rating_current) > 150:
-            return Response({"detail": "Rating difference must be 150 or less."}, status=status.HTTP_400_BAD_REQUEST)
+        max_diff = int(getattr(settings, "RATING_LIMITS", {}).get("DUEL_MAX_RATING_DIFF", 150))
+        if abs(request.user.rating_current - opponent.rating_current) > max_diff:
+            return Response(
+                {"detail": f"Rating difference must be {max_diff} or less."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         duel = Duel.objects.create(challenger=request.user, opponent=opponent, status=DuelStatus.PENDING)
         return Response(DuelSerializer(duel).data, status=status.HTTP_201_CREATED)
 

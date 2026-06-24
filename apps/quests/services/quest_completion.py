@@ -35,17 +35,18 @@ def complete_quest_idempotent(
             update_fields=["is_completed", "progress_value", "completed_at", "proof_payload", "updated_at"]
         )
 
+    reward_budget = remaining_daily_coin_budget(user)
+    allowed_coins = min(int(quest.reward_coins), reward_budget)
     reward_tx, created = QuestRewardTransaction.objects.get_or_create(
         user=user,
         quest=quest,
         defaults={
             "progress": progress,
-            "coins_delta": quest.reward_coins,
+            "coins_delta": allowed_coins,
             "rating_delta": quest.reward_rating_delta,
         },
     )
     if created:
-        allowed_coins = min(reward_tx.coins_delta, remaining_daily_coin_budget(user))
         if allowed_coins:
             user.coins_balance += allowed_coins
             user.save(update_fields=["coins_balance"])

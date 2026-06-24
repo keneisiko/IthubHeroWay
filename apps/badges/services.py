@@ -1,5 +1,7 @@
-from apps.accounts.models import User
 from django.core.cache import cache
+
+from apps.accounts.models import User
+from apps.progress.services.rewards import grant_coins_with_daily_cap
 from apps.quests.models import UserQuestProgress
 
 from .models import Badge, UserBadge
@@ -31,8 +33,7 @@ def award_badges_for_user(user: User) -> list[UserBadge]:
         )
         if created:
             if badge.reward_coins:
-                user.coins_balance += badge.reward_coins
-                user.save(update_fields=["coins_balance"])
+                grant_coins_with_daily_cap(user, badge.reward_coins)
             cache.delete_pattern(f"profile:{user.username}*")
             cache.delete_pattern("leaderboard:*")
             awarded.append(user_badge)

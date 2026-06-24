@@ -40,7 +40,7 @@ class LXPSnapshotTests(TestCase):
         cache.clear()
         # First call: login returns token
         post.return_value.status_code = 200
-        post.return_value.json.return_value = {"data": {"login": {"token": "t1"}}}
+        post.return_value.json.return_value = {"data": {"signIn": {"accessToken": "t1"}}}
 
         client = LXPGraphQLClient()
         t1 = client.get_token()

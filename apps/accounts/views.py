@@ -6,7 +6,7 @@ from .models import User
 from .serializers import MeProfileSerializer, PublicProfileSerializer
 from .permissions import IsKnownRole
 from .characteristics_views import MeCharacteristicsView
-from apps.quests.models import Quest, UserQuestProgress
+from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
 from apps.progress.models import UserStrike
 from apps.progress.services.late_penalties import late_streak_bonus_for_days
 from apps.progress.services.pillar_labels import skills_percent_by_label
@@ -79,6 +79,20 @@ def _strike_payload(user: User) -> dict:
     }
 
 
+def _dashboard_feed(user: User, limit: int = 5) -> list[dict]:
+    items: list[dict] = []
+    for tx in QuestRewardTransaction.objects.filter(user=user).select_related("quest").order_by("-granted_at")[:limit]:
+        title = tx.quest.title if tx.quest_id else "Квест"
+        coins_part = f"+{tx.coins_delta} монет" if tx.coins_delta else ""
+        rating_part = f"+{tx.rating_delta} рейтинг" if tx.rating_delta else ""
+        reward = ", ".join(p for p in (coins_part, rating_part) if p) or "Награда получена"
+        items.append({
+            "text": f"{title}: {reward}",
+            "time": tx.granted_at.isoformat() if tx.granted_at else "",
+        })
+    return items[:limit]
+
+
 class DashboardView(views.APIView):
     permission_classes = [IsKnownRole]
 
@@ -115,6 +129,6 @@ class DashboardView(views.APIView):
             "strike": _strike_payload(user),
             "rating_progress": rating_progress(user.rating_current),
             "recent_badges": [],
-            "feed": [],
+            "feed": _dashboard_feed(user),
         }
         return Response(data)

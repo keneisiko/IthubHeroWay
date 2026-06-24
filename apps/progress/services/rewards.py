@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from datetime import timedelta
-
+from django.conf import settings
 from django.db.models import Sum
 from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.quests.models import QuestRewardTransaction
+
+
+def get_rating_limits() -> dict:
+    return getattr(settings, "RATING_LIMITS", {})
+
+
+def max_daily_coins() -> int:
+    return int(get_rating_limits().get("MAX_DAILY_COINS", 20))
 
 
 def apply_rating_delta_with_cap(user: User, delta: int, source: str, reason: str = "", source_id: str = "") -> int:
@@ -37,7 +44,9 @@ def apply_rating_delta_with_cap(user: User, delta: int, source: str, reason: str
     return applied_delta
 
 
-def remaining_daily_coin_budget(user: User, day_limit: int = 20) -> int:
+def remaining_daily_coin_budget(user: User, day_limit: int | None = None) -> int:
+    if day_limit is None:
+        day_limit = max_daily_coins()
     day_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
     earned_today = (
         QuestRewardTransaction.objects.filter(user=user, granted_at__gte=day_start).aggregate(total=Sum("coins_delta"))[
@@ -46,4 +55,15 @@ def remaining_daily_coin_budget(user: User, day_limit: int = 20) -> int:
         or 0
     )
     return max(0, day_limit - int(earned_today))
+
+
+def grant_coins_with_daily_cap(user: User, amount: int) -> int:
+    """Grant coins respecting MAX_DAILY_COINS (quest ledger only). Returns amount granted."""
+    if amount <= 0:
+        return 0
+    allowed = min(int(amount), remaining_daily_coin_budget(user))
+    if allowed:
+        user.coins_balance += allowed
+        user.save(update_fields=["coins_balance"])
+    return allowed
 

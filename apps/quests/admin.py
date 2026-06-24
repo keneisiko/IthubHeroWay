@@ -91,6 +91,9 @@ class QuestRewardTransactionAdmin(ManagedRoleAdminMixin):
     list_filter = ("granted_at",)
     search_fields = ("user__callsign", "quest__code")
 
+    def has_module_permission(self, request):
+        return super().has_module_permission(request) and not is_hq(request.user)
+
     def has_add_permission(self, request):
         return False
 
@@ -142,6 +145,9 @@ class SquadLeaderboardSnapshotAdmin(ManagedRoleAdminMixin):
     list_display = ("squad", "avg_rating", "agents_count", "captured_at")
     list_filter = ("captured_at", "squad")
     search_fields = ("squad__code", "squad__name")
+
+    def has_module_permission(self, request):
+        return super().has_module_permission(request) and not is_hq(request.user)
 
     def has_add_permission(self, request):
         return request.user.is_superuser or request.user.role in {"admin", "hq"}

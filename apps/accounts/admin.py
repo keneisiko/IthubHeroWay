@@ -20,6 +20,7 @@ from apps.operations.admin_rbac import (
     is_superadmin,
     is_tutor,
 )
+from apps.progress.services.rewards import grant_coins_with_daily_cap
 from apps.quests.models import Quest, QuestType, SeasonalEvent, UserQuestProgress
 
 from .models import Role, Squad, Track, User
@@ -145,8 +146,9 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         with transaction.atomic():
             updated = 0
             for user in queryset:
-                user.coins_balance += 10
-                user.save(update_fields=["coins_balance"])
+                granted = grant_coins_with_daily_cap(user, 10)
+                if not granted:
+                    continue
                 LogEntry.objects.log_action(
                     user_id=request.user.pk,
                     content_type_id=ContentType.objects.get_for_model(User).pk,

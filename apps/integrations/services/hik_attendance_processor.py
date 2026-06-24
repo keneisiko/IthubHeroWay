@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -36,7 +36,7 @@ def parse_hik_event_time(value) -> datetime:
         ts = float(value)
         if ts > 1e12:
             ts /= 1000.0
-        return datetime.fromtimestamp(ts, tz=timezone.utc)
+        return datetime.fromtimestamp(ts, tz=dt_timezone.utc)
     if isinstance(value, str):
         s = value.strip()
         if s.isdigit():

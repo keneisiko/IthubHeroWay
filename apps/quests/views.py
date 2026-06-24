@@ -138,10 +138,16 @@ class SelfReportCreateView(views.APIView):
         if progress.is_completed:
             return Response({"detail": "Quest is already completed."}, status=status.HTTP_400_BAD_REQUEST)
 
+        from django.conf import settings
+
+        max_daily = int(getattr(settings, "RATING_LIMITS", {}).get("MAX_DAILY_SELF_REPORTS", 3))
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_count = SelfReportProof.objects.filter(user=request.user, created_at__gte=day_start).count()
-        if today_count >= 3:
-            return Response({"detail": "Daily self-report limit reached (3/day)."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        if today_count >= max_daily:
+            return Response(
+                {"detail": f"Daily self-report limit reached ({max_daily}/day)."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         last = SelfReportProof.objects.filter(user=request.user).order_by("-created_at").first()
         if last and (now - last.created_at).total_seconds() < 5 * 60:

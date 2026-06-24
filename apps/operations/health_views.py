@@ -57,7 +57,12 @@ class HealthView(views.APIView):
             "celery": _celery_ok(),
         }
         status_text = "ok" if all(checks.values()) else "degraded"
-        return Response({"status": status_text, "checks": checks, "ts": timezone.now().isoformat()})
+        return Response({
+            "status": status_text,
+            "healthy": status_text == "ok",
+            "checks": checks,
+            "ts": timezone.now().isoformat(),
+        })
 
 
 class ReadyView(views.APIView):

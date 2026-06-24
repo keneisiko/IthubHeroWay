@@ -2,10 +2,12 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Role, Squad, Track
-from apps.quests.admin import SelfReportProofAdmin
+from apps.quests.admin import QuestRewardTransactionAdmin, SelfReportProofAdmin
 from apps.quests.models import Quest, QuestType, SelfReportProof, SelfReportProofStatus, UserQuestProgress
 
 
@@ -29,6 +31,26 @@ class SelfReportApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["status"], "pending")
         self.assertTrue(SelfReportProof.objects.filter(user=self.user, quest=self.quest).exists())
+
+    def test_fourth_self_report_rejected(self):
+        for i in range(3):
+            quest = Quest.objects.create(
+                code=f"sr-limit-{i}",
+                title=f"SR {i}",
+                quest_type=QuestType.SELF_REPORT,
+                is_active=True,
+            )
+            url = reverse("quests-self-report", kwargs={"code": quest.code})
+            response = self.client.post(url, {"comment": "abcdefghij"}, format="json")
+            self.assertEqual(response.status_code, 201, msg=f"quest {i}")
+            SelfReportProof.objects.filter(user=self.user, quest=quest).update(
+                created_at=timezone.now() - timedelta(hours=1)
+            )
+
+        overflow = Quest.objects.create(code="sr-limit-4", title="SR 4", quest_type=QuestType.SELF_REPORT, is_active=True)
+        url = reverse("quests-self-report", kwargs={"code": overflow.code})
+        response = self.client.post(url, {"comment": "abcdefghij"}, format="json")
+        self.assertEqual(response.status_code, 429)
 
 
 class SelfReportAdminQuerysetTests(TestCase):
@@ -92,6 +114,23 @@ class SelfReportAdminQuerysetTests(TestCase):
 
     def test_hq_has_no_module_permission(self):
         request = self.factory.get("/admin/quests/selfreportproof/")
+        request.user = self.hq
+        self.assertFalse(self.admin.has_module_permission(request))
+
+
+class QuestRewardTransactionAdminTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.site = AdminSite()
+        from apps.quests.models import QuestRewardTransaction
+
+        self.admin = QuestRewardTransactionAdmin(QuestRewardTransaction, self.site)
+        self.hq = get_user_model().objects.create_user(
+            username="hq2", password="x", callsign="hq2", role=Role.HQ, is_staff=True
+        )
+
+    def test_hq_denied_quest_reward_transaction(self):
+        request = self.factory.get("/admin/quests/questrewardtransaction/")
         request.user = self.hq
         self.assertFalse(self.admin.has_module_permission(request))
 
