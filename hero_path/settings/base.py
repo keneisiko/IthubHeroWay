@@ -261,14 +261,33 @@ HIK_FETCH_ENABLED = (
     and os.getenv("HIK_FETCH_ENABLED", "1").lower() in {"1", "true", "yes"}
 )
 
-# api — live HikCentral OpenAPI; snapshot — ручной импорт (pull_hik_attendance); off — без Hik
+# api — OpenAPI; browser — Playwright XLSX с hik-connectru; snapshot — ручной JSON/XLSX; off — без Hik
 _hik_mode_raw = os.getenv("HIK_DATA_MODE", "").strip().lower()
-if _hik_mode_raw in {"api", "snapshot", "off"}:
+_hik_browser_export = os.getenv("HIK_USE_BROWSER_EXPORT", "0").lower() in {"1", "true", "yes"}
+if _hik_mode_raw in {"api", "snapshot", "off", "browser"}:
     HIK_DATA_MODE = _hik_mode_raw
+elif _hik_browser_export:
+    HIK_DATA_MODE = "browser"
 elif HIK_FETCH_ENABLED:
     HIK_DATA_MODE = "api"
 else:
     HIK_DATA_MODE = "snapshot"
+
+HIK_USE_BROWSER_EXPORT = _hik_browser_export or HIK_DATA_MODE == "browser"
+HIK_WEB_LOGIN_URL = os.getenv(
+    "HIK_WEB_LOGIN_URL",
+    "https://www.hik-connectru.com/views/login/index.html#/login",
+).strip()
+HIK_WEB_EMAIL = os.getenv("HIK_WEB_EMAIL", "").strip()
+HIK_WEB_PASSWORD = os.getenv("HIK_WEB_PASSWORD", "").strip()
+HIK_WEB_RECORDS_URL = os.getenv("HIK_WEB_RECORDS_URL", "").strip()
+HIK_WEB_NAV_STEPS = os.getenv(
+    "HIK_WEB_NAV_STEPS",
+    "Контроль доступа|Записи прохода",
+).strip()
+HIK_BROWSER_HEADLESS = os.getenv("HIK_BROWSER_HEADLESS", "1").lower() in {"1", "true", "yes"}
+HIK_BROWSER_TIMEOUT_MS = _env_int("HIK_BROWSER_TIMEOUT_MS", 120_000)
+HIK_BROWSER_DOWNLOAD_DIR = os.getenv("HIK_BROWSER_DOWNLOAD_DIR", "/tmp/hik_exports").strip()
 
 HIK_PROCESS_ENABLED = HIK_DATA_MODE != "off"
 

@@ -1,0 +1,342 @@
+"""Hik Connect web portal export via Playwright (XLSX download), similar to LXP browser bot."""
+
+from __future__ import annotations
+
+import logging
+import time
+import zipfile
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
+from playwright.sync_api import Page, sync_playwright
+
+from apps.integrations.services.lxp_browser_token import (
+    BrowserTokenFetchError,
+    _click_first,
+    _fill_first,
+    _force_fill_auth_inputs,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class HikBrowserExportError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class HikBrowserExportConfig:
+    login_url: str
+    email: str
+    password: str
+    nav_steps: tuple[str, ...] = ()
+    records_url: str = ""
+    headless: bool = True
+    timeout_ms: int = 120_000
+    debug: bool = False
+    download_dir: str = "/tmp/hik_exports"
+
+
+SEARCH_LABELS = ("Search", "Поиск", "Query", "Найти", "Применить", "OK", "确定")
+EXPORT_LABELS = ("Export", "Экспорт", "Export to Excel", "Export Excel", "Export All")
+EXCEL_LABELS = ("Excel", "XLSX", "xlsx", "Эксель", "Microsoft Excel")
+
+NAV_ALIASES: dict[str, tuple[str, ...]] = {
+    "контроль доступа": ("Access Control", "Access control"),
+    "записи прохода": ("Search", "Identity Access", "Access Records", "Identity Access Search"),
+    "access control": ("Контроль доступа",),
+    "search": ("Поиск", "Записи прохода"),
+}
+
+
+def _click_by_text(page: Page, label: str) -> bool:
+    targets = [page, *page.frames]
+    for target in targets:
+        for pattern in (label, label.lower(), label.upper()):
+            try:
+                locator = target.get_by_role("button", name=pattern, exact=False).first
+                if locator.count() and locator.is_visible():
+                    locator.click(timeout=4_000)
+                    return True
+            except Exception:
+                pass
+            try:
+                locator = target.get_by_text(pattern, exact=False).first
+                if locator.count() and locator.is_visible():
+                    locator.click(timeout=4_000)
+                    return True
+            except Exception:
+                continue
+    return _click_first(
+        page,
+        [
+            f"button:has-text('{label}')",
+            f"a:has-text('{label}')",
+            f"span:has-text('{label}')",
+            f"text={label}",
+        ],
+    )
+
+
+def _click_nav_step(page: Page, step: str) -> bool:
+    if _click_by_text(page, step):
+        return True
+    aliases = NAV_ALIASES.get(step.strip().lower(), ())
+    for alias in aliases:
+        if _click_by_text(page, alias):
+            return True
+    return False
+
+
+def _login(page: Page, config: HikBrowserExportConfig) -> None:
+    page.goto(config.login_url, wait_until="domcontentloaded", timeout=config.timeout_ms)
+    try:
+        page.wait_for_load_state("networkidle", timeout=15_000)
+    except Exception:
+        pass
+    page.wait_for_timeout(2_000)
+
+    _fill_first(
+        page,
+        [
+            "input[type='email']",
+            "input[name='email']",
+            "input[name='login']",
+            "input[name='username']",
+            "input[autocomplete='username']",
+        ],
+        config.email,
+    )
+    _fill_first(
+        page,
+        [
+            "input[type='password']",
+            "input[name='password']",
+            "input[autocomplete='current-password']",
+        ],
+        config.password,
+    )
+    forced = _force_fill_auth_inputs(page, config.email, config.password)
+    if forced.get("email_len", 0) == 0 or forced.get("password_len", 0) == 0:
+        raise HikBrowserExportError("Login form not found on Hik Connect page.")
+
+    _click_first(
+        page,
+        [
+            "button[type='submit']",
+            "button:has-text('Войти')",
+            "button:has-text('Login')",
+            "button:has-text('Sign In')",
+            "button.el-button--primary",
+        ],
+    )
+    page.keyboard.press("Enter")
+
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        url = page.url.lower()
+        if "#/login" not in url and "/login" not in url.split("?")[0][-30:]:
+            break
+        page.wait_for_timeout(500)
+
+    try:
+        page.wait_for_load_state("networkidle", timeout=20_000)
+    except Exception:
+        pass
+    page.wait_for_timeout(2_000)
+
+
+def _navigate_to_records(page: Page, config: HikBrowserExportConfig) -> None:
+    if config.records_url:
+        page.goto(config.records_url, wait_until="domcontentloaded", timeout=config.timeout_ms)
+        try:
+            page.wait_for_load_state("networkidle", timeout=15_000)
+        except Exception:
+            pass
+        page.wait_for_timeout(1_500)
+        return
+
+    for step in config.nav_steps:
+        step = step.strip()
+        if not step:
+            continue
+        if not _click_nav_step(page, step):
+            logger.warning("Hik nav step not found: %s (url=%s)", step, page.url)
+        page.wait_for_timeout(1_500)
+
+
+def _set_date_range(page: Page, start: date, end: date) -> None:
+    start_s = start.isoformat()
+    end_s = end.isoformat()
+    ru_start = start.strftime("%d.%m.%Y")
+    ru_end = end.strftime("%d.%m.%Y")
+
+    date_inputs = page.locator("input[type='date']")
+    if date_inputs.count() >= 2:
+        date_inputs.nth(0).fill(start_s)
+        date_inputs.nth(1).fill(end_s)
+        return
+    if date_inputs.count() == 1:
+        date_inputs.first.fill(start_s)
+        return
+
+    editors = page.locator(".el-date-editor input, .el-range-input, input[placeholder*='date' i], input[placeholder*='дата' i]")
+    count = editors.count()
+    if count >= 2:
+        try:
+            editors.nth(0).click()
+            editors.nth(0).fill(ru_start)
+            editors.nth(1).click()
+            editors.nth(1).fill(ru_end)
+            page.keyboard.press("Escape")
+            return
+        except Exception:
+            pass
+
+    values = [ru_start, ru_end, start_s, end_s]
+    for idx in range(min(count, 2)):
+        try:
+            editors.nth(idx).click()
+            editors.nth(idx).fill(values[idx])
+        except Exception:
+            continue
+
+    if count:
+        page.keyboard.press("Escape")
+        return
+
+    _fill_first(page, ["input[placeholder*='Start' i]", "input[placeholder*='Нач' i]"], ru_start)
+    _fill_first(page, ["input[placeholder*='End' i]", "input[placeholder*='Кон' i]"], ru_end)
+
+
+def _click_search(page: Page) -> None:
+    for label in SEARCH_LABELS:
+        if _click_by_text(page, label):
+            page.wait_for_timeout(2_000)
+            return
+    _click_first(page, ["button.el-button--primary", "button[type='button']"])
+
+
+def _click_export_menu(page: Page) -> bool:
+    for label in EXPORT_LABELS:
+        if _click_by_text(page, label):
+            return True
+    return _click_first(
+        page,
+        [
+            "button:has-text('Export')",
+            "button:has-text('Экспорт')",
+            ".export-btn",
+            "[class*='export']",
+        ],
+    )
+
+
+def _pick_excel_format(page: Page) -> None:
+    page.wait_for_timeout(600)
+    for label in EXCEL_LABELS:
+        try:
+            loc = page.get_by_text(label, exact=False).first
+            if loc.count() and loc.is_visible():
+                loc.click(timeout=3_000)
+                return
+        except Exception:
+            continue
+    for selector in (
+        "li:has-text('Excel')",
+        "li:has-text('XLSX')",
+        ".el-dropdown-menu__item:has-text('Excel')",
+        ".el-dropdown-menu__item:has-text('Экспорт')",
+    ):
+        try:
+            loc = page.locator(selector).first
+            if loc.count() and loc.is_visible():
+                loc.click(timeout=2_000)
+                return
+        except Exception:
+            continue
+
+
+def _trigger_export(page: Page, timeout_ms: int, download_dir: Path) -> Path:
+    with page.expect_download(timeout=timeout_ms) as download_info:
+        if not _click_export_menu(page):
+            raise HikBrowserExportError("Export button not found on Hik Connect page.")
+        _pick_excel_format(page)
+
+    download = download_info.value
+    suffix = Path(download.suggested_filename or "hik_export.xlsx").suffix.lower()
+    if not suffix:
+        suffix = ".xlsx"
+    out = download_dir / f"hik_{int(time.time())}{suffix}"
+    download.save_as(str(out))
+    return out
+
+
+def _save_debug_artifacts(page: Page, download_dir: Path) -> tuple[Path, Path]:
+    screenshot = download_dir / "hik_export_debug.png"
+    html = download_dir / "hik_export_debug.html"
+    page.screenshot(path=str(screenshot), full_page=True)
+    html.write_text(page.content(), encoding="utf-8")
+    return screenshot, html
+
+
+def _extract_xlsx_from_download(path: Path) -> Path:
+    if path.suffix.lower() == ".zip":
+        with zipfile.ZipFile(path) as zf:
+            for name in zf.namelist():
+                if name.lower().endswith((".xlsx", ".xlsm", ".csv")):
+                    out = path.with_suffix(Path(name).suffix)
+                    out.write_bytes(zf.read(name))
+                    return out
+        raise HikBrowserExportError(f"ZIP export has no xlsx/csv inside: {path.name}")
+    return path
+
+
+def fetch_hik_xlsx_export(
+    config: HikBrowserExportConfig,
+    *,
+    start_date: date,
+    end_date: date | None = None,
+) -> Path:
+    """Login, navigate to access records, filter dates, download XLSX."""
+    if not config.email or not config.password:
+        raise HikBrowserExportError("HIK_WEB_EMAIL / HIK_WEB_PASSWORD are required.")
+
+    end = end_date or start_date
+    download_dir = Path(config.download_dir)
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=config.headless)
+        context = browser.new_context(accept_downloads=True, locale="ru-RU")
+        page = context.new_page()
+
+        try:
+            _login(page, config)
+            _navigate_to_records(page, config)
+            _set_date_range(page, start_date, end)
+            _click_search(page)
+            raw_path = _trigger_export(page, config.timeout_ms, download_dir)
+        except HikBrowserExportError:
+            if config.debug:
+                shot, html = _save_debug_artifacts(page, download_dir)
+                logger.error("Hik debug saved: %s %s url=%s", shot, html, page.url)
+            raise
+        except BrowserTokenFetchError as e:
+            raise HikBrowserExportError(str(e)) from e
+        except Exception as e:
+            if config.debug:
+                shot, html = _save_debug_artifacts(page, download_dir)
+                raise HikBrowserExportError(
+                    f"{e} (url={page.url}, screenshot={shot}, html={html})"
+                ) from e
+            raise HikBrowserExportError(f"{e} (url={page.url})") from e
+        finally:
+            browser.close()
+
+    return _extract_xlsx_from_download(raw_path)
+
+
+def fetch_hik_xlsx_for_date(config: HikBrowserExportConfig, target_date: date) -> Path:
+    return fetch_hik_xlsx_export(config, start_date=target_date, end_date=target_date)

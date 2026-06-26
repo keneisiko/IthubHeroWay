@@ -67,7 +67,7 @@ for v in "${ENV_VARS[@]}"; do
 done
 
 section "Management commands (--help)"
-MGMT_CMDS=(import_lxp_students backfill_lxp_user_ids pull_lxp_performance sync_hik_events pull_hik_attendance verify_quests test_alert seed_demo_data)
+MGMT_CMDS=(import_lxp_students backfill_lxp_user_ids pull_lxp_performance sync_hik_events pull_hik_attendance fetch_hik_browser_export backfill_hik_card_codes verify_quests test_alert seed_demo_data)
 for cmd in "${MGMT_CMDS[@]}"; do
   if docker compose exec -T web python manage.py "$cmd" --help >/dev/null 2>&1; then
     pass "manage.py $cmd"

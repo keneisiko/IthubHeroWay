@@ -17,4 +17,5 @@ django-prometheus>=2.3,<3.0
 django-jazzmin>=3.0,<4.0
 whitenoise>=6.7,<7.0
 playwright>=1.52,<2.0
+openpyxl>=3.1,<4.0
 python-dotenv>=1.0,<2.0

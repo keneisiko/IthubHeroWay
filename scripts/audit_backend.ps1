@@ -74,7 +74,7 @@ foreach ($v in $envVars) {
 }
 
 Write-Section "Management commands (--help)"
-$mgmtCmds = @("import_lxp_students", "backfill_lxp_user_ids", "pull_lxp_performance", "sync_hik_events", "pull_hik_attendance", "verify_quests", "test_alert", "seed_demo_data")
+$mgmtCmds = @("import_lxp_students", "backfill_lxp_user_ids", "pull_lxp_performance", "sync_hik_events", "pull_hik_attendance", "fetch_hik_browser_export", "backfill_hik_card_codes", "verify_quests", "test_alert", "seed_demo_data")
 foreach ($cmd in $mgmtCmds) {
     try {
         docker compose exec -T web python manage.py $cmd --help 2>$null | Out-Null

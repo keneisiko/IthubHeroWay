@@ -17,7 +17,7 @@
 | 2 | Health / Ready / Metrics / Schema | ✅ | `/health/` status ok; `/ready/` ready; Prometheus `/metrics/`; OpenAPI `/schema/` |
 | 3 | Auth, пользователи, миграции | ✅ | JWT + LXP login; миграции применены |
 | 4 | LXP интеграция | ⚠️ | Cache key `lxp:gql:token`; snapshot/pull команды OK; prod token требует env |
-| 5 | Hik интеграция | ⚠️ | `HIK_DATA_MODE=snapshot` по умолчанию; `sync_hik_events`, `pull_hik_attendance` |
+| 5 | Hik интеграция | ⚠️ | `HIK_DATA_MODE=browser` (Playwright XLSX); `fetch_hik_browser_export`, `pull_hik_attendance --from-xlsx` |
 | 6 | Celery | ✅ | 1 worker online; beat schedule 16 задач в `CELERY_BEAT_SCHEDULE` |
 | 7 | API GET+POST | ✅ | Smoke: `scripts/audit_backend.sh` / `.ps1` |
 | 8 | Анти-накрутка | ✅ | `RATING_LIMITS` подключены; тесты respect/self-report/coin cap/duel |
@@ -62,6 +62,7 @@ GET /schema/  → OpenAPI JSON (200)
 | `{"status":"healthy"}` | `status: ok`, `healthy: true` | OK |
 | `cache.get('lxp_access_token')` | `lxp:gql:token` | OK |
 | `manage.py process_hik_events` | `sync_hik_events` + Celery `process_hik_events_daily` | OK |
+| Hik без API | `fetch_hik_browser_export` (Playwright XLSX) | OK |
 | `apply_strike_bonuses()` | `apply_strike_bonuses_daily` | OK |
 | `User.rating` | `User.rating_current` | OK |
 | `ExternalEvent.event_type='late'` | late в `payload`, filter `source='hik'` | OK |
@@ -89,6 +90,8 @@ GET /schema/  → OpenAPI JSON (200)
 |----------|-----------|
 | `sync_hik_events --help` | ✅ |
 | `pull_hik_attendance --help` | ✅ |
+| `fetch_hik_browser_export --help` | ✅ |
+| `backfill_hik_card_codes --help` | ✅ |
 | `HIK_DATA_MODE` | snapshot (env HIK_* пустые в dev) |
 
 ### Celery

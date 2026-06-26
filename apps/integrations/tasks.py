@@ -53,11 +53,14 @@ def fetch_lxp_snapshot() -> str:
 def fetch_hik_events() -> str:
     """
     api: HikCentral → HikEvent.
+    browser: Playwright XLSX export с hik-connectru → HikSnapshot → HikEvent.
     snapshot: обработка очереди (данные кладутся через pull_hik_attendance).
     """
     mode = getattr(settings, "HIK_DATA_MODE", "snapshot")
     if mode == "off":
         return "hik_off"
+    if mode == "browser":
+        return fetch_hik_browser_export_daily()
     if mode == "snapshot":
         return _hik_process_pending("hik_snapshot_mode")
 
@@ -98,10 +101,36 @@ def fetch_hik_events() -> str:
 
 @shared_task
 def process_hik_snapshot_daily() -> str:
-    """Импорт и обработка HikSnapshot за вчера (режим snapshot)."""
-    if getattr(settings, "HIK_DATA_MODE", "snapshot") == "off":
+    """Импорт и обработка Hik за вчера: browser export или существующий HikSnapshot."""
+    mode = getattr(settings, "HIK_DATA_MODE", "snapshot")
+    if mode == "off":
         return "hik_off"
     yesterday = timezone.localdate() - timedelta(days=1)
+    if mode == "browser" or getattr(settings, "HIK_USE_BROWSER_EXPORT", False):
+        from apps.integrations.services.hik_browser_export import HikBrowserExportError, fetch_hik_xlsx_for_date
+        from apps.integrations.services.hik_browser_import import import_hik_export_file
+        from apps.integrations.services.hik_browser_settings import hik_browser_config_from_settings
+
+        config = hik_browser_config_from_settings()
+        if not config.email or not config.password:
+            return "hik_browser_missing_credentials"
+        try:
+            path = fetch_hik_xlsx_for_date(config, yesterday)
+            result = import_hik_export_file(path, yesterday, skip_process=False)
+        except HikBrowserExportError as e:
+            send_alert_to_admin(
+                title="Ошибка nightly Hik browser export",
+                message=str(e),
+                error_type="hik",
+                deduplicate_key="hik_browser_nightly",
+                is_critical=False,
+            )
+            return f"hik_browser_error:{e}"
+        return (
+            f"hik_browser_nightly date={yesterday} import={result.get('import_inserted')} "
+            f"external={result.get('external_created')}"
+        )
+
     result = apply_hik_snapshot(yesterday, skip_process=False)
     if result.get("error"):
         return f"hik_snapshot_missing:{yesterday.isoformat()}"
@@ -124,3 +153,38 @@ def process_hik_events_daily() -> str:
 def process_late_events() -> str:
     """Обработка HikEvent: опоздания, ExternalEvent, штрафы рейтинга."""
     return _hik_process_pending("hik_late")
+
+
+@shared_task
+def fetch_hik_browser_export_daily() -> str:
+    """Скачать XLSX с Hik Connect за сегодня и импортировать в пайплайн Hik."""
+    from apps.integrations.services.hik_browser_export import HikBrowserExportError, fetch_hik_xlsx_for_date
+    from apps.integrations.services.hik_browser_import import import_hik_export_file
+    from apps.integrations.services.hik_browser_settings import hik_browser_config_from_settings
+
+    if getattr(settings, "HIK_DATA_MODE", "") not in {"browser"} and not getattr(
+        settings, "HIK_USE_BROWSER_EXPORT", False
+    ):
+        return "hik_browser_disabled"
+
+    target = timezone.localdate()
+    config = hik_browser_config_from_settings()
+    if not config.email or not config.password:
+        return "hik_browser_missing_credentials"
+    try:
+        path = fetch_hik_xlsx_for_date(config, target)
+        result = import_hik_export_file(path, target, skip_process=False)
+    except HikBrowserExportError as e:
+        logger.warning("fetch_hik_browser_export_daily: %s", e)
+        send_alert_to_admin(
+            title="Ошибка выгрузки Hik Connect (browser)",
+            message=str(e),
+            error_type="hik",
+            deduplicate_key="hik_browser_export",
+            is_critical=False,
+        )
+        return f"hik_browser_error:{e}"
+    return (
+        f"hik_browser date={target.isoformat()} file={path.name} "
+        f"import={result.get('import_inserted')} external={result.get('external_created')}"
+    )

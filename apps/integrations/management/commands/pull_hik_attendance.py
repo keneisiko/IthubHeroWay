@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
+from apps.integrations.services.hik_browser_import import import_hik_export_file
 from apps.integrations.services.hik_snapshot_service import (
     apply_hik_snapshot,
     build_synthetic_snapshot,
@@ -46,6 +47,12 @@ class Command(BaseCommand):
             type=str,
             default="",
             help="Путь к JSON (массив events или объект с полем events).",
+        )
+        parser.add_argument(
+            "--from-xlsx",
+            type=str,
+            default="",
+            help="Путь к XLSX/CSV/ZIP выгрузке из Hik Connect.",
         )
         parser.add_argument(
             "--synthetic",
@@ -115,6 +122,12 @@ class Command(BaseCommand):
                 raise CommandError(f"Невалидный JSON: {e}") from e
             snap = save_hik_snapshot(target_date, raw)
             self.stdout.write(self.style.SUCCESS(f"HikSnapshot из файла сохранён ({path})."))
+        elif opts["from_xlsx"]:
+            path = opts["from_xlsx"].strip()
+            result = import_hik_export_file(path, target_date, skip_process=opts["skip_process"])
+            self._print_result(result)
+            self._maybe_verify_quests(opts, target_date)
+            return
         elif opts["synthetic"]:
             data = build_synthetic_snapshot(
                 target_date,
@@ -129,7 +142,7 @@ class Command(BaseCommand):
             )
         else:
             raise CommandError(
-                "Укажите источник: --from-file путь.json, --synthetic или --process-only"
+                "Укажите источник: --from-file, --from-xlsx, --synthetic или --process-only"
             )
 
         result = apply_hik_snapshot(target_date, skip_process=opts["skip_process"])

@@ -64,20 +64,51 @@ docker compose exec web python manage.py backfill_lxp_user_ids --email-domain na
 
 ## HikCentral: проходы (турникеты)
 
-Два режима (`HIK_DATA_MODE` в `.env`):
+Три режима (`HIK_DATA_MODE` в `.env`):
 
 | Режим | Когда | Как получать данные |
 |-------|--------|---------------------|
-| **`snapshot`** (по умолчанию без API) | Нет `HIK_APP_KEY` / ручная выгрузка | `pull_hik_attendance` → **`HikSnapshot`** |
+| **`browser`** | Нет OpenAPI, есть доступ к [hik-connectru.com](https://www.hik-connectru.com) | Playwright → XLSX (`fetch_hik_browser_export`) |
+| **`snapshot`** | Ручная выгрузка JSON/XLSX | `pull_hik_attendance` → **`HikSnapshot`** |
 | **`api`** | Настроен HikCentral OpenAPI | Celery `fetch-hik-events-hourly` |
 | **`off`** | Hik отключён | — |
 
-Общее для обоих режимов:
-- В админке у пользователя **`hik_card_code`** = `personCode` из Hik.
+Общее для всех режимов:
+- В админке у пользователя **`hik_card_code`** = номер карты / `personCode` из выгрузки.
 - Расписание отряда (`Schedule`) — для расчёта опозданий.
-- Цепочка: **HikSnapshot / API → HikEvent → ExternalEvent** → штрафы, квесты `daily-hik-*`.
+- Цепочка: **XLSX/API/JSON → HikEvent → ExternalEvent** → штрафы, квесты `daily-hik-*`.
 
-### Ручной забор (аналог LXP `pull_lxp_performance`)
+### Browser-режим (hik-connectru, без API)
+
+```env
+HIK_DATA_MODE=browser
+HIK_USE_BROWSER_EXPORT=1
+HIK_WEB_LOGIN_URL=https://www.hik-connectru.com/views/login/index.html#/login
+HIK_WEB_EMAIL=your@nalchik.ithub.ru
+HIK_WEB_PASSWORD=...
+HIK_WEB_NAV_STEPS=Контроль доступа|Записи прохода
+```
+
+```bash
+docker compose build web celery celery-beat
+docker compose up -d
+
+# Выгрузка за сегодня + импорт
+docker compose exec web python manage.py fetch_hik_browser_export
+
+# За вчера (как nightly Celery 20:10)
+docker compose exec web python manage.py fetch_hik_browser_export --yesterday
+
+# Отладка UI (скриншот + HTML при ошибке)
+docker compose exec web python manage.py fetch_hik_browser_export --debug --download-only
+
+# Сверка кодов карт с агентами
+docker compose exec web python manage.py backfill_hik_card_codes --from-xlsx /tmp/hik_exports/file.xlsx
+```
+
+Celery в режиме **browser**: `:05` каждый час — export за сегодня; **20:10** — export за вчера.
+
+### Ручной забор (snapshot / fallback)
 
 ```bash
 # Пример формата JSON
@@ -85,6 +116,9 @@ docker compose exec web python manage.py pull_hik_attendance --export-template
 
 # Импорт из файла (экспорт из Hik-Connect / Excel→JSON)
 docker compose exec web python manage.py pull_hik_attendance --from-file docs/examples/hik_snapshot.example.json --date=2026-05-30
+
+# Импорт XLSX напрямую
+docker compose exec web python manage.py pull_hik_attendance --from-xlsx export.xlsx --date=2026-05-30 --verify-quests
 
 # Демо без Hik: синтетические проходы + карты HIK-DEMO-<id>
 docker compose exec web python manage.py pull_hik_attendance --synthetic --assign-hik-cards --verify-quests
