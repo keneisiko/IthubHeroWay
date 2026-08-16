@@ -1,0 +1,46 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [
+    "venv",
+    ".venv",
+    "hero-path-front",
+    "staticfiles",
+    "static",
+    "*/migrations/*",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "DJ",  # flake8-django
+]
+ignore = [
+    "E501",    # длину строк держим line-length, но не ломаем существующий код
+    "B008",    # вызовы в аргументах по умолчанию — обычная практика в DRF
+]
+
+[tool.ruff.lint.per-file-ignores]
+"hero_path/settings/*.py" = ["F403", "F405"]  # star-import профилей настроек
+
+[tool.coverage.run]
+source = ["apps", "hero_path"]
+omit = [
+    "*/migrations/*",
+    "*/tests*",
+    "*/test_*",
+    "venv/*",
+    "manage.py",
+]
+
+[tool.coverage.report]
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

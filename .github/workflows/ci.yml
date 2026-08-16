@@ -5,15 +5,76 @@ on:
   pull_request:
 
 jobs:
-  smoke:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Smoke suite
-        run: python manage.py test apps.accounts.tests apps.social.tests apps.integrations.tests
+          cache: pip
+      - name: Install lint tooling
+        run: pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check .
 
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hero_path
+          POSTGRES_USER: hero_path
+          POSTGRES_PASSWORD: hero_path
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hero_path"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SETTINGS_MODULE: hero_path.settings.test
+      POSTGRES_DB: hero_path
+      POSTGRES_USER: hero_path
+      POSTGRES_PASSWORD: hero_path
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Migrations are in sync with models
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Apply migrations
+        run: python manage.py migrate --noinput
+
+      - name: Test suite
+        run: coverage run manage.py test --noinput --shuffle
+
+      - name: Coverage report
+        run: coverage report

@@ -2,7 +2,7 @@ import os
 
 from celery import Celery
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hero_path.settings.base")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hero_path.settings.dev")
 
 app = Celery("hero_path")
 
