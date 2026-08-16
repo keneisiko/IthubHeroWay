@@ -1,11 +1,11 @@
 from django.db import transaction
 from django.utils import timezone
-from django.core.cache import cache
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
+from apps.operations.services.cache import invalidate_profile
 from .models import Purchase, ShopItem
 from .serializers import PurchaseCreateSerializer, PurchaseSerializer, ShopItemSerializer
 
@@ -57,7 +57,7 @@ class PurchaseCreateView(views.APIView):
                 coins_spent=item.price_coins,
                 meta=serializer.validated_data.get("meta", {}),
             )
-            cache.delete(f"profile:{user.username}")
+            invalidate_profile(user.username)
 
         return Response(PurchaseSerializer(purchase).data, status=status.HTTP_201_CREATED)
 

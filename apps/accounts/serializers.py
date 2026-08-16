@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.progress.services.rating_zones import rating_zone
+
 from .models import User
 
 
@@ -41,18 +43,8 @@ class PublicProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_rating_zone(self, obj: User) -> str:
-        rating = obj.rating_current
-        if rating < 100:
-            return "red"
-        if rating < 200:
-            return "orange"
-        if rating < 400:
-            return "yellow"
-        if rating < 650:
-            return "green"
-        if rating < 850:
-            return "platinum"
-        return "gold"
+        # Пороги живут в одном месте — apps.progress.services.rating_zones.
+        return rating_zone(obj.rating_current)
 
     def get_rating_current(self, obj: User):
         request = self.context.get("request")

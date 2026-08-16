@@ -4,6 +4,13 @@ from .models import Badge, UserBadge
 
 
 class BadgeSerializer(serializers.ModelSerializer):
+    """Публичное представление значка.
+
+    Поле `condition` намеренно не отдаётся: это правило выдачи награды,
+    и клиенту знать точные пороги незачем — описание для студента живёт
+    в `description`.
+    """
+
     class Meta:
         model = Badge
         fields = [
@@ -13,7 +20,6 @@ class BadgeSerializer(serializers.ModelSerializer):
             "description",
             "category",
             "rarity",
-            "condition",
             "reward_coins",
             "is_active",
         ]

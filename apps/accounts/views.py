@@ -2,6 +2,7 @@ from rest_framework import generics, views
 from rest_framework.response import Response
 from django.core.cache import cache
 
+from apps.operations.services.cache import invalidate_profile
 from .models import User
 from .serializers import MeProfileSerializer, PublicProfileSerializer
 from .permissions import IsKnownRole
@@ -22,7 +23,7 @@ class MeProfileView(generics.RetrieveUpdateAPIView):
 
     def perform_update(self, serializer):
         user = serializer.save()
-        cache.delete_pattern(f"profile:{user.username}*")
+        invalidate_profile(user.username)
 
 
 class PublicProfileView(generics.RetrieveAPIView):

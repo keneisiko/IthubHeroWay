@@ -35,6 +35,9 @@ class BadgePinView(views.APIView):
 
 class BadgeAwardCheckView(views.APIView):
     permission_classes = [IsKnownRole]
+    # Проверка перебирает все активные значки с запросом на каждый,
+    # поэтому без ограничения частоты эндпоинт работает генератором нагрузки.
+    throttle_scope = "heavy"
 
     def post(self, request, *args, **kwargs) -> Response:
         awarded = award_badges_for_user(request.user)

@@ -20,6 +20,8 @@ from apps.operations.admin_rbac import (
     is_superadmin,
     is_tutor,
 )
+from apps.progress.services.rating_zones import ZONE_COLORS, ZONE_NAMES_RU
+from apps.progress.services.rating_zones import rating_zone as zone_of
 from apps.progress.services.rewards import grant_coins_with_daily_cap
 from apps.quests.models import Quest, QuestType, SeasonalEvent, UserQuestProgress
 
@@ -92,18 +94,14 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
 
     @admin.display(description="Зона")
     def rating_zone(self, obj: User) -> str:
-        rating = obj.rating_current
-        if rating < 100:
-            return format_html('<span style="color:#d32f2f;font-weight:700;">Красная</span>')
-        if rating < 200:
-            return format_html('<span style="color:#ef6c00;font-weight:700;">Оранжевая</span>')
-        if rating < 400:
-            return format_html('<span style="color:#f9a825;font-weight:700;">Желтая</span>')
-        if rating < 650:
-            return format_html('<span style="color:#2e7d32;font-weight:700;">Зеленая</span>')
-        if rating < 850:
-            return format_html('<span style="color:#1976d2;font-weight:700;">Платиновая</span>')
-        return format_html('<span style="color:#6a1b9a;font-weight:700;">Золотая</span>')
+        # Пороги берутся из rating_zones, а не дублируются здесь: раньше
+        # админка, дашборды и API считали зоны по трём независимым копиям.
+        code = zone_of(obj.rating_current)
+        return format_html(
+            '<span style="color:{};font-weight:700;">{}</span>',
+            ZONE_COLORS.get(code, "#000000"),
+            ZONE_NAMES_RU.get(code, code),
+        )
 
     def has_module_permission(self, request):
         if is_hq(request.user):
@@ -142,7 +140,9 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
             self.message_user(request, "Действие доступно только куратору.", level=messages.ERROR)
             return
         reason = request.POST.get("reason", "").strip() or "Бонус за участие в мероприятии"
-        queryset = queryset.filter(squad_id=request.user.squad_id)
+        # Фильтр по роли обязателен: без него куратор мог начислить монеты
+        # любому пользователю своего отряда, включая staff-аккаунты.
+        queryset = queryset.filter(squad_id=request.user.squad_id, role=Role.AGENT)
         with transaction.atomic():
             updated = 0
             for user in queryset:
@@ -165,25 +165,33 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         if not is_tutor(request.user):
             self.message_user(request, "Действие доступно только тьютору.", level=messages.ERROR)
             return
-        days = int(request.POST.get("recovery_days") or 5)
+        # Нечисловое значение в поле формы раньше валило действие с 500:
+        # int() поднимал ValueError прямо в admin-вьюхе.
+        try:
+            days = int(request.POST.get("recovery_days") or 5)
+        except (TypeError, ValueError):
+            self.message_user(request, "Поле «Дней квеста» должно быть числом от 3 до 7.", level=messages.ERROR)
+            return
         days = min(max(days, 3), 7)
         now = timezone.now()
         quest_code = f"recovery-{now.strftime('%Y%m%d%H%M%S')}"
-        quest = Quest.objects.create(
-            code=quest_code,
-            title="Восстановительный квест",
-            description="Индивидуальный восстановительный квест для улучшения рейтинга.",
-            quest_type=QuestType.LONG,
-            reward_coins=5,
-            reward_rating_delta=15,
-            is_active=True,
-            start_at=now,
-            end_at=now + timedelta(days=days),
-            conditions={"type": "recovery", "created_by": request.user.username},
-        )
         target_users = queryset.filter(squad__course__gte=2, squad__course__lte=4)
         created = 0
+        # Квест создаётся внутри транзакции: раньше он писался до atomic(), и при
+        # ошибке на создании прогресса в базе оставался квест без участников.
         with transaction.atomic():
+            quest = Quest.objects.create(
+                code=quest_code,
+                title="Восстановительный квест",
+                description="Индивидуальный восстановительный квест для улучшения рейтинга.",
+                quest_type=QuestType.LONG,
+                reward_coins=5,
+                reward_rating_delta=15,
+                is_active=True,
+                start_at=now,
+                end_at=now + timedelta(days=days),
+                conditions={"type": "recovery", "created_by": request.user.username},
+            )
             for user in target_users:
                 _, was_created = UserQuestProgress.objects.get_or_create(user=user, quest=quest)
                 if was_created:

@@ -2,13 +2,15 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 
-from apps.integrations.models import TelegramAccountLink
+from apps.operations.services.cache import invalidate_squad_leaderboard
 from apps.progress.models import RatingLog
 from apps.quests.models import Quest, UserQuestProgress
 from apps.quests.models import QuestRewardTransaction
@@ -24,22 +26,26 @@ from .squads_serializers import (
     SquadMeWidgetSerializer,
 )
 
-SYNTHETIC_TELEGRAM_BASE = 5_100_000_000
+# Без похожих друг на друга символов: код отряда люди диктуют и вводят руками.
+CODE_SUFFIX_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+TELEGRAM_REQUIRED_DETAIL = (
+    "Сначала активируйте аккаунт в Telegram-боте командой /activate — "
+    "без этого участие в рейтинге и отрядах недоступно."
+)
 
 
-def _ensure_telegram(user: User) -> None:
-    if hasattr(user, "telegram_link") and user.telegram_link and user.telegram_link.is_active:
-        return
-    telegram_user_id = SYNTHETIC_TELEGRAM_BASE + int(user.pk)
-    TelegramAccountLink.objects.update_or_create(
-        user=user,
-        defaults={
-            "telegram_user_id": telegram_user_id,
-            "telegram_chat_id": telegram_user_id,
-            "telegram_username": "",
-            "is_active": True,
-        },
-    )
+def _has_active_telegram(user: User) -> bool:
+    """Активна ли привязка Telegram.
+
+    Раньше вместо проверки здесь стояла функция, которая молча создавала
+    привязку с выдуманным telegram_user_id (5_100_000_000 + id пользователя).
+    Это обходило гейт — а `telegram_link.is_active` определяет видимость
+    во всех расчётах рейтинга — и рисковало столкнуться с реальным Telegram ID,
+    который у живых аккаунтов давно перевалил за 5 млрд.
+    """
+    link = getattr(user, "telegram_link", None)
+    return bool(link and link.is_active)
 
 
 def _agents_in_squad_filter():
@@ -67,28 +73,42 @@ class SquadListCreateView(views.APIView):
             return Response({"detail": "Only agents can create squads."}, status=status.HTTP_403_FORBIDDEN)
         if user.squad_id:
             return Response({"detail": "You are already in a squad."}, status=status.HTTP_400_BAD_REQUEST)
+        if not _has_active_telegram(user):
+            return Response({"detail": TELEGRAM_REQUIRED_DETAIL}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = SquadCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         name = data["name"].strip()
-        base = slugify(name) or "squad"
-        code = base
-        counter = 1
-        while Squad.objects.filter(code=code).exists():
-            code = f"{base}-{counter}"
-            counter += 1
+        base = (slugify(name) or "squad")[: Squad._meta.get_field("code").max_length - 8]
 
-        squad = Squad.objects.create(
-            code=code,
-            name=name,
-            course=data.get("course"),
-            capacity=data.get("capacity", 20),
-        )
-        _ensure_telegram(user)
+        # Подбор свободного кода через exists() + create() — гонка: два запроса
+        # с одинаковым названием проходили проверку одновременно и второй падал
+        # с IntegrityError наружу (500). Уникальность гарантирует только сама БД,
+        # поэтому нарушение ловится и попытка повторяется с новым суффиксом.
+        squad = None
+        for attempt in range(10):
+            code = base if attempt == 0 else f"{base}-{get_random_string(6, CODE_SUFFIX_ALPHABET)}"
+            try:
+                with transaction.atomic():
+                    squad = Squad.objects.create(
+                        code=code,
+                        name=name,
+                        course=data.get("course"),
+                        capacity=data.get("capacity", 20),
+                    )
+            except IntegrityError:
+                continue
+            break
+        if squad is None:
+            return Response(
+                {"detail": "Could not allocate a squad code, try again."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         user.squad = squad
         user.save(update_fields=["squad"])
-        cache.delete_pattern("leaderboard:squads:*")
+        invalidate_squad_leaderboard()
 
         return Response(
             {
@@ -108,25 +128,32 @@ class SquadJoinView(views.APIView):
         user: User = request.user
         if user.squad_id:
             return Response({"detail": "You are already in a squad."}, status=status.HTTP_400_BAD_REQUEST)
+        if not _has_active_telegram(user):
+            return Response({"detail": TELEGRAM_REQUIRED_DETAIL}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = SquadJoinSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         code = serializer.validated_data["code"].strip().lower()
 
-        squad = Squad.objects.filter(code__iexact=code).first()
-        if not squad:
-            return Response({"detail": "Squad not found."}, status=status.HTTP_404_NOT_FOUND)
+        # Подсчёт мест и запись пользователя идут одной транзакцией с блокировкой
+        # строки отряда: без неё два параллельных запроса считали агентов
+        # одновременно, оба видели свободное место и отряд переполнялся сверх
+        # capacity. Блокируется именно отряд — он общий для конкурирующих
+        # запросов, тогда как строки пользователей у них разные.
+        with transaction.atomic():
+            squad = Squad.objects.select_for_update().filter(code__iexact=code).first()
+            if not squad:
+                return Response({"detail": "Squad not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        agents_count = User.objects.filter(
-            squad=squad, role=Role.AGENT, telegram_link__is_active=True
-        ).count()
-        if squad.capacity is not None and agents_count >= squad.capacity:
-            return Response({"detail": "Squad is full."}, status=status.HTTP_400_BAD_REQUEST)
+            agents_count = User.objects.filter(
+                squad=squad, role=Role.AGENT, telegram_link__is_active=True
+            ).count()
+            if squad.capacity is not None and agents_count >= squad.capacity:
+                return Response({"detail": "Squad is full."}, status=status.HTTP_400_BAD_REQUEST)
 
-        _ensure_telegram(user)
-        user.squad = squad
-        user.save(update_fields=["squad"])
-        cache.delete_pattern("leaderboard:squads:*")
+            user.squad = squad
+            user.save(update_fields=["squad"])
+        invalidate_squad_leaderboard()
 
         return Response({"code": squad.code, "name": squad.name})
 
@@ -140,7 +167,7 @@ class SquadLeaveView(views.APIView):
             return Response({"detail": "You are not in a squad."}, status=status.HTTP_400_BAD_REQUEST)
         user.squad = None
         user.save(update_fields=["squad"])
-        cache.delete_pattern("leaderboard:squads:*")
+        invalidate_squad_leaderboard()
         return Response({"detail": "Left squad."})
 
 
@@ -180,21 +207,20 @@ class SquadMeView(views.APIView):
             or 0
         )
 
-        squads_stats = (
-            Squad.objects.annotate(
-                avg_rating=Avg(
-                    "members__rating_current",
-                    filter=Q(members__role="agent", members__telegram_link__is_active=True),
-                )
+        # Место в рейтинге считается в БД. Раньше сюда загружались все отряды
+        # с агрегатом, место искалось перебором в Python, а `.count()` по тому же
+        # queryset выполнял агрегат второй раз — и всё это на каждый запрос.
+        squads_stats = Squad.objects.annotate(
+            avg_rating=Avg(
+                "members__rating_current",
+                filter=Q(members__role="agent", members__telegram_link__is_active=True),
             )
-            .order_by("-avg_rating", "id")
         )
-        squad_place = 1
-        total_squads = squads_stats.count()
-        for idx, s in enumerate(squads_stats, start=1):
-            if s.id == squad.id:
-                squad_place = idx
-                break
+        own = squads_stats.filter(id=squad.id).first()
+        own_avg = (own.avg_rating if own else None) or 0
+        better = squads_stats.filter(avg_rating__gt=own_avg).count()
+        squad_place = better + 1
+        total_squads = Squad.objects.count()
 
         now = timezone.now()
         weekly_quest = (
@@ -252,8 +278,21 @@ class SquadMeView(views.APIView):
         return Response(data)
 
 
-class SquadMembersView(generics.ListAPIView):
+class SquadMembersView(views.APIView):
+    """Список участников отряда.
+
+    Раньше класс наследовался от ListAPIView, но целиком переопределял get(),
+    так что ни пагинация, ни serializer_class не работали — фронт получал
+    плоский список и мог считать, что где-то есть постранично. Базовый класс
+    приведён в соответствие с реальным поведением; сериализатор здесь зависит
+    от того, свой отряд смотрит пользователь или чужой.
+    """
+
     permission_classes = [IsKnownRole]
+
+    # Длинная строка поиска бессмысленна (позывной короче) и заставляет БД
+    # гонять LIKE по мусору, поэтому обрезается.
+    MAX_SEARCH_LENGTH = 50
 
     def get(self, request, code: str, *args, **kwargs):
         user: User = request.user
@@ -261,7 +300,7 @@ class SquadMembersView(generics.ListAPIView):
 
         qs = User.objects.filter(squad=squad, telegram_link__is_active=True).select_related("track")
 
-        search = request.query_params.get("search")
+        search = (request.query_params.get("search") or "").strip()[: self.MAX_SEARCH_LENGTH]
         if search:
             qs = qs.filter(callsign__icontains=search)
 
@@ -284,8 +323,19 @@ class SquadMembersView(generics.ListAPIView):
 class SquadLeaderboardView(views.APIView):
     permission_classes = [IsKnownRole]
 
+    # Верхняя граница нужна и от опечаток, и от разрастания ключей кеша:
+    # раньше `?limit=abc` давал 500, а `?limit=999999` — выборку без предела.
+    MAX_LIMIT = 100
+    DEFAULT_LIMIT = 20
+
     def get(self, request, *args, **kwargs):
-        limit = int(request.query_params.get("limit", 20))
+        raw_limit = request.query_params.get("limit", self.DEFAULT_LIMIT)
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            limit = self.DEFAULT_LIMIT
+        limit = max(1, min(limit, self.MAX_LIMIT))
+
         cache_key = f"leaderboard:squads:{limit}"
         cached = cache.get(cache_key)
         if cached is not None:

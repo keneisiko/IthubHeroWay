@@ -82,3 +82,12 @@ class Mentorship(models.Model):
         indexes = [
             models.Index(fields=["mentor", "mentee"]),
         ]
+        constraints = [
+            # Наставничество над самим собой давало монеты за «подопечного»
+            # (MENTEE_WEEKLY_COINS) на ровном месте. Вьюха это отсекает, но
+            # запись создаётся и из админки, и из команд — гарантия нужна в БД.
+            models.CheckConstraint(
+                condition=~models.Q(mentor=models.F("mentee")),
+                name="social_mentorship_mentor_ne_mentee",
+            ),
+        ]

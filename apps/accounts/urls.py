@@ -1,5 +1,6 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from apps.authapp.views import RefreshView
 
 from .views import DashboardView, MeProfileView, PublicProfileView
 from .characteristics_views import MeCharacteristicsView
@@ -14,8 +15,11 @@ from .squads_views import (
 
 
 urlpatterns = [
-    path("auth/jwt/create/", TokenObtainPairView.as_view(), name="jwt-create"),
-    path("auth/jwt/refresh/", TokenRefreshView.as_view(), name="jwt-refresh"),
+    # `auth/jwt/create/` удалён намеренно: он проверял локальный пароль Django
+    # и обходил проверку в LXP, оставаясь вторым, более слабым входом.
+    # Единственная точка входа — `auth/login/` в apps.authapp.
+    # Обновление токена оставлено по прежнему адресу: его использует фронтенд.
+    path("auth/jwt/refresh/", RefreshView.as_view(), name="jwt-refresh"),
     path("profile/me/", MeProfileView.as_view(), name="profile-me"),
     path("profile/me/characteristics/", MeCharacteristicsView.as_view(), name="profile-me-characteristics"),
     path("profile/<str:username>/", PublicProfileView.as_view(), name="profile-public"),

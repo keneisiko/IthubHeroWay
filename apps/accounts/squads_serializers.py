@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Squad, Track, User
+from .models import Squad, User
 
 
 class SquadMeWidgetSerializer(serializers.ModelSerializer):
