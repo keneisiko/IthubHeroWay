@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from django.utils import timezone
 
 from apps.integrations.models import HikSnapshot
 from apps.integrations.services.hik_snapshot_service import (
@@ -24,13 +23,11 @@ def import_hik_export_file(
 ) -> dict:
     payload = snapshot_payload_from_export(path, target_date)
     save_hik_snapshot(target_date, payload)
-    if skip_process:
-        return {
-            "date": target_date.isoformat(),
-            "events": len(payload.get("events") or []),
-            "process_skipped": True,
-        }
-    return apply_hik_snapshot(target_date, skip_process=False)
+    # `skip_process` означает «не создавать ExternalEvent и не начислять
+    # штрафы», но HikEvent создать нужно — иначе события теряются до ручного
+    # повтора. Раньше эта ветка возвращалась раньше времени, и поведение
+    # расходилось с pull_hik_attendance и с собственной справкой команды.
+    return apply_hik_snapshot(target_date, skip_process=skip_process)
 
 
 def save_export_copy(path: str | Path, target_date: date) -> HikSnapshot:

@@ -1,116 +1,159 @@
 # HikCentral / Hik Connect
 
+## Как это работает сейчас
+
+OpenAPI-ключей у колледжа нет, но портал `hik-connectru.com` — обычное SPA,
+которое ходит в собственный HTTP API. Поэтому браузер используется только
+для получения сессионных cookies, а данные забираются обычными HTTP-запросами
+и от вёрстки портала не зависят.
+
+```
+Playwright (логин) → cookies в Redis → HTTP-запросы к API портала
+   → HikEvent → ExternalEvent → штрафы за опоздания / проверка квестов
+                              ↘ HikImportRun (журнал запусков)
+```
+
+### Эндпоинт портала
+
+```
+POST https://team.hikcentralconnectru.com/hcc/hccacs/v1/event/certificateRecords/search
+Заголовки: Content-Type: application/json, clientSource: 0
+Авторизация: только cookies, заголовка Authorization нет
+Тело: {"pageIndex":1,"pageSize":100,"searchCriteria":{
+        "beginTime":"2026-06-01T00:00:00+03:00",
+        "endTime":"2026-06-01T23:59:59+03:00",
+        "type":0,"eventTypes":"","elementIDs":"","searchType":0,
+        "cardNumber":"","personCondition":{},"swipeAuthResult":0}}
+```
+
+Если портал обновится, снять контракт заново:
+
+```bash
+python manage.py probe_hik_web --headed --keep-open 120
+```
+
+Команда логинится, записывает все XHR-запросы (секреты маскируются) и печатает
+готовые значения для `HIK_WEB_API_BASE` / `HIK_WEB_API_RECORDS_PATH`.
+
+### Поля записи
+
+| Поле | Смысл |
+|---|---|
+| `recordGuid` | Уникальный идентификатор события. Используется как `HikEvent.event_id` |
+| `deviceTime` | Местное время прохода со смещением `+03:00` (предпочтительно) |
+| `occurTime` | То же время в UTC |
+| `direction` | **1 — вход, 2 — выход.** Штраф за опоздание считается только по входам |
+| `personInfo.baseInfo.email` | Основной ключ привязки к студенту |
+| `personInfo.baseInfo.personCode` | Запасной ключ привязки |
+| `cardNumber` | **На практике пуст во всех записях** — полагаться нельзя |
+| `swipeAuthResult` | 1 — успешный проход |
+
+---
+
 ## Режимы (`HIK_DATA_MODE`)
 
 | Режим | Когда использовать |
 |-------|-------------------|
-| **`browser`** | Нет OpenAPI — выгрузка XLSX через веб-портал [hik-connectru.com](https://www.hik-connectru.com) (Playwright, как LXP bot) |
-| **`api`** | Есть `HIK_HOST` + `HIK_APP_KEY` + `HIK_APP_SECRET` (HikCentral OpenAPI) |
-| **`snapshot`** | Ручной JSON/XLSX через `pull_hik_attendance` |
-| **`off`** | Hik отключён |
+| **`web_api`** (по умолчанию) | Прямой HTTP к порталу. Основной путь |
+| `browser` | Фолбэк: выгрузка XLSX кликами по интерфейсу |
+| `api` | Есть `HIK_HOST` + `HIK_APP_KEY` + `HIK_APP_SECRET` (HikCentral OpenAPI) |
+| `snapshot` | Ручной JSON/XLSX через `pull_hik_attendance` |
+| `off` | Hik отключён |
 
-Пайплайн одинаковый: **XLSX/API/JSON → `HikEvent` → `ExternalEvent` → штрафы / квесты**.
+Задача `fetch_hik_web_daily` сначала пробует прямой HTTP, при неудаче — XLSX,
+и только если не сработало и это, отправляет алерт.
 
 ---
 
-## Browser-режим (рекомендуется без API)
-
-### `.env`
-
-```env
-HIK_DATA_MODE=browser
-HIK_USE_BROWSER_EXPORT=1
-HIK_WEB_LOGIN_URL=https://www.hik-connectru.com/views/login/index.html#/login
-HIK_WEB_EMAIL=your@nalchik.ithub.ru
-HIK_WEB_PASSWORD=***
-HIK_WEB_NAV_STEPS=Контроль доступа|Записи прохода|Экспорт
-HIK_BROWSER_HEADLESS=1
-HIK_BROWSER_TIMEOUT_MS=120000
-```
-
-`HIK_WEB_NAV_STEPS` — тексты пунктов меню через `|`, по которым бот кликает после логина.  
-Если знаете прямой URL страницы записей, задайте `HIK_WEB_RECORDS_URL` и упростите шаги.
-
-### Ручной запуск
+## Команды
 
 ```bash
-# Скачать XLSX за сегодня + импорт + штрафы
-docker compose exec web python manage.py fetch_hik_browser_export
+# За вчера (как ночная задача)
+python manage.py pull_hik_web --yesterday
 
-# За вчера (как nightly Celery)
-docker compose exec web python manage.py fetch_hik_browser_export --yesterday
+# За конкретный день
+python manage.py pull_hik_web --date=2026-06-15
 
-# Только скачать файл (отладка UI)
-docker compose exec web python manage.py fetch_hik_browser_export --download-only --debug
+# За период — например, прогнать платформу на исторических данных,
+# пока турникеты не работают
+python manage.py pull_hik_web --from=2026-06-01 --to=2026-06-30
 
-# Импорт уже скачанного XLSX вручную
-docker compose exec web python manage.py pull_hik_attendance --from-xlsx /path/export.xlsx --date 2026-05-30
-```
+# Посмотреть, что придёт, ничего не сохраняя
+python manage.py pull_hik_web --date=2026-06-15 --dry-run
 
-### Celery
+# Фолбэк: выгрузка XLSX через интерфейс
+python manage.py fetch_hik_browser_export --debug
 
-При `HIK_DATA_MODE=browser` задача `fetch_hik_events` (каждый час `:05`) вызывает browser-export за **сегодня**.
-
-### Docker / Playwright
-
-В `Dockerfile` установлен Chromium:
-
-```bash
-docker compose build web celery celery-beat
-docker compose up -d
+# Импорт уже скачанного файла
+python manage.py pull_hik_attendance --from-xlsx /path/export.xlsx --date 2026-06-15
 ```
 
 ---
 
-## OpenAPI-режим (`api`)
+## Расписание
 
-См. переменные `HIK_HOST`, `HIK_APP_KEY`, `HIK_APP_SECRET` в `.env.example`.
+Одна задача в сутки — `fetch_hik_web_daily` в 21:00 (за прошедший день),
+в 22:30 — `process_hik_events_daily`, добирающая события, которые не удалось
+разобрать с первого раза.
 
-```bash
-docker compose exec web python manage.py sync_hik_events
-```
+> Раньше здесь стояла ежечасная задача, которая в режиме `browser` поднимала
+> Playwright 24 раза в сутки и заново перекачивала весь день, а в 20:05 и 20:10
+> два экспорта логинились в один аккаунт одновременно.
 
-Подпись: `x-ca-key`, `x-ca-nonce`, `x-ca-timestamp`, `x-ca-signature`.
+**Важно:** портал, судя по всему, допускает одну активную сессию на аккаунт —
+вход бота выкидывает сотрудника из веб-интерфейса и наоборот. Для эксплуатации
+стоит завести отдельный сервисный аккаунт.
 
 ---
 
 ## Привязка студентов
 
-В админке у пользователя:
+Основной ключ — **почта** (`personInfo.baseInfo.email`): она же приходит из LXP,
+поэтому привязка получается автоматической. Запасные варианты — `personCode`
+и поля `hik_card_code` / `hik_person_id` в админке.
 
-- `hik_card_code` — номер карты из выгрузки (колонка «Номер карты» / `personCode`);
-- `hik_person_id` — fallback.
-
-Без карты событие сохранится в `HikEvent`, но не создаст `ExternalEvent`.
+Событие без сопоставленного пользователя сохранится в `HikEvent`, но не создаст
+`ExternalEvent`; счётчик таких событий виден в журнале импорта.
 
 ---
 
 ## Опоздания
 
-`classify_entrance_against_schedule()` сравнивает время прохода с `Schedule` отряда (первая пара дня).
+`classify_entrance_against_schedule()` сравнивает время прохода с `Schedule`
+отряда (первая пара дня). Штраф начисляется **один раз в день** и **только
+за вход** — выход с занятий опозданием не является, а несколько проходов
+за день (перерыв, возвращение) не должны штрафоваться повторно.
 
 ---
 
 ## Админка
 
-- **HikEvent** — сырые события; сброс `processed` для повторной обработки.
-- **HikSnapshot** — JSON-снимок (в т.ч. из XLSX).
+- **Запуски импорта Hik** (`HikImportRun`) — журнал: дата, режим, статус,
+  сколько записей получено и сколько событий создано, сколько проходов
+  не привязалось к студентам. Главное место, чтобы понять, работает ли
+  интеграция.
+- **HikEvent** — сырые события; можно снять признак «обработано» для повторной
+  обработки.
+- **HikSnapshot** — JSON-снимок (в том числе из XLSX).
 
 ---
 
-## Отладка UI
+## Диагностика
 
-```bash
-docker compose exec web python manage.py fetch_hik_browser_export --debug
-```
+Если импорт возвращает ноль записей, проверьте по порядку:
 
-При ошибке сохраняется скриншот в `HIK_BROWSER_DOWNLOAD_DIR`.
+1. **Работают ли турникеты.** В портале: Access Control → Real-Time Monitoring;
+   в Health Monitoring устройства не должны быть в статусе Exception.
+2. **Есть ли данные за период** — `pull_hik_web --date=... --dry-run`.
+3. **Журнал импорта** в админке: статус `empty` означает «портал ответил, записей
+   нет», статус `error` — поломку.
 
-Проверка логина (probe):
+### Частые причины поломки
 
-```bash
-docker compose exec -e HIK_WEB_EMAIL=... -e HIK_WEB_PASSWORD=... web \
-  python manage.py shell -c "from scripts.probe_hik_connect import main; main()"
-```
-
-Если меню в портале называется иначе — поправьте `HIK_WEB_NAV_STEPS` под ваш интерфейс.
+- **Пустая страница в headless-режиме.** Портал отдаёт заглушку (~1 КБ вместо
+  ~135 КБ), если в user-agent есть `HeadlessChrome`. Подмена user-agent живёт
+  в `apps/integrations/services/browser_runtime.py` — не убирайте её.
+- **Язык интерфейса.** Портал доступен только на `en`, `zh_CN`, `ar`. Русские
+  названия пунктов меню в `HIK_WEB_NAV_STEPS` не совпадут никогда.
+- **Медленная отрисовка.** SPA дорисовывается уже после `networkidle`; при
+  плохом канале это десятки секунд. Увеличьте `HIK_BROWSER_TIMEOUT_MS`.

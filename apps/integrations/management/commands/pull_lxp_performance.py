@@ -14,7 +14,9 @@ from django.utils import timezone
 
 from apps.accounts.models import Role
 from apps.integrations.lxp_task_helpers import refresh_lxp_token_sync
+from apps.operations.services.environment import ensure_not_production
 from apps.integrations.models import LXPSnapshot, TelegramAccountLink
+from apps.integrations.services.lxp_snapshot_store import save_snapshot
 from apps.integrations.services.lxp_graphql_client import (
     LXPAuthError,
     LXPGraphQLClient,
@@ -47,6 +49,15 @@ class Command(BaseCommand):
             help="Только сохранить LXPSnapshot, без пересчёта RatingLog/unclosed_ct.",
         )
         parser.add_argument(
+            "--force-rating",
+            dest="force_rating",
+            action="store_true",
+            help=(
+                "Начислить дельту повторно, даже если за эту дату она уже применялась. "
+                "По умолчанию пересчёт идемпотентен."
+            ),
+        )
+        parser.add_argument(
             "--synthetic-telegram-agents",
             action="store_true",
             help="ДЛЯ ТЕСТА/СТЕЙДЖА: создать фиктивные TelegramAccountLink для агентов с "
@@ -76,6 +87,9 @@ class Command(BaseCommand):
         self.stdout.write(self.style.NOTICE(f"Дата снимка: {target_date.isoformat()}"))
 
         if opts["synthetic_telegram_agents"]:
+            # Фиктивные привязки Telegram делают студентов «активными агентами»
+            # во всех расчётах рейтинга. Это инструмент стенда, не продакшена.
+            ensure_not_production("Создание синтетических привязок Telegram")
             n = self._ensure_synthetic_telegram_agents()
             self.stdout.write(self.style.WARNING(f"Synthetic Telegram links created: {n}"))
 
@@ -89,7 +103,15 @@ class Command(BaseCommand):
         except LXPRequestError as e:
             raise CommandError(f"LXP GraphQL: {e}") from e
 
-        LXPSnapshot.objects.update_or_create(date=target_date, defaults={"data": data})
+        _, stored = save_snapshot(target_date, data, force=opts.get("force_rating", False))
+        if not stored:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Снимок не сохранён: полученные данные пустее уже сохранённых за эту дату. "
+                    "Используйте --force-rating, если это ожидаемо."
+                )
+            )
+            return
 
         meta = data.get("meta") or {}
         grades = ((data.get("grades") or {}).get("data") or {}) if isinstance(data.get("grades"), dict) else {}
@@ -111,7 +133,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Пересчёт рейтинга пропущен (--skip-rating)."))
             return
 
-        res = apply_rating_from_lxp_snapshot(target_date)
+        res = apply_rating_from_lxp_snapshot(target_date, force=opts.get("force_rating", False))
         self.stdout.write(
             self.style.SUCCESS(
                 f"Рейтинг: рассмотрено={res.users_considered}, обновлено={res.users_updated}, "

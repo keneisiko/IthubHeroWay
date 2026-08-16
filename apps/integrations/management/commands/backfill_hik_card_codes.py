@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Q
 
 from apps.accounts.models import Role
 from apps.integrations.models import HikSnapshot
@@ -42,42 +41,88 @@ class Command(BaseCommand):
         self.stdout.write(self.style.NOTICE(f"Unique person codes in export: {len(codes)}"))
 
         User = get_user_model()
-        agents = User.objects.filter(role=Role.AGENT)
-        with_code = agents.exclude(hik_card_code="").exclude(hik_card_code__isnull=True).count()
-        self.stdout.write(f"Agents with hik_card_code: {with_code}/{agents.count()}")
+        # Пользователи читаются один раз: раньше на каждую строку выгрузки уходило
+        # два-три запроса к БД (проверка кода + поиск кандидатов), то есть N+1
+        # на несколько тысяч строк.
+        agents = list(User.objects.filter(role=Role.AGENT).only(
+            "pk", "email", "username", "callsign", "first_name", "last_name", "hik_card_code"
+        ))
+        taken_codes = {(u.hik_card_code or "").strip() for u in agents if (u.hik_card_code or "").strip()}
+        self.stdout.write(f"Agents with hik_card_code: {len(taken_codes)}/{len(agents)}")
+
+        index = self._build_index(agents)
 
         matched = 0
+        seen_codes: set[str] = set()
         for row in rows:
             code = (row.get("personCode") or "").strip()
-            if not code:
+            if not code or code in seen_codes:
                 continue
-            if agents.filter(hik_card_code=code).exists():
+            seen_codes.add(code)
+            if code in taken_codes:
                 matched += 1
                 continue
-            name = (row.get("personName") or row.get("name") or "").strip().lower()
-            if not name:
+            user = self._find_user(index, row.get("personName") or row.get("name") or "")
+            if user is None:
                 continue
-            candidates = agents.filter(
-                Q(email__iexact=name)
-                | Q(callsign__iexact=name)
-                | Q(username__iexact=name)
-                | Q(first_name__iexact=name)
-                | Q(last_name__iexact=name)
-            )
-            if candidates.count() != 1:
-                continue
-            user = candidates.first()
             self.stdout.write(f"  map {code} -> {user.email or user.username} ({user.callsign})")
             if options.get("apply") and not options.get("dry_run"):
                 user.hik_card_code = code
                 user.save(update_fields=["hik_card_code"])
+            taken_codes.add(code)
             matched += 1
 
         self.stdout.write(self.style.SUCCESS(f"Matched codes: {matched}/{len(codes)}"))
-        unmatched = [c for c in codes if not agents.filter(hik_card_code=c).exists()]
+        unmatched = [c for c in codes if c not in taken_codes]
         if unmatched:
             sample = ", ".join(unmatched[:15])
             self.stdout.write(self.style.WARNING(f"Unmatched sample: {sample}"))
+
+    @staticmethod
+    def _normalize(value: str) -> str:
+        return " ".join((value or "").replace("ё", "е").replace("Ё", "Е").lower().split())
+
+    def _build_index(self, agents: list) -> dict[str, object]:
+        """Ключ (email/логин/позывной/«фамилия имя») -> пользователь; неоднозначные ключи выброшены."""
+        index: dict[str, object] = {}
+        ambiguous: set[str] = set()
+
+        def add(key: str, user) -> None:
+            key = self._normalize(key)
+            if not key:
+                return
+            existing = index.get(key)
+            if existing is not None and existing.pk != user.pk:
+                ambiguous.add(key)
+                return
+            index[key] = user
+
+        for user in agents:
+            add(user.email or "", user)
+            add(user.username or "", user)
+            add(user.callsign or "", user)
+            # Обе перестановки: в выгрузке Hik встречается и «Фамилия Имя», и «Имя Фамилия».
+            if user.first_name and user.last_name:
+                add(f"{user.last_name} {user.first_name}", user)
+                add(f"{user.first_name} {user.last_name}", user)
+
+        for key in ambiguous:
+            index.pop(key, None)
+        return index
+
+    def _find_user(self, index: dict[str, object], raw_name: str):
+        name = self._normalize(raw_name)
+        if not name:
+            return None
+        user = index.get(name)
+        if user is not None:
+            return user
+        # ФИО целиком («Иванов Иван Иванович») ни с first_name, ни с last_name
+        # через iexact не совпадало никогда — сравниваем по фамилии и имени.
+        parts = name.split()
+        if len(parts) >= 2:
+            return index.get(f"{parts[0]} {parts[1]}")
+        return None
 
     def _load_rows(self, options) -> list[dict]:
         xlsx = (options.get("from_xlsx") or "").strip()

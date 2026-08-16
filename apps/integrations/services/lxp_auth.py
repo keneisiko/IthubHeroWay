@@ -1,18 +1,25 @@
-import os
+import logging
 from typing import Tuple
 
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
+logger = logging.getLogger(__name__)
+
 
 def verify_lxp_credentials(email: str, password: str) -> Tuple[bool, str]:
+    """Проверить учебную почту и пароль в LXP.
+
+    Если LXP не настроен, в разработке допускается запасной путь — проверка
+    локального пароля Django. В продакшене такой откат недопустим: он молча
+    превращает вход «через LXP» во вход по локальному паролю, о чём
+    пользователю продолжают писать обратное.
     """
-    Validates learning email + password against LXP endpoint.
-    If LXP endpoint is not configured, falls back to local auth-by-email.
-    """
-    lxp_verify_url = os.getenv("LXP_VERIFY_URL", "").strip()
-    lxp_graphql_endpoint = getattr(settings, "LXP_GRAPHQL_ENDPOINT", "").strip()
+    # Раньше URL читался из окружения напрямую, в обход настроек, — получалось
+    # два независимых источника одного и того же параметра.
+    lxp_verify_url = (getattr(settings, "LXP_VERIFY_URL", "") or "").strip()
+    lxp_graphql_endpoint = (getattr(settings, "LXP_GRAPHQL_ENDPOINT", "") or "").strip()
 
     # Preferred verification path for current LXP API.
     if lxp_graphql_endpoint:
@@ -36,7 +43,13 @@ def verify_lxp_credentials(email: str, password: str) -> Tuple[bool, str]:
             return False, "LXP is temporarily unavailable."
         if response.status_code >= 400:
             return False, "LXP is temporarily unavailable."
-        body = response.json() if response.content else {}
+        # WAF или страница-заглушка возвращают HTML — без защиты это 500
+        # прямо на входе пользователя вместо понятного «LXP недоступен».
+        try:
+            body = response.json() if response.content else {}
+        except ValueError:
+            logger.warning("LXP вернул не JSON на проверку учётных данных (HTTP %s)", response.status_code)
+            return False, "LXP временно недоступен, попробуйте позже."
         if body.get("errors"):
             return False, "Invalid LXP email/password."
         data = (body.get("data") or {}).get("signIn") or {}
@@ -58,7 +71,15 @@ def verify_lxp_credentials(email: str, password: str) -> Tuple[bool, str]:
             return True, "verified"
         return False, "Invalid LXP email/password."
 
-    # Local fallback for MVP/dev: verify against Django user with email.
+    # Запасной путь только для разработки: в продакшене отсутствие настроек LXP —
+    # это ошибка конфигурации, а не повод пускать по локальному паролю.
+    if not settings.DEBUG:
+        logger.error(
+            "LXP не настроен (LXP_GRAPHQL_ENDPOINT/LXP_VERIFY_URL пусты), "
+            "вход по локальному паролю в продакшене запрещён"
+        )
+        return False, "Вход временно недоступен: не настроена проверка учётных данных."
+
     User = get_user_model()
     user = User.objects.filter(email__iexact=email).first()
     if not user:

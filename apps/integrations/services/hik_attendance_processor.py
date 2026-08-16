@@ -17,12 +17,16 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from apps.integrations.models import ExternalEvent, HikEvent
+from apps.integrations.services.hik_web_client import DIRECTION_ENTRY
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.progress.services.late_penalties import late_penalty_delta
 from apps.progress.services.rewards import apply_rating_delta_with_cap
 from apps.schedule.services import classify_entrance_against_schedule
 
 logger = logging.getLogger(__name__)
+
+# Сколько раз пытаемся обработать событие, прежде чем увести его в карантин.
+MAX_PROCESS_ATTEMPTS = 3
 
 
 def parse_hik_event_time(value) -> datetime:
@@ -124,20 +128,42 @@ def save_hik_row_as_event(row: dict) -> tuple[HikEvent | None, bool]:
     return obj, created
 
 
-def _apply_late_penalty_if_needed(user, *, event_id: str, late_minutes: int) -> None:
+def late_penalty_source_id(user_id: int, event_dt: datetime) -> str:
+    """Ключ штрафа за опоздание — один на пользователя в день.
+
+    Раньше ключ строился по event_id, то есть штрафовался каждый проход
+    турникета: вышел в перерыве и вернулся — ещё минус к рейтингу.
+    Опоздание — событие дня, а не события прохода.
+    """
+    local_date = timezone.localtime(event_dt).date()
+    return f"hik-late:{user_id}:{local_date.isoformat()}"
+
+
+def _apply_late_penalty_if_needed(user, *, event_dt: datetime, late_minutes: int) -> None:
     if late_minutes <= 0:
         return
-    source_id = f"hik-late:{event_id}"
-    if RatingLog.objects.filter(user=user, source_id=source_id).exists():
+
+    source_id = late_penalty_source_id(user.pk, event_dt)
+
+    # Блокировка строки пользователя закрывает гонку между воркерами: без неё
+    # два параллельных обработчика проходят проверку exists() одновременно
+    # и штрафуют дважды. Заодно рейтинг читается свежим, а не из кеша,
+    # собранного в начале прогона.
+    locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
+    if RatingLog.objects.filter(user_id=locked_user.pk, source_id=source_id).exists():
         return
+
     delta = late_penalty_delta(late_minutes)
     apply_rating_delta_with_cap(
-        user=user,
+        user=locked_user,
         delta=delta,
         source=RatingChangeSource.SYSTEM,
         reason=f"Опоздание {late_minutes} мин (Hik)",
         source_id=source_id,
     )
+    # Кеш пользователей в вызывающем коде держит ту же запись — синхронизируем,
+    # чтобы последующие события в этом же прогоне считались от нового рейтинга.
+    user.rating_current = locked_user.rating_current
 
 
 def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]:
@@ -157,27 +183,53 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
     process_errors = 0
 
     code_to_user: dict[str, User] = {}
-    qs = User.objects.filter(
-        (Q(hik_card_code__isnull=False) & ~Q(hik_card_code=""))
-        | (Q(hik_person_id__isnull=False) & ~Q(hik_person_id=""))
-    ).select_related("squad").only("id", "hik_card_code", "hik_person_id", "squad_id", "rating_current", "unclosed_ct_count")
+    email_to_user: dict[str, User] = {}
+    qs = (
+        User.objects.filter(
+            Q(hik_card_code__isnull=False) & ~Q(hik_card_code="")
+            | Q(hik_person_id__isnull=False) & ~Q(hik_person_id="")
+            | ~Q(email="")
+        )
+        .select_related("squad")
+        .only(
+            "id",
+            "email",
+            "hik_card_code",
+            "hik_person_id",
+            "squad_id",
+            "rating_current",
+            "unclosed_ct_count",
+        )
+    )
     for u in qs.iterator(chunk_size=500):
         if u.hik_card_code:
             code_to_user[str(u.hik_card_code).strip()] = u
         if u.hik_person_id:
-            pid = str(u.hik_person_id).strip()
-            code_to_user.setdefault(pid, u)
+            code_to_user.setdefault(str(u.hik_person_id).strip(), u)
+        if u.email:
+            email_to_user.setdefault(u.email.strip().lower(), u)
 
     for he in pending:
         seen += 1
         code = (he.student_code or "").strip()
-        if not code:
-            skipped_no_user += 1
-            continue
-        user = code_to_user.get(code)
+        # Портал отдаёт cardNumber пустым во всех записях, зато в каждой есть
+        # почта студента — она же приходит из LXP, поэтому связка получается
+        # автоматической, без ручного проставления кодов карт в админке.
+        raw = he.raw_data if isinstance(he.raw_data, dict) else {}
+        email = str(raw.get("personEmail") or "").strip().lower()
+
+        user = code_to_user.get(code) if code else None
+        if user is None and email:
+            user = email_to_user.get(email)
         if user is None:
             skipped_no_user += 1
             continue
+        # direction: 1 — вход, 2 — выход (проверено на данных портала).
+        # У старых выгрузок XLSX поля нет — там считаем проход входом,
+        # чтобы не потерять историю.
+        direction = raw.get("direction")
+        is_entry = direction is None or direction == DIRECTION_ENTRY
+
         try:
             with transaction.atomic():
                 classification = classify_entrance_against_schedule(
@@ -191,6 +243,12 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
                     source="hik",
                     external_event_id=he.event_id,
                     defaults={
+                        # Колонки дублируют часть payload ради индексов:
+                        # выборки «события пользователя за день» иначе
+                        # требуют перебора всей таблицы.
+                        "user": user,
+                        "event_date": timezone.localtime(he.event_time).date(),
+                        "event_type": event_type,
                         "payload": {
                             "event_type": event_type,
                             "kind": "turnstile_pass",
@@ -201,17 +259,38 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
                             "event_time": he.event_time.isoformat(),
                             "late_minutes": late_minutes,
                             "schedule_id": classification.get("schedule_id"),
+                            "direction": raw.get("direction"),
+                            "is_entry": is_entry,
                         },
                     },
                 )
                 if ext_c:
                     ext_created += 1
-                if event_type == "late" and late_minutes is not None:
-                    _apply_late_penalty_if_needed(user, event_id=he.event_id, late_minutes=int(late_minutes))
+                # Штрафуем только за вход: выход с занятий опозданием не является.
+                if is_entry and event_type == "late" and late_minutes is not None:
+                    _apply_late_penalty_if_needed(
+                        user, event_dt=he.event_time, late_minutes=int(late_minutes)
+                    )
                 HikEvent.objects.filter(pk=he.pk).update(processed=True)
-        except Exception:
+        except Exception as exc:
             process_errors += 1
             logger.exception("HikEvent process failed id=%s", he.pk)
+            # Считаем попытки и после исчерпания лимита уводим событие
+            # в карантин: помечаем обработанным с сохранённой ошибкой,
+            # чтобы оно не блокировало очередь на каждом прогоне.
+            attempts = he.process_attempts + 1
+            quarantined = attempts >= MAX_PROCESS_ATTEMPTS
+            HikEvent.objects.filter(pk=he.pk).update(
+                process_attempts=attempts,
+                last_error=f"{type(exc).__name__}: {exc}"[:1000],
+                processed=quarantined,
+            )
+            if quarantined:
+                logger.error(
+                    "HikEvent id=%s отправлено в карантин после %s попыток",
+                    he.pk,
+                    attempts,
+                )
 
     if process_errors > 0:
         from apps.integrations.services.telegram_alert import send_alert_to_admin

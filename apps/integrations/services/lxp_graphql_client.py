@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from datetime import date
+
+import logging
 
 import requests
 from django.conf import settings
 from django.core.cache import cache
 
 from .lxp_browser_token import BrowserTokenConfig, BrowserTokenFetchError, fetch_lxp_bearer_token
+
+logger = logging.getLogger(__name__)
 
 
 class LXPAuthError(RuntimeError):
@@ -28,6 +33,10 @@ class GraphQLResponse:
 
 class LXPGraphQLClient:
     TOKEN_CACHE_KEY = "lxp:gql:token"
+    # Блокировка на время входа, чтобы параллельные задачи не логинились
+    # одновременно (а в браузерном режиме — не поднимали несколько Chromium).
+    TOKEN_LOCK_KEY = "lxp:gql:token:lock"
+    TOKEN_LOCK_TTL = 180
     CATEGORY_CANDIDATES = {
         "attendance": [
             "averageAttendanceStudentsAnalytics",
@@ -132,9 +141,22 @@ class LXPGraphQLClient:
             resp = requests.post(self.endpoint, json=payload, headers=headers, timeout=timeout)
         except requests.RequestException as e:
             raise LXPRequestError(str(e)) from e
+        if resp.status_code in (401, 403):
+            # Токен отвергнут — выбрасываем его из кеша, иначе следующий вызов
+            # возьмёт тот же протухший токен и будет получать 401 до истечения
+            # TTL (почти сутки), а снимки за это время сохранятся пустыми.
+            cache.delete(self.TOKEN_CACHE_KEY)
+            raise LXPRequestError(f"HTTP {resp.status_code}: токен LXP отвергнут")
         if resp.status_code >= 400:
-            raise LXPRequestError(f"HTTP {resp.status_code}: {resp.text[:300]}")
-        body = resp.json()
+            # Тело ответа в текст исключения не кладём: оно уходит в Telegram-алерт
+            # и может содержать токены и персональные данные. Для разбора хватает
+            # кода ответа, тело пишем в лог.
+            logger.warning("LXP HTTP %s на запрос (%s символов ответа)", resp.status_code, len(resp.text))
+            raise LXPRequestError(f"LXP ответил HTTP {resp.status_code}")
+        try:
+            body = resp.json()
+        except ValueError as e:
+            raise LXPRequestError("LXP вернул не JSON") from e
         return GraphQLResponse(data=body.get("data") or {}, errors=body.get("errors"))
 
     def login(self) -> str:
@@ -171,32 +193,50 @@ class LXPGraphQLClient:
             "operationName": "SignIn"
         }
         
-        response = requests.post(
-            self.endpoint,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=20
-        )
-        
-        result = response.json()
-        
-        # Проверка на ошибки GraphQL
+        # Тело ответа сюда попадать не должно: оно содержит accessToken
+        # и refreshToken, а текст исключения уходит в Telegram-алерт и в логи.
+        try:
+            response = requests.post(
+                self.endpoint,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=20
+            )
+        except requests.RequestException as e:
+            raise LXPAuthError(f"LXP недоступен: {type(e).__name__}") from e
+
+        if response.status_code >= 400:
+            raise LXPAuthError(f"LXP ответил HTTP {response.status_code}")
+
+        try:
+            result = response.json()
+        except ValueError as e:
+            raise LXPAuthError("LXP вернул не JSON на запрос входа") from e
+
+        # Из ошибок GraphQL берём только коды и сообщения, без расширений
+        # и данных запроса.
         if result.get('errors'):
-            raise LXPAuthError(f"GraphQL login errors: {result['errors']}")
-        
+            reasons = "; ".join(
+                str(err.get("message") or "unknown")[:120]
+                for err in result["errors"][:3]
+                if isinstance(err, dict)
+            )
+            raise LXPAuthError(f"LXP отклонил вход: {reasons or 'без сообщения'}")
+
         # Токен лежит в data.signIn.accessToken
         sign_in_data = result.get('data', {}).get('signIn', {})
         token = sign_in_data.get('accessToken')
-        
+
         if not token:
-            raise LXPAuthError(f"Token not found in login response: {result}")
-        
-        # Сохраняем refresh token, если нужно
-        refresh_token = sign_in_data.get('refreshToken')
-        if refresh_token:
-            cache.set(f"{self.TOKEN_CACHE_KEY}_refresh", refresh_token, timeout=self.token_ttl_seconds * 2)
-        
+            raise LXPAuthError(
+                "В ответе LXP нет accessToken — проверьте LXP_BOT_EMAIL/LXP_BOT_PASSWORD"
+            )
+
+        # refresh-токен раньше сохранялся в кеш и больше нигде не читался:
+        # мутации обновления в клиенте нет вовсе. Лишний секрет в Redis
+        # без применения — только риск, поэтому не храним.
         cache.set(self.TOKEN_CACHE_KEY, token, timeout=self.token_ttl_seconds)
+        cache.delete(self.TOKEN_LOCK_KEY)
         return token
 
     def login_via_browser(self) -> str:
@@ -213,19 +253,47 @@ class LXPGraphQLClient:
                 )
             )
         except BrowserTokenFetchError as e:
+            cache.delete(self.TOKEN_LOCK_KEY)
             raise LXPAuthError(f"Browser token fetch failed: {e}") from e
         cache.set(self.TOKEN_CACHE_KEY, token, timeout=self.token_ttl_seconds)
+        cache.delete(self.TOKEN_LOCK_KEY)
         return token
 
-    def get_token(self) -> str:
+    def get_token(self, *, force_refresh: bool = False) -> str:
+        """Вернуть токен LXP, при необходимости выполнив вход.
+
+        Вход защищён блокировкой: без неё это классический check-then-act —
+        при промахе кеша каждый параллельный Celery-воркер шёл логиниться
+        самостоятельно, а при `LXP_USE_BROWSER_TOKEN_BOT=1` каждый поднимал
+        собственный Chromium. Несколько одновременных входов бот-аккаунта
+        LXP выглядят подозрительно и рискуют его блокировкой.
+        """
         if self.static_token:
             return self.static_token
-        token = cache.get(self.TOKEN_CACHE_KEY)
-        if token:
-            return str(token)
+
+        if not force_refresh:
+            token = cache.get(self.TOKEN_CACHE_KEY)
+            if token:
+                return str(token)
+
+        if not cache.add(self.TOKEN_LOCK_KEY, "1", self.TOKEN_LOCK_TTL):
+            # Вход уже идёт в другом процессе — дождёмся его результата,
+            # вместо того чтобы логиниться параллельно.
+            deadline = time.monotonic() + self.TOKEN_LOCK_TTL
+            while time.monotonic() < deadline:
+                time.sleep(1)
+                token = cache.get(self.TOKEN_CACHE_KEY)
+                if token:
+                    return str(token)
+                if not cache.get(self.TOKEN_LOCK_KEY):
+                    break
+
         try:
             return self.login()
         except LXPAuthError as e:
+            # Снимаем блокировку сразу: держать её до истечения TTL значило бы
+            # заставить остальные задачи ждать впустую.
+            cache.delete(self.TOKEN_LOCK_KEY)
             from apps.integrations.services.telegram_alert import send_alert_to_admin
 
             send_alert_to_admin(
@@ -249,7 +317,16 @@ class LXPGraphQLClient:
         ttl_seconds: int = 3600,
         timeout: int = 40,
     ) -> dict:
-        key_seed = json.dumps({"n": name, "q": query, "v": variables}, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        # Токен входит в ключ: ответы LXP зависят от того, под каким аккаунтом
+        # сделан запрос, а раньше ключ строился только по имени, тексту запроса
+        # и переменным — данные, полученные под одним аккаунтом, отдавались
+        # под другим. В ключ идёт хеш токена, а не сам токен.
+        token_fingerprint = hashlib.sha256((token or "").encode("utf-8")).hexdigest()[:16]
+        key_seed = json.dumps(
+            {"n": name, "q": query, "v": variables, "t": token_fingerprint},
+            sort_keys=True,
+            ensure_ascii=False,
+        ).encode("utf-8")
         key = "lxp:gql:" + hashlib.sha256(key_seed).hexdigest()
         cached = cache.get(key)
         if cached is not None:

@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+from django.core.cache import cache
 from playwright.sync_api import Page, sync_playwright
 
+from apps.integrations.services.browser_runtime import (
+    context_kwargs,
+    dismiss_cookie_banner,
+    launch_kwargs,
+)
 from apps.integrations.services.lxp_browser_token import (
     BrowserTokenFetchError,
     _click_first,
@@ -19,6 +26,11 @@ from apps.integrations.services.lxp_browser_token import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Блокировка на время браузерной выгрузки: портал допускает одну активную
+# сессию на аккаунт, параллельные запуски выбивают друг друга.
+EXPORT_LOCK_KEY = "hik:browser_export:lock"
+EXPORT_LOCK_TTL = 900
 
 
 class HikBrowserExportError(RuntimeError):
@@ -89,62 +101,120 @@ def _click_nav_step(page: Page, step: str) -> bool:
     return False
 
 
+# Поля входа на hik-connectru не имеют name/id — только placeholder, а перед
+# ними на странице лежат четыре input[type=text] от выпадающих списков
+# Element-UI (страна, язык). Поэтому селекторы привязаны к форме и плейсхолдеру,
+# а не к порядку полей: прежний код заполнял логином выбор страны.
+ACCOUNT_SELECTORS = (
+    "form input[placeholder*='Account' i]",
+    "form input[placeholder*='Email' i]",
+    "form input[placeholder*='Аккаунт' i]",
+    "form input[placeholder*='Почт' i]",
+    "form input[type='text']:not([readonly])",
+)
+PASSWORD_SELECTORS = (
+    "form input[type='password']",
+    "input[type='password']",
+)
+LOGIN_BUTTON_SELECTORS = (
+    "button.login-form-button",
+    "form button[type='submit']",
+    "button:has-text('Login')",
+    "button:has-text('Войти')",
+    "button:has-text('Sign In')",
+)
+
+
 def _login(page: Page, config: HikBrowserExportConfig) -> None:
     page.goto(config.login_url, wait_until="domcontentloaded", timeout=config.timeout_ms)
     try:
         page.wait_for_load_state("networkidle", timeout=15_000)
     except Exception:
         pass
-    page.wait_for_timeout(2_000)
 
-    _fill_first(
-        page,
-        [
-            "input[type='email']",
-            "input[name='email']",
-            "input[name='login']",
-            "input[name='username']",
-            "input[autocomplete='username']",
-        ],
-        config.email,
-    )
-    _fill_first(
-        page,
-        [
-            "input[type='password']",
-            "input[name='password']",
-            "input[autocomplete='current-password']",
-        ],
-        config.password,
-    )
-    forced = _force_fill_auth_inputs(page, config.email, config.password)
-    if forced.get("email_len", 0) == 0 or forced.get("password_len", 0) == 0:
-        raise HikBrowserExportError("Login form not found on Hik Connect page.")
+    # SPA дорисовывает форму уже после networkidle, и на медленном канале это
+    # занимает десятки секунд. Ждём появления самого поля, а не фиксированный
+    # таймер: иначе поля «то находятся, то нет» от запуска к запуску.
+    form_deadline = max(30_000, min(config.timeout_ms, 120_000))
+    try:
+        page.wait_for_selector(ACCOUNT_SELECTORS[0], timeout=form_deadline)
+    except Exception:
+        logger.warning(
+            "Hik login: поле логина не появилось за %s мс (url=%s)", form_deadline, page.url
+        )
 
-    _click_first(
-        page,
-        [
-            "button[type='submit']",
-            "button:has-text('Войти')",
-            "button:has-text('Login')",
-            "button:has-text('Sign In')",
-            "button.el-button--primary",
-        ],
-    )
-    page.keyboard.press("Enter")
+    dismiss_cookie_banner(page)
 
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        url = page.url.lower()
-        if "#/login" not in url and "/login" not in url.split("?")[0][-30:]:
-            break
-        page.wait_for_timeout(500)
+    filled_account = _fill_first(page, list(ACCOUNT_SELECTORS), config.email)
+    filled_password = _fill_first(page, list(PASSWORD_SELECTORS), config.password)
+
+    forced = {}
+    if not (filled_account and filled_password):
+        forced = _force_fill_auth_inputs(page, config.email, config.password, submit=False)
+
+    account_ok = filled_account or forced.get("email_len", 0) > 0
+    password_ok = filled_password or forced.get("password_len", 0) > 0
+    if not account_ok or not password_ok:
+        raise HikBrowserExportError(
+            "Форма логина на портале Hik Connect не найдена. "
+            "Частая причина — пустая страница в headless-режиме: портал отдаёт "
+            "заглушку, если в user-agent есть HeadlessChrome."
+        )
+
+    # Форма отправляется ровно один раз. Раньше подряд шли requestSubmit
+    # (внутри _force_fill_auth_inputs), клик по кнопке и Enter — три попытки
+    # входа за один запуск, что для портала выглядит как перебор пароля.
+    if not forced.get("submitted"):
+        if not _click_first(page, list(LOGIN_BUTTON_SELECTORS)):
+            page.keyboard.press("Enter")
+
+    login_wait_s = max(30, min(config.timeout_ms // 1000, 120))
+    if not _wait_for_login_result(page, timeout_s=login_wait_s):
+        raise HikBrowserExportError(
+            f"Вход на портал Hik Connect не выполнен: страница логина не сменилась за {login_wait_s} с. "
+            "Проверьте HIK_WEB_EMAIL/HIK_WEB_PASSWORD, капчу или требование смены пароля "
+            "(запустите probe_hik_web --headed, чтобы увидеть страницу)."
+        )
 
     try:
         page.wait_for_load_state("networkidle", timeout=20_000)
     except Exception:
         pass
     page.wait_for_timeout(2_000)
+
+
+def _on_login_page(page: Page) -> bool:
+    """Мы всё ещё на странице входа?
+
+    Портал — SPA с хешевой маршрутизацией, и после успешного входа адрес
+    выглядит так:
+
+        до:    .../views/login/index.html#/login
+        после: .../views/login/index.html#/portal
+
+    Путь не меняется и всегда содержит «/login/», поэтому судить по нему нельзя:
+    любая проверка пути считает вход неудавшимся навсегда. Признак — только хеш.
+    """
+    url = (page.url or "").lower()
+    path, sep, fragment = url.partition("#")
+    if sep:
+        return fragment.startswith("/login") or fragment in {"", "/"}
+    return path.rstrip("/").endswith("/login")
+
+
+def _wait_for_login_result(page: Page, *, timeout_s: int = 30) -> bool:
+    """Дождаться ухода со страницы логина.
+
+    Возвращает False, если вход не удался: раньше истечение таймаута молча
+    игнорировалось и выполнение шло дальше — до самой попытки экспорта, где
+    ошибка выглядела как «не найдена кнопка Экспорт».
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if not _on_login_page(page):
+            return True
+        page.wait_for_timeout(500)
+    return not _on_login_page(page)
 
 
 def _navigate_to_records(page: Page, config: HikBrowserExportConfig) -> None:
@@ -268,14 +338,41 @@ def _trigger_export(page: Page, timeout_ms: int, download_dir: Path) -> Path:
     suffix = Path(download.suggested_filename or "hik_export.xlsx").suffix.lower()
     if not suffix:
         suffix = ".xlsx"
-    out = download_dir / f"hik_{int(time.time())}{suffix}"
+    # Метка времени с точностью до секунды приводила к коллизии, если два
+    # запуска скачивали файл в одну секунду: второй затирал первый.
+    out = download_dir / f"hik_{int(time.time())}_{uuid.uuid4().hex[:8]}{suffix}"
     download.save_as(str(out))
     return out
 
 
+def cleanup_old_exports(download_dir: Path, *, keep_days: int = 7) -> int:
+    """Удалить старые выгрузки.
+
+    Скачанные файлы не удалялись никогда: при ежедневной выгрузке каталог
+    рос бесконечно. Свежие оставляем — они нужны для разбора инцидентов.
+    """
+    if not download_dir.exists():
+        return 0
+    threshold = time.time() - keep_days * 24 * 3600
+    removed = 0
+    for path in download_dir.iterdir():
+        if not path.is_file() or not path.name.startswith("hik_"):
+            continue
+        try:
+            if path.stat().st_mtime < threshold:
+                path.unlink()
+                removed += 1
+        except OSError:
+            logger.debug("Не удалось удалить старую выгрузку %s", path)
+    if removed:
+        logger.info("Удалено старых выгрузок Hik: %s", removed)
+    return removed
+
+
 def _save_debug_artifacts(page: Page, download_dir: Path) -> tuple[Path, Path]:
-    screenshot = download_dir / "hik_export_debug.png"
-    html = download_dir / "hik_export_debug.html"
+    stamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    screenshot = download_dir / f"hik_debug_{stamp}.png"
+    html = download_dir / f"hik_debug_{stamp}.html"
     page.screenshot(path=str(screenshot), full_page=True)
     html.write_text(page.content(), encoding="utf-8")
     return screenshot, html
@@ -306,10 +403,34 @@ def fetch_hik_xlsx_export(
     end = end_date or start_date
     download_dir = Path(config.download_dir)
     download_dir.mkdir(parents=True, exist_ok=True)
+    cleanup_old_exports(download_dir)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=config.headless)
-        context = browser.new_context(accept_downloads=True, locale="ru-RU")
+    # Портал допускает одну активную сессию на аккаунт, поэтому два браузера,
+    # запущенных одновременно, выбивают друг друга. Раньше блокировки не было
+    # вовсе, и ночная выгрузка могла наложиться на ручной запуск.
+    if not cache.add(EXPORT_LOCK_KEY, "1", EXPORT_LOCK_TTL):
+        raise HikBrowserExportError(
+            "Выгрузка Hik уже выполняется в другом процессе — повторный запуск пропущен."
+        )
+
+    try:
+        return _run_export(config, p_factory=sync_playwright, start=start_date, end=end, download_dir=download_dir)
+    finally:
+        cache.delete(EXPORT_LOCK_KEY)
+
+
+def _run_export(
+    config: HikBrowserExportConfig,
+    *,
+    p_factory,
+    start: date,
+    end: date,
+    download_dir: Path,
+) -> Path:
+    start_date = start
+    with p_factory() as p:
+        browser = p.chromium.launch(**launch_kwargs(headless=config.headless))
+        context = browser.new_context(**context_kwargs(accept_downloads=True))
         page = context.new_page()
 
         try:

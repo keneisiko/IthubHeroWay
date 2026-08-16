@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.integrations.services.lxp_graphql_client import LXPAuthError, LXPGraphQLClient
+from apps.integrations.services.lxp_graphql_client import LXPGraphQLClient
 from apps.integrations.services.lxp_browser_token import BrowserTokenConfig, fetch_lxp_bearer_token
 
 
@@ -36,8 +36,8 @@ class Command(BaseCommand):
             from django.core.cache import cache
 
             cache.set(client.TOKEN_CACHE_KEY, token, timeout=client.token_ttl_seconds)
-        except LXPAuthError as e:
-            raise CommandError(str(e)) from e
+        # Отдельной ветки для LXPAuthError здесь нет: fetch_lxp_bearer_token
+        # бросает BrowserTokenFetchError, и та ветка была недостижима.
         except Exception as e:
             raise CommandError(str(e)) from e
         self.stdout.write(self.style.SUCCESS(f"Token captured and cached. Length: {len(token)}"))

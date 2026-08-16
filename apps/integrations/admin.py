@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
 
-from .models import ExternalEvent, HikEvent, HikSnapshot, LXPSnapshot
+from .models import ExternalEvent, HikEvent, HikImportRun, HikSnapshot, LXPSnapshot
 
 
 class ExternalEventTypeFilter(admin.SimpleListFilter):
@@ -140,3 +140,34 @@ class LXPSnapshotAdmin(ManagedRoleAdminMixin):
         for snap in queryset:
             recalculate_rating_for_date.delay(snap.date.isoformat())
         self.message_user(request, f"Запущен пересчёт для {queryset.count()} снимков.", level=messages.SUCCESS)
+
+
+@admin.register(HikImportRun)
+class HikImportRunAdmin(ManagedRoleAdminMixin):
+    """Журнал импортов: по нему видно, работает интеграция или молчит."""
+
+    list_display = (
+        "started_at",
+        "mode",
+        "status",
+        "date_from",
+        "date_to",
+        "records_fetched",
+        "events_created",
+        "external_created",
+        "users_unmatched",
+        "relogin_used",
+        "duration_ms",
+    )
+    list_filter = ("status", "mode", "started_at")
+    readonly_fields = tuple(f.name for f in HikImportRun._meta.fields)
+    ordering = ("-started_at",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser

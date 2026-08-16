@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 from playwright.sync_api import sync_playwright
 
+from apps.integrations.services.browser_runtime import context_kwargs, launch_kwargs
+
 
 class BrowserTokenFetchError(RuntimeError):
     pass
@@ -134,14 +136,23 @@ def _token_from_cookies(context) -> str | None:
     return None
 
 
-def _force_fill_auth_inputs(page, email: str, password: str) -> dict:
-    totals = {"email_len": 0, "password_len": 0, "has_form": False}
+def _force_fill_auth_inputs(page, email: str, password: str, *, submit: bool = True) -> dict:
+    """Заполнить поля логина через JS и (опционально) отправить форму.
+
+    `submit=False` нужен вызывающему коду, который сам решает, как и когда
+    отправлять форму: иначе получается несколько попыток входа подряд
+    (requestSubmit здесь + клик по кнопке + Enter снаружи), что для портала
+    неотличимо от перебора пароля.
+
+    В ответе поле `submitted` сообщает, была ли форма отправлена отсюда.
+    """
+    totals = {"email_len": 0, "password_len": 0, "has_form": False, "submitted": False}
     targets = [page, *page.frames]
     for target in targets:
         try:
             result = target.evaluate(
         """
-        ([emailValue, passwordValue]) => {
+        ([emailValue, passwordValue, shouldSubmit]) => {
           const visible = (el) => {
             if (!el) return false;
             const style = window.getComputedStyle(el);
@@ -200,20 +211,22 @@ def _force_fill_auth_inputs(page, email: str, password: str) -> dict:
           };
 
           const form = (emailInput && emailInput.form) || (passwordInput && passwordInput.form);
-          if (form) {
+          if (form && shouldSubmit && result.password_len > 0) {
             if (typeof form.requestSubmit === 'function') form.requestSubmit();
             else form.submit();
+            result.submitted = true;
           }
           return result;
         }
         """,
-                [email, password],
+                [email, password, submit],
             )
         except Exception:
             continue
         totals["email_len"] = max(int(result.get("email_len") or 0), totals["email_len"])
         totals["password_len"] = max(int(result.get("password_len") or 0), totals["password_len"])
         totals["has_form"] = totals["has_form"] or bool(result.get("has_form"))
+        totals["submitted"] = totals["submitted"] or bool(result.get("submitted"))
     return totals
 
 
@@ -243,8 +256,8 @@ def fetch_lxp_bearer_token(config: BrowserTokenConfig) -> str:
     graphql_hits: list[str] = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=config.headless)
-        context = browser.new_context()
+        browser = p.chromium.launch(**launch_kwargs(headless=config.headless))
+        context = browser.new_context(**context_kwargs())
         page = context.new_page()
 
         def on_request(request):
@@ -330,10 +343,13 @@ def fetch_lxp_bearer_token(config: BrowserTokenConfig) -> str:
             except Exception:
                 pass
 
-        forced = _force_fill_auth_inputs(page, config.email, config.password)
+        # Проверяем поля до отправки: раньше форма с логином и паролем уже
+        # уходила на сервер, и только потом код падал с «поля не найдены».
         if not email_ok or not password_ok:
             browser.close()
             raise BrowserTokenFetchError("Login form fields not found on page.")
+
+        forced = _force_fill_auth_inputs(page, config.email, config.password, submit=False)
 
         clicked = _click_first(
             page,
@@ -344,9 +360,10 @@ def fetch_lxp_bearer_token(config: BrowserTokenConfig) -> str:
                 "button:has-text('Login')",
             ],
         )
-        # Form may already be submitted in _force_fill_auth_inputs via requestSubmit().
-        # If no visible submit button is found, continue token interception flow.
-        if clicked:
+        # Форма отправляется ровно один раз: либо кликом по кнопке, либо Enter.
+        # Раньше Enter нажимался именно тогда, когда кнопка уже была нажата,
+        # то есть логин уходил дважды.
+        if not clicked and not forced.get("submitted"):
             page.keyboard.press("Enter")
         try:
             page.wait_for_load_state("networkidle", timeout=min(config.timeout_ms, 15_000))

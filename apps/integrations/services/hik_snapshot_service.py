@@ -8,7 +8,6 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Role
@@ -61,8 +60,28 @@ def load_snapshot_from_file(path: str | Path) -> dict:
     return json.loads(text)
 
 
-def save_hik_snapshot(target_date: date, data: dict) -> HikSnapshot:
+def save_hik_snapshot(target_date: date, data: dict, *, force: bool = False) -> HikSnapshot:
+    """Сохранить снимок за день, не ухудшая уже сохранённый.
+
+    Снимок перезаписывался целиком: неудачная выгрузка (портал вернул пустой
+    файл, сессия отвалилась, экспорт скачался обрезанным) стирала валидные
+    данные за этот день, а созданные из них HikEvent оставались — состояние
+    расходилось. Пустой результат поверх непустого больше не принимается.
+    """
     normalized = normalize_snapshot_payload(data, target_date)
+    new_events = len(normalized.get("events") or [])
+
+    existing = HikSnapshot.objects.filter(date=target_date).first()
+    if existing and not force:
+        old_events = len((existing.data or {}).get("events") or [])
+        if new_events == 0 and old_events > 0:
+            logger.warning(
+                "Hik snapshot %s: пустая выгрузка не записана поверх снимка с %s событиями",
+                target_date,
+                old_events,
+            )
+            return existing
+
     snap, _ = HikSnapshot.objects.update_or_create(date=target_date, defaults={"data": normalized})
     return snap
 
