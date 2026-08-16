@@ -27,15 +27,29 @@ CLOSED_CT_STATUSES = {"closed", "done", "completed", "passed", "accepted", "сд
 
 
 def _hik_events_for_user_on_date(user_id: int, day: date) -> list[dict]:
-    day_s = day.isoformat()
-    events: list[dict] = []
-    for ev in ExternalEvent.objects.filter(source="hik").only("payload").iterator(chunk_size=500):
-        payload = ev.payload or {}
-        if payload.get("user_id") != user_id:
-            continue
-        et = payload.get("event_time") or ""
-        if isinstance(et, str) and et.startswith(day_s):
-            events.append(payload)
+    """События Hik пользователя за день.
+
+    Раньше здесь перебиралась вся таблица `ExternalEvent` в Python — и так
+    для каждого пользователя и каждого проверяемого дня. При нескольких сотнях
+    студентов и недельном квесте это давало сотни тысяч итераций на прогон.
+    Теперь фильтрация идёт в БД по индексу (user, event_date).
+    """
+    return [
+        ev.payload or {}
+        for ev in ExternalEvent.objects.filter(
+            source="hik", user_id=user_id, event_date=day
+        ).only("payload")
+    ]
+
+
+def _hik_events_for_user_in_range(user_id: int, start: date, end: date) -> dict[date, list[dict]]:
+    """События за диапазон дат — одним запросом вместо запроса на каждый день."""
+    events: dict[date, list[dict]] = {}
+    queryset = ExternalEvent.objects.filter(
+        source="hik", user_id=user_id, event_date__gte=start, event_date__lte=end
+    ).only("payload", "event_date")
+    for ev in queryset:
+        events.setdefault(ev.event_date, []).append(ev.payload or {})
     return events
 
 
@@ -108,11 +122,15 @@ def verify_hik_on_time(user: User, params: dict, target_date: date) -> Verificat
 def verify_hik_no_late(user: User, params: dict, target_date: date) -> VerificationResult:
     days = int(params.get("days", 1))
     start = target_date - timedelta(days=days - 1)
+
+    # Один запрос на весь период вместо запроса на каждый день.
+    by_day = _hik_events_for_user_in_range(user.pk, start, target_date)
+
     late_days: list[str] = []
     checked = 0
     d = start
     while d <= target_date:
-        events = _hik_events_for_user_on_date(user.pk, d)
+        events = by_day.get(d, [])
         if events:
             checked += 1
         if any(ev.get("event_type") == "late" for ev in events):
@@ -252,7 +270,11 @@ def verify_yougile_tasks(user: User, params: dict, target_date: date) -> Verific
     min_count = int(params.get("min_count", 3))
     since = timezone.make_aware(datetime.combine(target_date - timedelta(days=days - 1), time.min))
     matched = 0
-    for ev in ExternalEvent.objects.filter(source="yougile", processed_at__gte=since).only("payload"):
+    # У событий YouGile нет привязки к пользователю (вебхук приходит с чужой
+    # стороны), поэтому фильтруем по времени и сопоставляем в Python.
+    for ev in ExternalEvent.objects.filter(source="yougile", processed_at__gte=since).only("payload").iterator(
+        chunk_size=500
+    ):
         payload = ev.payload or {}
         if not _yougile_belongs_to_user(payload, user):
             continue

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
+from apps.operations.services.cache import invalidate_rating_views
 from apps.progress.models import RatingChangeSource
 from apps.progress.services.rewards import apply_rating_delta_with_cap, remaining_daily_coin_budget
 from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
@@ -57,9 +57,7 @@ def complete_quest_idempotent(
             reason=reason[:250],
             source_id=str(quest.id),
         )
-        cache.delete(f"profile:{user.username}")
-        cache.delete_pattern("leaderboard:*")
-        cache.delete_pattern(f"profile:{user.username}*")
+        invalidate_rating_views(user.username)
     return progress, created
 
 

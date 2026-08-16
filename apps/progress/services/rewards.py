@@ -5,6 +5,8 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.operations.services.anticheat import apply_unclosed_tests_rule
+from apps.operations.services.cache import invalidate_rating_views
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.quests.models import QuestRewardTransaction
 
@@ -20,13 +22,22 @@ def max_daily_coins() -> int:
 def apply_rating_delta_with_cap(user: User, delta: int, source: str, reason: str = "", source_id: str = "") -> int:
     before = user.rating_current
     after = before + delta
-    # 2+ unclosed CT blocks growth above 399 for non-manual/system updates.
-    if user.unclosed_ct_count >= 2 and delta > 0 and source in {
+
+    # Правило анти-накрутки живёт в apps.operations.services.anticheat.
+    # Раньше тот модуль не использовался вообще, а пороги (2 незакрытых КТ
+    # и потолок 399) были продублированы здесь числами.
+    capped_sources = {
         RatingChangeSource.QUEST,
         RatingChangeSource.BADGE,
         RatingChangeSource.SOCIAL,
-    }:
-        after = min(after, 399)
+    }
+    if delta > 0 and source in capped_sources:
+        verdict = apply_unclosed_tests_rule(
+            current_rating=before,
+            unclosed_tests_count=user.unclosed_ct_count,
+        )
+        if verdict.hard_cap_rating is not None:
+            after = min(after, verdict.hard_cap_rating)
     applied_delta = after - before
     if applied_delta == 0:
         return 0
@@ -41,13 +52,26 @@ def apply_rating_delta_with_cap(user: User, delta: int, source: str, reason: str
         source_id=source_id,
         reason=reason,
     )
+    # Рейтинг изменился — профиль и лидерборды больше не актуальны.
+    invalidate_rating_views(user.username)
     return applied_delta
+
+
+def local_day_start(moment=None):
+    """Начало текущих суток в часовом поясе проекта.
+
+    `timezone.now().replace(hour=0, ...)` даёт полночь по UTC, а проект живёт
+    в Europe/Moscow: дневные лимиты сбрасывались в 03:00 по местному времени
+    и «сутки» захватывали кусок предыдущего дня.
+    """
+    local = timezone.localtime(moment or timezone.now())
+    return local.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def remaining_daily_coin_budget(user: User, day_limit: int | None = None) -> int:
     if day_limit is None:
         day_limit = max_daily_coins()
-    day_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    day_start = local_day_start()
     earned_today = (
         QuestRewardTransaction.objects.filter(user=user, granted_at__gte=day_start).aggregate(total=Sum("coins_delta"))[
             "total"

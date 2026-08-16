@@ -43,8 +43,12 @@ class SelfReportApiTests(TestCase):
             url = reverse("quests-self-report", kwargs={"code": quest.code})
             response = self.client.post(url, {"comment": "abcdefghij"}, format="json")
             self.assertEqual(response.status_code, 201, msg=f"quest {i}")
+            # Сдвиг нужен только чтобы обойти кулдаун в 5 минут между
+            # самоотчётами. Сдвигать на час нельзя: дневной лимит считается
+            # от местной полуночи, и при прогоне вскоре после неё записи
+            # уезжали во вчера, а лимит переставал срабатывать.
             SelfReportProof.objects.filter(user=self.user, quest=quest).update(
-                created_at=timezone.now() - timedelta(hours=1)
+                created_at=timezone.now() - timedelta(minutes=6)
             )
 
         overflow = Quest.objects.create(code="sr-limit-4", title="SR 4", quest_type=QuestType.SELF_REPORT, is_active=True)

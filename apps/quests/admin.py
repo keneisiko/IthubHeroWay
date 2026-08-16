@@ -3,9 +3,6 @@ from __future__ import annotations
 from django.contrib import admin, messages
 from django.contrib.admin.models import ADDITION, CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
-from django.core.cache import cache
-from django.db import transaction
-from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from django.utils.html import format_html
 

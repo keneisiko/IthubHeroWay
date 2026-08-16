@@ -11,6 +11,35 @@ RATING_ZONES: tuple[tuple[int, str, str], ...] = (
     (850, "gold", "Элита"),
 )
 
+# Единственный источник границ зон. Раньше те же пороги были захардкожены
+# ещё в двух местах — в админке и на дашбордах, — и при правке расходились.
+ZONE_NAMES_RU: dict[str, str] = {
+    "red": "Красная",
+    "orange": "Оранжевая",
+    "yellow": "Жёлтая",
+    "green": "Зелёная",
+    "platinum": "Платиновая",
+    "gold": "Золотая",
+}
+
+ZONE_COLORS: dict[str, str] = {
+    "red": "#d32f2f",
+    "orange": "#ef6c00",
+    "yellow": "#f9a825",
+    "green": "#2e7d32",
+    "platinum": "#1976d2",
+    "gold": "#6a1b9a",
+}
+
+
+def zone_bounds() -> list[tuple[str, int, int | None]]:
+    """Границы зон как (код, нижняя граница включительно, верхняя исключительно)."""
+    bounds: list[tuple[str, int, int | None]] = []
+    for idx, (threshold, code, _label) in enumerate(RATING_ZONES):
+        upper = RATING_ZONES[idx + 1][0] if idx + 1 < len(RATING_ZONES) else None
+        bounds.append((code, threshold, upper))
+    return bounds
+
 
 def rating_zone(rating: int) -> str:
     zone = RATING_ZONES[0][1]

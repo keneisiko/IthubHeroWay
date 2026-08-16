@@ -5,28 +5,27 @@ from __future__ import annotations
 import logging
 from datetime import date, timedelta
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.integrations.models import ExternalEvent, LXPSnapshot
+from apps.integrations.services.lxp_snapshot_format import unwrap_category
 from apps.progress.models import RatingChangeSource, RatingLog, UserStrike
-from apps.progress.services.late_penalties import attendance_streak_bonus_for_days, late_streak_bonus_for_days
+from apps.progress.services.late_penalties import (
+    attendance_streak_bonus_for_days,
+    attendance_streak_milestone,
+    late_streak_bonus_for_days,
+    late_streak_milestone,
+)
 from apps.progress.services.rewards import apply_rating_delta_with_cap
 
 logger = logging.getLogger(__name__)
 
 
-def _unwrap_attendance(block: dict | None) -> dict:
-    if isinstance(block, dict) and "data" in block:
-        inner = block.get("data")
-        return inner if isinstance(inner, dict) else {}
-    return block if isinstance(block, dict) else {}
-
-
 def _attendance_ok_for_user(snapshot_data: dict, lxp_uid: str) -> bool | None:
-    att = _unwrap_attendance(snapshot_data.get("attendance"))
+    att = unwrap_category(snapshot_data.get("attendance"))
     row = att.get(lxp_uid)
     if not isinstance(row, dict):
         return None
@@ -37,17 +36,30 @@ def _attendance_ok_for_user(snapshot_data: dict, lxp_uid: str) -> bool | None:
     return None
 
 
-def _had_late_on_date(user_id: int, day: date) -> bool:
-    day_s = day.isoformat()
-    qs = ExternalEvent.objects.filter(source="hik", payload__user_id=user_id)
-    for ev in qs.only("payload").iterator(chunk_size=200):
-        payload = ev.payload or {}
-        if payload.get("event_type") != "late":
-            continue
-        et = payload.get("event_time") or ""
-        if isinstance(et, str) and et.startswith(day_s):
-            return True
-    return False
+def users_with_late_on_date(day: date) -> set[int]:
+    """Кто опоздал в указанный день — одним запросом на весь прогон.
+
+    Раньше здесь была проверка на одного пользователя, которая выбирала все
+    его события за всю историю и фильтровала их в Python. Вызывалась она
+    в цикле по всем агентам, то есть на каждый запуск задачи приходились
+    сотни полных проходов по таблице событий.
+    """
+    return set(
+        ExternalEvent.objects.filter(
+            source="hik", event_type="late", event_date=day, user__isnull=False
+        ).values_list("user_id", flat=True)
+    )
+
+
+def _streak_start(last_date: date | None, streak_days: int) -> date | None:
+    """День начала текущей серии — часть ключа начисления.
+
+    Благодаря нему веха «7 дней» выдаётся один раз за серию, но после обрыва
+    и новой серии её можно заработать снова.
+    """
+    if not last_date or streak_days <= 0:
+        return None
+    return last_date - timedelta(days=streak_days - 1)
 
 
 def _rating_already_applied(user_id: int, source_id: str) -> bool:
@@ -73,8 +85,13 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
     Обновляет UserStrike и начисляет бонусы за 7/14/21 день без опозданий
     и за 7 дней без пропусков (по LXP + отсутствие late из Hik).
     """
-    today = current_date or date.today()
+    # localdate(), а не date.today(): задача стоит на 23:30 по Москве, а сервер
+    # живёт в UTC — там ещё предыдущие сутки, и «вчера» уезжало на два дня назад,
+    # из-за чего серии рвались систематически.
+    today = current_date or timezone.localdate()
     yesterday = today - timedelta(days=1)
+
+    late_user_ids = users_with_late_on_date(yesterday)
 
     snap = LXPSnapshot.objects.filter(date=yesterday).first()
     snap_data = (snap.data or {}) if snap else {}
@@ -101,7 +118,7 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
             strike.attendance_strike = 0
             strike.last_attendance_date = yesterday
 
-        had_late = _had_late_on_date(user.pk, yesterday)
+        had_late = user.pk in late_user_ids
         if not had_late and snap_data:
             if strike.last_late_date and strike.last_late_date == yesterday - timedelta(days=1):
                 strike.late_strike += 1
@@ -123,23 +140,32 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
         )
         updated_strikes += 1
 
-        late_bonus = late_streak_bonus_for_days(strike.late_strike)
-        if late_bonus and _apply_bonus_once(
-            user,
-            late_bonus,
-            f"late_streak_{strike.late_strike}:{today.isoformat()}",
-            f"Бонус за {strike.late_strike} дн. без опозданий",
-        ):
-            bonuses += 1
+        # Ключ начисления — «веха + начало серии», а не «число дней + дата».
+        # Со старым ключом бонус за диапазон 7–13 дней получался заново каждый
+        # день: ключ менялся, а награда оставалась той же (+5 ежедневно).
+        late_milestone = late_streak_milestone(strike.late_strike)
+        late_start = _streak_start(strike.last_late_date, strike.late_strike)
+        if late_milestone and late_start:
+            late_bonus = late_streak_bonus_for_days(strike.late_strike)
+            if late_bonus and _apply_bonus_once(
+                user,
+                late_bonus,
+                f"late_streak:{late_milestone}:{late_start.isoformat()}",
+                f"Бонус за {late_milestone} дн. без опозданий",
+            ):
+                bonuses += 1
 
-        att_bonus = attendance_streak_bonus_for_days(strike.attendance_strike)
-        if att_bonus and _apply_bonus_once(
-            user,
-            att_bonus,
-            f"attendance_streak_{strike.attendance_strike}:{today.isoformat()}",
-            f"Бонус за {strike.attendance_strike} дн. без пропусков",
-        ):
-            bonuses += 1
+        att_milestone = attendance_streak_milestone(strike.attendance_strike)
+        att_start = _streak_start(strike.last_attendance_date, strike.attendance_strike)
+        if att_milestone and att_start:
+            att_bonus = attendance_streak_bonus_for_days(strike.attendance_strike)
+            if att_bonus and _apply_bonus_once(
+                user,
+                att_bonus,
+                f"attendance_streak:{att_milestone}:{att_start.isoformat()}",
+                f"Бонус за {att_milestone} дн. без пропусков",
+            ):
+                bonuses += 1
 
     logger.info("strike_bonuses date=%s strikes=%s bonuses=%s", today, updated_strikes, bonuses)
     return {"date": today.isoformat(), "strikes_updated": updated_strikes, "bonuses_applied": bonuses}

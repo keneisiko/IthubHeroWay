@@ -16,16 +16,10 @@ from django.db.models import Q
 
 from apps.accounts.models import User
 from apps.integrations.models import LXPSnapshot
+from apps.integrations.services.lxp_snapshot_format import unwrap_category
 from apps.progress.models import RatingChangeSource, RatingLog
 
 logger = logging.getLogger(__name__)
-
-
-def _unwrap_category(block: dict | None) -> dict:
-    if isinstance(block, dict) and "data" in block:
-        inner = block.get("data")
-        return inner if isinstance(inner, dict) else {}
-    return block if isinstance(block, dict) else {}
 
 
 def _topic_closed(status) -> bool:
@@ -67,7 +61,7 @@ def _collect_topic_counts(control_points_flat: dict) -> tuple[int, int]:
 
 
 def _attendance_row(snapshot_data: dict, lxp_uid: str) -> dict | None:
-    att = _unwrap_category(snapshot_data.get("attendance"))
+    att = unwrap_category(snapshot_data.get("attendance"))
     row = att.get(lxp_uid)
     return row if isinstance(row, dict) else None
 
@@ -100,10 +94,25 @@ class LxpRatingApplyResult:
     notes: str
 
 
+def _already_applied_user_ids(snapshot_date: date) -> set[int]:
+    """Кому дельта за эту дату уже начислена.
+
+    Основная дельта записывается с `source_id` = дата снимка. Без этой проверки
+    повторный запуск за ту же дату (ретрай Celery, ручной прогон, повторная
+    выгрузка снимка) начислял всё заново — рейтинг просто удваивался.
+    """
+    return set(
+        RatingLog.objects.filter(source_id=snapshot_date.isoformat()).values_list(
+            "user_id", flat=True
+        )
+    )
+
+
 def apply_rating_from_lxp_snapshot(
     snapshot_date: date,
     *,
     snapshot_row: LXPSnapshot | None = None,
+    force: bool = False,
 ) -> LxpRatingApplyResult:
     kp = getattr(settings, "RATING_KP", {})
     limits = getattr(settings, "RATING_LIMITS", {})
@@ -123,10 +132,10 @@ def apply_rating_from_lxp_snapshot(
     partial = bool(meta.get("partial"))
 
     ct_ok = bool((raw.get("control_points") or {}).get("ok")) if isinstance(raw.get("control_points"), dict) else False
-    ct_data = _unwrap_category(raw.get("control_points"))
+    ct_data = unwrap_category(raw.get("control_points"))
 
     att_block = raw.get("attendance")
-    att_data = _unwrap_category(att_block if isinstance(att_block, dict) else {})
+    att_data = unwrap_category(att_block if isinstance(att_block, dict) else {})
 
     ct_pos_cap = int(limits.get("LXP_SNAPSHOT_CT_POSITIVE_CAP", 40))
     ct_neg_cap = int(limits.get("LXP_SNAPSHOT_CT_NEGATIVE_CAP", 60))
@@ -146,6 +155,9 @@ def apply_rating_from_lxp_snapshot(
 
     considered = 0
     updated = 0
+    skipped_already_applied = 0
+
+    already_applied = set() if force else _already_applied_user_ids(snapshot_date)
 
     for user in qs.iterator(chunk_size=200):
         lxp_uid = (user.lxp_user_id or "").strip()
@@ -153,6 +165,10 @@ def apply_rating_from_lxp_snapshot(
             continue
 
         considered += 1
+
+        if user.pk in already_applied:
+            skipped_already_applied += 1
+            continue
 
         closed_topics = 0
         open_topics = 0
@@ -252,7 +268,10 @@ def apply_rating_from_lxp_snapshot(
                 )
             updated += 1
 
-    notes = f"control_points_ok={ct_ok} partial_meta={partial}"
+    notes = (
+        f"control_points_ok={ct_ok} partial_meta={partial} "
+        f"already_applied={skipped_already_applied}"
+    )
     logger.info(
         "lxp_rating_apply date=%s considered=%s updated=%s %s",
         snapshot_date,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from apps.quests.models import Quest, QuestTemplate, QuestType, QuestVerifierKind
 
@@ -101,41 +102,70 @@ DEFAULT_TEMPLATES = [
 ]
 
 
+def _reward_coins(row: dict, rewards: dict) -> int:
+    """Награда шаблона: значение из DEFAULT_TEMPLATES, иначе значение из settings."""
+    # Раньше подстановка из QUESTS_REWARDS проверяла `not coins` уже после того,
+    # как все шаблоны проставили ненулевой reward_coins, поэтому ветка была
+    # недостижима. Условие переписано на отсутствие ключа: шаблон может награду
+    # не задавать, и тогда действует общая настройка для своего типа квеста.
+    coins = row.get("reward_coins")
+    if coins is not None:
+        return int(coins)
+    if row["quest_type"] == QuestType.DAILY:
+        return int(rewards.get("DAILY_QUEST_REWARD", 3))
+    if row["quest_type"] == QuestType.WEEKLY:
+        return int(rewards.get("WEEKLY_QUEST_REWARD", 10))
+    return 0
+
+
 class Command(BaseCommand):
-    help = "Create/update QuestTemplate and Quest records from built-in templates."
+    help = (
+        "Создаёт QuestTemplate и Quest по встроенным шаблонам. "
+        "Существующие записи по умолчанию не трогает (см. --update-existing)."
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--update-existing",
+            action="store_true",
+            help="Перезаписать поля уже существующих шаблонов и квестов значениями из кода.",
+        )
 
     def handle(self, *args, **options):
         rewards = getattr(settings, "QUESTS_REWARDS", {})
+        update_existing = bool(options.get("update_existing"))
         created_tpl = 0
-        synced_quests = 0
+        created_quests = 0
+        updated = 0
+        skipped = 0
 
-        for row in DEFAULT_TEMPLATES:
-            coins = row.get("reward_coins")
-            if row["quest_type"] == QuestType.DAILY and not coins:
-                coins = rewards.get("DAILY_QUEST_REWARD", 3)
-            if row["quest_type"] == QuestType.WEEKLY and not coins:
-                coins = rewards.get("WEEKLY_QUEST_REWARD", 10)
-
-            tpl, tpl_created = QuestTemplate.objects.update_or_create(
-                code=row["code"],
-                defaults={
+        # Транзакция: раньше падение на середине списка оставляло часть шаблонов
+        # синхронизированной, а часть — нет, и повторный прогон было не с чего начинать.
+        with transaction.atomic():
+            for row in DEFAULT_TEMPLATES:
+                defaults = {
                     "title": row["title"],
                     "description": row["description"],
                     "quest_type": row["quest_type"],
                     "verifier": row["verifier"],
                     "verifier_params": row.get("verifier_params") or {},
-                    "reward_coins": coins,
+                    "reward_coins": _reward_coins(row, rewards),
                     "reward_rating_delta": row.get("reward_rating_delta", 0),
                     "is_active": True,
-                },
-            )
-            if tpl_created:
-                created_tpl += 1
+                }
+                # get_or_create вместо update_or_create: команда вызывается по расписанию
+                # и из seed_demo_data, и каждый её прогон затирал правки, сделанные
+                # вручную в админке (название, описание, награда, активность).
+                tpl, tpl_created = QuestTemplate.objects.get_or_create(code=row["code"], defaults=defaults)
+                if tpl_created:
+                    created_tpl += 1
+                elif update_existing:
+                    for field, value in defaults.items():
+                        setattr(tpl, field, value)
+                    tpl.save(update_fields=list(defaults))
 
-            conditions = tpl.build_conditions()
-            quest, _ = Quest.objects.update_or_create(
-                code=tpl.code,
-                defaults={
+                conditions = tpl.build_conditions()
+                quest_defaults = {
                     "title": tpl.title,
                     "description": tpl.description,
                     "quest_type": tpl.quest_type,
@@ -143,13 +173,23 @@ class Command(BaseCommand):
                     "reward_rating_delta": tpl.reward_rating_delta,
                     "conditions": conditions,
                     "is_active": tpl.is_active,
-                },
-            )
-            synced_quests += 1
-            self.stdout.write(f"  {quest.code} [{quest.quest_type}] verifier={conditions.get('verifier')}")
+                }
+                quest, quest_created = Quest.objects.get_or_create(code=tpl.code, defaults=quest_defaults)
+                if quest_created:
+                    created_quests += 1
+                elif update_existing:
+                    for field, value in quest_defaults.items():
+                        setattr(quest, field, value)
+                    quest.save(update_fields=list(quest_defaults))
+                    updated += 1
+                else:
+                    skipped += 1
+
+                self.stdout.write(f"  {quest.code} [{quest.quest_type}] verifier={conditions.get('verifier')}")
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Templates: {len(DEFAULT_TEMPLATES)} ({created_tpl} new), quests synced: {synced_quests}"
+                f"Шаблонов: {len(DEFAULT_TEMPLATES)} (новых {created_tpl}), "
+                f"квестов создано: {created_quests}, обновлено: {updated}, без изменений: {skipped}"
             )
         )

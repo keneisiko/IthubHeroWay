@@ -37,12 +37,25 @@ def _eligible_users():
     )
 
 
-def verify_quest_for_user(user, quest: Quest, target_date: date | None = None) -> dict:
+def verify_quest_for_user(
+    user,
+    quest: Quest,
+    target_date: date | None = None,
+    *,
+    verifier_config: tuple[str | None, dict] | None = None,
+) -> dict:
+    """Проверить один квест у одного пользователя.
+
+    `verifier_config` позволяет вызывающему коду разрешить конфигурацию один
+    раз на квест: она зависит только от квеста, но её вычисление лезет
+    в таблицу шаблонов, и в массовом прогоне это давало запрос на каждую пару
+    «квест × пользователь».
+    """
     target_date = target_date or timezone.localdate()
     if not is_auto_verified(quest):
         return {"skipped": True, "reason": "not_auto"}
 
-    verifier, params = resolve_verifier_config(quest)
+    verifier, params = verifier_config if verifier_config is not None else resolve_verifier_config(quest)
     if not verifier or verifier == QuestVerifierKind.MANUAL:
         return {"skipped": True, "reason": "manual_verifier"}
 
@@ -99,9 +112,12 @@ def verify_all_auto_quests(
     }
 
     for quest in quests:
+        # Конфигурация верификатора зависит только от квеста — разрешаем её
+        # один раз, а не на каждого пользователя.
+        config = resolve_verifier_config(quest)
         for user in users:
             try:
-                outcome = verify_quest_for_user(user, quest, target_date)
+                outcome = verify_quest_for_user(user, quest, target_date, verifier_config=config)
                 if outcome.get("skipped"):
                     stats["skipped"] += 1
                 elif outcome.get("completed"):

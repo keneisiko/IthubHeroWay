@@ -4,6 +4,7 @@ from rest_framework import generics, status, views
 from rest_framework.response import Response
 
 from apps.accounts.permissions import IsKnownRole
+from apps.progress.services.rewards import local_day_start
 from .models import (
     Quest,
     QuestRewardTransaction,
@@ -141,7 +142,9 @@ class SelfReportCreateView(views.APIView):
         from django.conf import settings
 
         max_daily = int(getattr(settings, "RATING_LIMITS", {}).get("MAX_DAILY_SELF_REPORTS", 3))
-        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Полночь по Москве, а не по UTC: иначе лимит самоотчётов сбрасывается
+        # в 03:00 местного времени.
+        day_start = local_day_start(now)
         today_count = SelfReportProof.objects.filter(user=request.user, created_at__gte=day_start).count()
         if today_count >= max_daily:
             return Response(

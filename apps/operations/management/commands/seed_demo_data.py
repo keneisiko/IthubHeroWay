@@ -11,6 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Role, Squad, Track
+from apps.operations.services.environment import ensure_not_production
 from apps.badges.models import Badge, BadgeCategory, BadgeRarity
 from apps.integrations.models import TelegramAccountLink
 from apps.progress.models import Characteristic, CharacteristicHistory, UserStrike
@@ -76,6 +77,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Выполнить даже в продакшен-окружении (перезапишет данные реальных пользователей)",
+        )
+        parser.add_argument(
             "--assign-email",
             type=str,
             default="",
@@ -88,6 +94,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Команда перезаписывает поля существующих пользователей (отряд, монеты,
+        # рейтинг, серии) и пересинхронизирует квесты, откатывая ручные правки
+        # в админке. В продакшене это недопустимо.
+        ensure_not_production(
+            "Заполнение демо-данными", allow_force=True, force=options.get("force", False)
+        )
+
         assign_email = (options.get("assign_email") or "").strip().lower()
         stats: dict[str, int] = {}
 

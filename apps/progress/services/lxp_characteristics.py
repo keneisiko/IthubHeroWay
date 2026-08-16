@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 
 from apps.integrations.models import LXPSnapshot
 from apps.progress.models import Characteristic, CharacteristicHistory
+from apps.integrations.services.lxp_snapshot_format import unwrap_category
 
 PILLAR_POWER = "power"
 PILLAR_RHYTHM = "rhythm"
@@ -14,15 +15,8 @@ LXP_PILLARS = (PILLAR_POWER, PILLAR_RHYTHM)
 DEFAULT_MAX_GRADE = 5.0
 
 
-def _unwrap_category(block: dict | None) -> dict:
-    if isinstance(block, dict) and "data" in block:
-        inner = block.get("data")
-        return inner if isinstance(inner, dict) else {}
-    return block if isinstance(block, dict) else {}
-
-
 def compute_power_from_grades(lxp_uid: str, snapshot_data: dict, *, max_grade: float = DEFAULT_MAX_GRADE) -> float | None:
-    grades = _unwrap_category(snapshot_data.get("grades"))
+    grades = unwrap_category(snapshot_data.get("grades"))
     per_user = grades.get(lxp_uid)
     if not isinstance(per_user, dict) or not per_user:
         return None
@@ -52,7 +46,7 @@ def compute_power_from_grades(lxp_uid: str, snapshot_data: dict, *, max_grade: f
 
 
 def compute_rhythm_from_attendance(lxp_uid: str, snapshot_data: dict) -> float | None:
-    att = _unwrap_category(snapshot_data.get("attendance"))
+    att = unwrap_category(snapshot_data.get("attendance"))
     row = att.get(lxp_uid)
     if not isinstance(row, dict):
         return None

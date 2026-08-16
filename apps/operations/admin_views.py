@@ -4,37 +4,53 @@ from datetime import timedelta
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncDate
 from django.shortcuts import render
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.progress.models import RatingLog
+from apps.progress.services.rating_zones import zone_bounds
 from apps.quests.models import SeasonalEvent, SelfReportProof, SelfReportProofStatus
 
 
 def _zone_counts(users_qs):
-    counts = {
-        "red": users_qs.filter(rating_current__lt=100).count(),
-        "orange": users_qs.filter(rating_current__gte=100, rating_current__lt=200).count(),
-        "yellow": users_qs.filter(rating_current__gte=200, rating_current__lt=400).count(),
-        "green": users_qs.filter(rating_current__gte=400, rating_current__lt=650).count(),
-        "platinum": users_qs.filter(rating_current__gte=650, rating_current__lt=850).count(),
-        "gold": users_qs.filter(rating_current__gte=850).count(),
-    }
-    return counts
+    """Распределение по зонам рейтинга — одним запросом вместо шести.
+
+    Функция вызывается на каждом из трёх дашбордов, поэтому шесть отдельных
+    COUNT заметно утяжеляли рендер.
+    """
+    # Границы берутся из rating_zones, а не дублируются здесь.
+    annotations = {}
+    for code, lower, upper in zone_bounds():
+        condition = Q(rating_current__gte=lower)
+        if upper is not None:
+            condition &= Q(rating_current__lt=upper)
+        annotations[code] = Count("pk", filter=condition)
+    return users_qs.aggregate(**annotations)
 
 
 def _rating_dynamics(users_qs, days=7):
+    """Суммарное изменение рейтинга по дням.
+
+    Было две ошибки: агрегат `Count("id")` присваивался полю `total_delta`,
+    то есть график «динамики рейтинга» показывал количество записей журнала,
+    а не сумму изменений; и группировка шла сырым SQL `date(created_at)`
+    по timestamptz, то есть по UTC, а не по часовому поясу проекта.
+    """
     start = timezone.now() - timedelta(days=days)
     buckets = (
         RatingLog.objects.filter(user__in=users_qs, created_at__gte=start)
-        .extra(select={"day": "date(created_at)"})
+        .annotate(day=TruncDate("created_at", tzinfo=timezone.get_current_timezone()))
         .values("day")
-        .annotate(total_delta=Count("id"))
+        .annotate(total_delta=Sum("delta"), changes=Count("id"))
         .order_by("day")
     )
-    return [{"x": str(x["day"]), "y": x["total_delta"]} for x in buckets]
+    return [
+        {"x": str(x["day"]), "y": x["total_delta"] or 0, "changes": x["changes"]}
+        for x in buckets
+    ]
 
 
 @staff_member_required

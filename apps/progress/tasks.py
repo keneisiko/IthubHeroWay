@@ -2,8 +2,6 @@ from celery import shared_task
 from django.db import DatabaseError, IntegrityError
 from django.utils.dateparse import parse_date
 
-from apps.integrations.models import ExternalEvent
-from apps.integrations.services.lxp_client import LXPClient
 from apps.integrations.services.telegram_alert import send_alert_to_admin
 from apps.operations.services.health_monitor import monitor_health_and_alert_sync
 from apps.progress.services.characteristics import update_all_characteristics
@@ -11,32 +9,19 @@ from apps.progress.services.strike_bonuses import apply_strike_bonuses
 
 
 @shared_task
-def recalculate_rating_daily() -> None:
-    """
-    Ежедневный пересчёт рейтинга (06:00) на основе данных из LXP/YouGile.
-    """
-    snapshot = LXPClient().fetch_daily_snapshot()
-    for event in snapshot.get("events", []):
-        external_id = str(event.get("id") or "")
-        if not external_id:
-            continue
-        try:
-            ExternalEvent.objects.create(source="lxp", external_event_id=external_id, payload=event)
-        except IntegrityError:
-            continue
-    return None
+def recalculate_rating_for_date(date_iso: str, force: bool = False) -> str:
+    """Пересчёт рейтинга на основе данных LXP snapshot за указанную дату.
 
-
-@shared_task
-def recalculate_rating_for_date(date_iso: str) -> str:
-    """Пересчёт рейтинга на основе данных LXP snapshot за указанную дату."""
+    По умолчанию идемпотентен: пользователи, которым дельта за эту дату уже
+    начислена, пропускаются. `force=True` — осознанный повторный пересчёт.
+    """
     target_date = parse_date(date_iso)
     if not target_date:
         return f"invalid_date:{date_iso}"
     from apps.progress.services.lxp_rating_from_snapshot import apply_rating_from_lxp_snapshot
 
     try:
-        result = apply_rating_from_lxp_snapshot(target_date)
+        result = apply_rating_from_lxp_snapshot(target_date, force=force)
     except (IntegrityError, DatabaseError) as e:
         send_alert_to_admin(
             title="Ошибка применения рейтинга из LXP",
