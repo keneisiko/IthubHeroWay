@@ -4880,3 +4880,9 @@ body {
 }
 
 .profile-aside__mentor-row .profile-aside__mentor-btn { margin-top: 0; }
+
+/* Обёртка иконки в сайдбаре: flex убирает лишнюю строчную высоту,
+   чтобы её центр совпадал с центром самой иконки */
+.right-sidebar__icon {
+  display: flex;
+}

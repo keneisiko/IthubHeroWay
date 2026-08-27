@@ -329,19 +329,33 @@ export default function Profile() {
   const selectedAxis = activeAxis ?? 'Мощность'
   const activeHistory = getSkill(selectedAxis).history
 
-  useEffect(() => {
-    const updateIndicator = () => {
-      const container = tabsRef.current
-      const activeButton = tabButtonRefs.current[activeTab]
-      if (!container || !activeButton) return
-      const containerRect = container.getBoundingClientRect()
-      const activeRect = activeButton.getBoundingClientRect()
-      setIndicatorStyle({ left: activeRect.left - containerRect.left, width: activeRect.width })
-    }
-    updateIndicator()
-    window.addEventListener('resize', updateIndicator)
-    return () => window.removeEventListener('resize', updateIndicator)
+  // Индикатор под активным табом: меряем сам таб, а не подбираем отступы.
+  // Берём offset-размеры, а не getBoundingClientRect: блок появляется с
+  // анимацией масштаба, и прямоугольник в этот момент отдаёт размеры с
+  // учётом трансформа — индикатор получался уже и левее таба.
+  const updateIndicator = useCallback(() => {
+    const container = tabsRef.current
+    const activeButton = tabButtonRefs.current[activeTab]
+    if (!container || !activeButton) return
+    setIndicatorStyle({
+      left: activeButton.offsetLeft - container.offsetLeft,
+      width: activeButton.offsetWidth,
+    })
   }, [activeTab])
+
+  useEffect(() => {
+    updateIndicator()
+    const container = tabsRef.current
+    if (!container) return
+    // ширина текста меняется после подгрузки шрифта и при ресайзе,
+    // поэтому следим за самими табами, а не считаем один раз
+    const observer = new ResizeObserver(updateIndicator)
+    observer.observe(container)
+    Object.values(tabButtonRefs.current).forEach((el) => el && observer.observe(el))
+    // Активный таб набран TT Firs Neue: до её загрузки ширина текста другая
+    document.fonts?.ready.then(updateIndicator)
+    return () => observer.disconnect()
+  }, [updateIndicator, loading])
 
   const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? '??'
 

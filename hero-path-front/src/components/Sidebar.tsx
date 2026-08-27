@@ -23,18 +23,28 @@ export default function Sidebar() {
   const sidebarRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
+    // offsetTop не зависит от трансформов: пункты масштабируются при
+    // наведении и при появлении, и getBoundingClientRect в эти моменты
+    // отдаёт смещённые значения — маркер вставал мимо иконки.
     const update = () => {
       const el = itemRefs.current[location.pathname]
-      const sidebar = sidebarRef.current
-      if (!el || !sidebar) return
-      const sRect = sidebar.getBoundingClientRect()
-      const eRect = el.getBoundingClientRect()
-      setIndicatorY(eRect.top - sRect.top)
+      if (!el) return
+      // маркер центрируется по иконке пункта, а не по всему пункту с подписью
+      const icon = el.querySelector<HTMLElement>('.right-sidebar__icon')
+      const center = icon
+        ? el.offsetTop + icon.offsetTop + icon.offsetHeight / 2
+        : el.offsetTop + el.offsetHeight / 2
+      setIndicatorY(center)
       setReady(true)
     }
-    // Небольшой delay чтобы layout успел отрисоваться
-    const t = setTimeout(update, 50)
-    return () => clearTimeout(t)
+    update()
+
+    const sidebar = sidebarRef.current
+    if (!sidebar) return
+    const observer = new ResizeObserver(update)
+    observer.observe(sidebar)
+    document.fonts?.ready.then(update)
+    return () => observer.disconnect()
   }, [location.pathname])
 
   return (
@@ -48,8 +58,7 @@ export default function Sidebar() {
           borderRadius: '4px',
           background: '#9a33f4',
           boxShadow: '5px 5px 17.1px 2px #9a33f4',
-          // маркер центрируется по иконке (52px), а не по всему пункту
-          top: indicatorY + 26 - 32,
+          top: indicatorY - 32,
           height: '64px',
           transition: 'top 0.4s cubic-bezier(0.22,1,0.36,1)',
           pointerEvents: 'none',
@@ -84,7 +93,7 @@ export default function Sidebar() {
               }} />
             )}
 
-            <div style={{
+            <div className="right-sidebar__icon" style={{
               transform: isHovered ? 'scale(1.15) rotate(-5deg)' : 'scale(1) rotate(0deg)',
               transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
               filter: isActive ? 'drop-shadow(0 0 6px #9a33f4)' : 'none',
