@@ -24,9 +24,10 @@ const radarOptions = {
     r: {
       beginAtZero: true,
       max: 100,
-      ticks: { display: false },
-      grid: { color: 'rgba(154, 51, 244, 0.42)', lineWidth: 2 },
-      angleLines: { color: 'rgba(154, 51, 244, 0.5)', lineWidth: 2 },
+      // в макете пятиугольник состоит ровно из 5 колец
+      ticks: { display: false, stepSize: 20 },
+      grid: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3, circular: false },
+      angleLines: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3 },
       pointLabels: { display: false },
     },
   },
@@ -120,6 +121,31 @@ function useTilt(maxDeg = 7) {
     if (el) el.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)'
   }
   return { ref, onMouseMove, onMouseLeave }
+}
+
+/* ---------- подсветка в ленте активности ----------
+   в макете внутри строки фиолетовым выделены <нашивка>, @ник и награда «+N монет» */
+
+const FEED_HIGHLIGHT = /(<[^>]+>|@[a-zа-яё\d_.-]+|\+\d+\s+монет[а-яё]*)/iu
+
+function FeedText({ text }: { text: string }) {
+  const parts = text.split(new RegExp(FEED_HIGHLIGHT.source, 'giu'))
+  return (
+    <span>
+      {parts.map((part, i) =>
+        FEED_HIGHLIGHT.test(part) ? (
+          <mark
+            key={i}
+            className={`activity__mark${part.startsWith('@') ? ' activity__mark--user' : ''}`}
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </span>
+  )
 }
 
 /* ---------- общая модалка вместо двух дублей ---------- */
@@ -334,7 +360,7 @@ export default function Dashboard() {
           onMouseLeave={() => { tilt.onMouseLeave(); setHoveredRadar(null) }}
         >
           <div className="radar-card__tilt" ref={tilt.ref}>
-            <span className="radar-card__label" style={{ opacity: hoveredRadar ? 1 : 0 }}>
+            <span className="radar-card__label">
               {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
             </span>
             <div className="radar-card__canvas">
@@ -388,7 +414,7 @@ export default function Dashboard() {
                 className="activity__item dash-in-item"
                 style={{ animationDelay: `${320 + i * 80}ms` }}
               >
-                <span>{item.text}</span>
+                <FeedText text={item.text} />
                 <time>{item.time}</time>
               </article>
             ))}
@@ -412,15 +438,17 @@ export default function Dashboard() {
             >Еженедельный</button>
           </div>
           <div className="quest__progress">
-            <div className="quest__head">
-              <span>{isDaily ? questTitle : 'Завершить 5 задач'}</span>
-              <strong>{questProgress}%</strong>
-            </div>
-            <div className="quest__steps">
-              <span className="quest-step"><span className="dot dot--red" /><span className="quest-step__bar quest-step__bar--red" /></span>
-              <span className="quest-step"><span className="dot dot--yellow" /><span className="quest-step__bar quest-step__bar--yellow" /></span>
-              <span className="quest-step"><span className="dot dot--blue" /><span className="quest-step__bar quest-step__bar--blue" /></span>
-              <span className="dot dot--green" />
+            <div className="quest__progress-inner">
+              <div className="quest__head">
+                <span>{isDaily ? questTitle : 'Завершить 5 задач'}</span>
+                <strong>{questProgress}%</strong>
+              </div>
+              <div className="quest__steps">
+                <span className="quest-step"><span className="dot dot--red" /><span className="quest-step__bar quest-step__bar--red" /></span>
+                <span className="quest-step"><span className="dot dot--yellow" /><span className="quest-step__bar quest-step__bar--yellow" /></span>
+                <span className="quest-step"><span className="dot dot--blue" /><span className="quest-step__bar quest-step__bar--blue" /></span>
+                <span className="dot dot--green" />
+              </div>
             </div>
           </div>
           <button

@@ -279,7 +279,7 @@
 }
 
 .right-sidebar__item--active span {
-  color: #f5f5f5;
+  color: var(--purple-500);
 }
 
 /* Smooth tab indicator transitions */
@@ -308,12 +308,56 @@ body {
 }
 
 :root {
-  --purple: #7B2FBE;
+  /* --- Токены из Figma (IThub — система рейтинга) --- */
+
+  /* Base */
+  --ithub-white: #f5f5f5;
+  --ithub-black: #121212;
+  --grey-2: #292929;
+  --grey-text: #848484;
+
+  /* Main */
+  --purple-500: #9a33f4;
+
+  /* System */
+  --sys-red: #fd4e4e;
+  --sys-yellow: #ffd900;
+  --sys-blue: #5f3ed6;
+  --sys-green: #6cd63e;
+
+  /* Radius */
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-24: 24px;
+  --radius-48: 48px;
+
+  /* Spacing */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+
+  /* Stroke */
+  --stroke-4: 4px;
+
+  /* Тень карточек — одна на весь макет */
+  --card-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
+  --card-shadow-hover: 25px 32px 26px -18px rgba(0, 0, 0, 0.45);
+
+  /* Типографика: TT Firs Neue — только заголовки H1/H2, остальное Montserrat */
+  --font-display: 'TT Firs Neue', sans-serif;
+  --font-text: 'Montserrat', sans-serif;
+
+  /* Legacy-алиасы (используются на других страницах) */
+  --purple: #9a33f4;
   --purple-light: #9B59B6;
   --purple-dark: #5B1F8E;
-  --yellow: #F5C518;
+  --yellow: #ffd900;
   --white: #ffffff;
-  --dark: #1a1a1a;
+  --dark: #121212;
 }
 
 /* =========================
@@ -562,26 +606,18 @@ body {
 }
 
 .right-sidebar__item--active {
-  background: linear-gradient(270deg, rgba(90, 30, 142, 0) 0%, rgba(154, 51, 244, 0.69) 49.52%, rgba(90, 30, 142, 0) 100%);
   position: relative;
+  background: linear-gradient(270deg, rgba(90, 30, 142, 0) 0%, rgba(154, 51, 244, 0.69) 49.52%, rgba(90, 30, 142, 0) 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 52px;
+  background-position: top center;
 }
 
 .right-sidebar__item--active svg {
   color: #f5f5f5;
 }
 
-.right-sidebar__item--active::after {
-  content: '';
-  position: absolute;
-  width: 14px;
-  height: 64px;
-  right: -7px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-radius: 4px;
-  background: #9a33f4;
-  box-shadow: 5px 5px 17.1px 2px #9a33f4;
-}
+/* маркер активного пункта рисует скользящий индикатор в Sidebar.tsx */
 
 /* =========================
    LOGIN
@@ -798,28 +834,22 @@ body {
 .card {
   border-radius: 24px;
   padding: 20px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.5) inset,
-    0 18px 40px -18px rgba(20, 10, 40, 0.28),
-    0 2px 10px rgba(20, 10, 40, 0.06);
+  box-shadow: var(--card-shadow);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.6) inset,
-    0 26px 54px -18px rgba(154, 51, 244, 0.32),
-    0 4px 14px rgba(20, 10, 40, 0.08);
+  box-shadow: var(--card-shadow-hover);
 }
 
 .card--light {
   width: 460px;
   height: 281px;
-  background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+  background: var(--ithub-white);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-16);
 }
 
 .series__header {
@@ -831,8 +861,8 @@ body {
 }
 
 .series__icon-image {
-  width: 77px;
-  height: 77px;
+  width: 132px;
+  height: 133px;
   object-fit: contain;
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -869,9 +899,9 @@ body {
   height: 27px;
   display: flex;
   justify-content: space-between;
-  font-family: 'TT Firs Neue', sans-serif;
+  font-family: var(--font-text);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -925,38 +955,30 @@ body {
 .card--purple {
   width: 460px;
   height: 379px;
-  background: linear-gradient(165deg, #ad4dff 0%, #8f36ef 55%, #7b1fe0 100%);
-  color: #fff;
+  background: var(--purple-500);
+  color: var(--ithub-white);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-16);
   position: relative;
   overflow: hidden;
-}
-
-.card--purple::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 20% -10%, rgba(255, 255, 255, 0.25), transparent 55%);
-  pointer-events: none;
 }
 
 .rating__title {
   width: 420px;
   height: 36px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-display);
   font-size: 28px;
   font-weight: 700;
   line-height: 1;
-  color: #f5f5f5;
+  color: var(--ithub-white);
 }
 
 .rating__value {
   width: 420px;
   height: 52px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #121212, #1c1c1c);
+  background: var(--ithub-black);
   padding: 3px 117px;
   display: flex;
   align-items: center;
@@ -974,7 +996,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'TT Firs Neue', sans-serif;
+  font-family: var(--font-text);
   font-size: 24px;
   font-weight: 700;
   line-height: 1;
@@ -989,15 +1011,15 @@ body {
 }
 
 .rating__chip { height: 35px; padding: 4px 16px; }
-.chip--light { background: #f5f5f5; color: #121212; font-family: 'TT Firs Neue', sans-serif; }
-.chip--dark { background: #121212; color: #f5f5f5; font-family: 'TT Firs Neue', sans-serif; }
+.chip--light { background: var(--ithub-white); color: var(--ithub-black); font-family: var(--font-text); }
+.chip--dark { background: var(--ithub-black); color: var(--ithub-white); font-family: var(--font-text); }
 .rating__chip--leader { padding: 3px 16px; }
 
 .rating__target {
   width: 172px;
   height: 35px;
   padding: 0 16px;
-  font-family: 'TT Firs Neue', sans-serif;
+  font-family: var(--font-text);
   font-size: 24px;
   font-weight: 700;
   line-height: 1;
@@ -1045,11 +1067,11 @@ body {
   height: 27px;
   display: flex;
   justify-content: space-between;
-  font-family: 'TT Firs Neue', sans-serif;
+  font-family: var(--font-text);
   font-size: 22px;
   font-weight: 600;
   line-height: 1;
-  color: #f5f5f5;
+  color: var(--ithub-white);
 }
 
 .radar-card {
@@ -1083,15 +1105,16 @@ body {
   top: 0;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #9a33f4;
-  border-radius: 24px;
-  color: #f5f5f5;
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
+  background: var(--purple-500);
+  border-radius: var(--radius-12);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 600;
   line-height: 1;
-  padding: 6px 16px;
-  opacity: 0;
+  padding: var(--space-8) var(--space-20);
+  white-space: nowrap;
+  filter: drop-shadow(5px 5px 10px rgba(0, 0, 0, 0.45));
   transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   box-shadow: 0 10px 24px -8px rgba(154, 51, 244, 0.55);
@@ -1135,75 +1158,101 @@ body {
 }
 
 .quest {
-  background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
-  border-radius: 24px;
-  padding: 20px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.5) inset,
-    0 18px 40px -18px rgba(20, 10, 40, 0.28),
-    0 2px 10px rgba(20, 10, 40, 0.06);
+  background: var(--purple-500);
+  border-radius: var(--radius-24);
+  padding: var(--space-20);
+  box-shadow: var(--card-shadow);
   width: 580px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .quest:hover {
   transform: translateY(-4px);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.6) inset,
-    0 26px 54px -18px rgba(154, 51, 244, 0.3),
-    0 4px 14px rgba(20, 10, 40, 0.08);
+  box-shadow: var(--card-shadow-hover);
 }
 
 .quest h3 {
-  font-family: 'TT Firs Neue', sans-serif;
+  font-family: var(--font-display);
   font-size: 28px;
   font-weight: 700;
-  color: #9a33f4;
-  margin: 0 0 12px;
+  color: var(--ithub-white);
+  margin: 0;
 }
 
-.quest__tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.quest__tabs {
+  display: flex;
+  gap: var(--space-12);
+  filter: drop-shadow(10px 10px 10px rgba(0, 0, 0, 0.45));
+}
 
 .quest__tab {
-  height: 36px;
-  border-radius: 48px;
-  border: 3px solid #9a33f4;
-  background: transparent;
-  color: #9a33f4;
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 18px;
+  flex: 1 0 0;
+  min-width: 0;
+  height: 48px;
+  border-radius: var(--radius-48);
+  border: var(--stroke-4) solid transparent;
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 24px;
   font-weight: 700;
-  padding: 0 20px;
+  padding: 3px var(--space-16);
   cursor: pointer;
-  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
 }
 
 .quest__tab:active { transform: scale(0.96); }
-.quest__tab--active { background: #9a33f4; color: #f5f5f5; }
+.quest__tab--active { border-color: var(--ithub-white); }
 
-.quest__progress { margin-bottom: 12px; }
+/* Белая карточка прогресса внутри фиолетового блока */
+.quest__progress {
+  background: var(--ithub-white);
+  border-radius: var(--radius-16);
+  padding: var(--space-8);
+  box-shadow: var(--card-shadow);
+}
+
+.quest__progress-inner {
+  border: var(--stroke-4) solid var(--purple-500);
+  border-radius: var(--radius-8);
+  background: var(--ithub-white);
+  padding: var(--space-20);
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
 
 .quest__head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 20px;
+  font-family: var(--font-text);
+  font-size: 22px;
   font-weight: 600;
-  color: #121212;
+  color: var(--grey-2);
 }
 
-.quest__head strong { color: #9a33f4; font-variant-numeric: tabular-nums; }
+.quest__head strong {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 700;
+  color: #5d33f4;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
 
-.quest__steps { display: flex; align-items: center; gap: 0; }
-.quest-step { display: flex; align-items: center; }
+.quest__steps { display: flex; align-items: center; justify-content: center; gap: var(--space-8); }
+.quest-step { display: flex; align-items: center; gap: var(--space-8); }
 
 .dot {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  border: 5px solid #121212;
+  border: 7px solid var(--ithub-black);
   flex-shrink: 0;
   animation: dashIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -1215,9 +1264,9 @@ body {
 
 .quest-step__bar {
   width: 80px;
-  height: 10px;
-  border-radius: 5px;
-  background: #121212;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--ithub-black);
   position: relative;
   overflow: hidden;
 }
@@ -1227,9 +1276,9 @@ body {
 .quest-step__bar--blue::after {
   content: '';
   position: absolute;
-  left: 2px; top: 2px;
+  left: 3px; top: 3px;
   height: 6px;
-  border-radius: 3px;
+  border-radius: 5px;
   transform-origin: left;
   animation: barGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -1240,54 +1289,56 @@ body {
 
 .quest__confirm {
   width: 100%;
-  height: 44px;
-  border-radius: 16px;
-  border: 3px solid #9a33f4;
-  background: #f5f5f5;
-  color: #9a33f4;
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 20px;
+  border-radius: var(--radius-16);
+  border: var(--stroke-4) solid var(--ithub-black);
+  background: var(--ithub-white);
+  color: var(--ithub-black);
+  font-family: var(--font-text);
+  font-size: 24px;
   font-weight: 700;
+  padding: 17px var(--space-16);
   cursor: pointer;
-  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
-  margin-bottom: 8px;
+  filter: drop-shadow(10px 10px 10px rgba(0, 0, 0, 0.45));
+  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
 }
 
-.quest__confirm:hover {
-  background: #9a33f4;
-  color: #f5f5f5;
-  box-shadow: 0 14px 30px -10px rgba(154, 51, 244, 0.55);
+.quest__confirm:hover:not(:disabled) {
+  background: var(--ithub-black);
+  color: var(--ithub-white);
 }
 
+.quest__confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Строка «Текст +» — подчёркнутая линия под ней, как в макете */
 .quest__row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
+  padding-bottom: 6px;
+  border-bottom: var(--stroke-4) solid var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 20px;
   font-weight: 600;
-  color: #848484;
+  color: var(--ithub-white);
 }
 
 .quest__self {
   width: 100%;
-  height: 44px;
-  border-radius: 16px;
-  border: 3px solid #121212;
-  background: #121212;
-  color: #f5f5f5;
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 20px;
+  height: 63px;
+  border-radius: var(--radius-16);
+  border: var(--stroke-4) solid var(--ithub-white);
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 24px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .quest__self:hover {
-  background: #9a33f4;
-  border-color: #9a33f4;
-  box-shadow: 0 14px 30px -10px rgba(154, 51, 244, 0.55);
+  background: var(--ithub-white);
+  color: var(--ithub-black);
 }
 
 .activity-card {
@@ -1295,23 +1346,17 @@ body {
   height: 385px;
   border-radius: 24px;
   padding: 20px;
-  background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.5) inset,
-    0 18px 40px -18px rgba(20, 10, 40, 0.28),
-    0 2px 10px rgba(20, 10, 40, 0.06);
+  background: var(--ithub-white);
+  box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-20);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .activity-card:hover {
   transform: translateY(-4px);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.6) inset,
-    0 26px 54px -18px rgba(154, 51, 244, 0.3),
-    0 4px 14px rgba(20, 10, 40, 0.08);
+  box-shadow: var(--card-shadow-hover);
 }
 
 .section-title {
@@ -1329,6 +1374,7 @@ body {
 }
 
 .live-dot {
+  display: none;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -1350,12 +1396,12 @@ body {
   border-radius: 12px;
   border: 4px solid #9a33f4;
   background: #f5f5f5;
-  padding: 16px;
-  box-shadow: 0 14px 30px -16px rgba(20, 10, 40, 0.35);
+  padding: var(--space-16);
+  box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-family: 'TT Firs Neue', sans-serif;
+  gap: var(--space-8);
+  font-family: var(--font-text);
   font-size: 22px;
   font-weight: 600;
   line-height: 1;
@@ -4900,4 +4946,15 @@ body {
   .leaderboard-count__number {
     font-size: 22px;
   }
+}
+/* Подсветка внутри ленты активности — по макету Figma */
+.activity__mark {
+  background: none;
+  color: var(--purple-500);
+  font: inherit;
+}
+
+.activity__mark--user {
+  text-decoration: underline;
+  text-underline-position: from-font;
 }
