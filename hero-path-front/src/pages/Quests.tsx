@@ -212,7 +212,6 @@ export default function Quests() {
               ))}
               {activity.length === 0 && (
                 <div className="q1__empty" style={{ textAlign: 'center', padding: '40px', color: '#848484' }}>
-                  <span style={{ fontSize: '40px', display: 'block', marginBottom: '12px' }}>🏆</span>
                   <p>Пока нет истории наград</p>
                 </div>
               )}
@@ -273,7 +272,6 @@ export default function Quests() {
                 ))}
                 {currentQuests.length === 0 && (
                   <div className="q1__empty" style={{ textAlign: 'center', padding: '40px', color: '#848484' }}>
-                    <span style={{ fontSize: '40px', display: 'block', marginBottom: '12px' }}>🎯</span>
                     <p>{activeTab === 0 ? 'Нет активных квестов' : 'Нет выполненных квестов'}</p>
                   </div>
                 )}

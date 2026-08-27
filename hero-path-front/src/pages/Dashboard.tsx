@@ -360,7 +360,7 @@ export default function Dashboard() {
           onMouseLeave={() => { tilt.onMouseLeave(); setHoveredRadar(null) }}
         >
           <div className="radar-card__tilt" ref={tilt.ref}>
-            <span className="radar-card__label">
+            <span className="radar-card__label" style={{ opacity: hoveredRadar ? 1 : 0 }}>
               {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
             </span>
             <div className="radar-card__canvas">

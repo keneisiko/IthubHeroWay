@@ -104,7 +104,6 @@ export default function Login() {
 
               {error && (
                 <div className="login-error">
-                  <span className="login-error-icon">⚠</span>
                   {error}
                 </div>
               )}

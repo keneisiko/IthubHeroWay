@@ -607,7 +607,7 @@ export default function Profile() {
         })}
 
         {showCharacteristics && (
-        <section className="profile-history profile-history--visible">
+        <section className={`profile-history${activeAxis ? ' profile-history--visible' : ''}`} aria-hidden={!activeAxis}>
           <span className="profile-history__title">История: {selectedAxis}</span>
           <div className="profile-history__chart">
             <div className="profile-history__grid" aria-hidden="true">
@@ -774,7 +774,6 @@ export default function Profile() {
             <h3 className="popup__title">Сменить аватар</h3>
             <p className="popup__label">Загрузите изображение профиля</p>
             <div className="avatar-upload-zone" onClick={() => document.getElementById('avatar-file-input')?.click()}>
-              <span className="avatar-upload-icon">📷</span>
               <span className="avatar-upload-text">
                 {avatarFile ? avatarFile.name : 'Перетащите фото сюда или нажмите для выбора'}
               </span>

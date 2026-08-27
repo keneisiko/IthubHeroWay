@@ -1115,6 +1115,7 @@ body {
   padding: var(--space-8) var(--space-20);
   white-space: nowrap;
   filter: drop-shadow(5px 5px 10px rgba(0, 0, 0, 0.45));
+  opacity: 0;
   transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   box-shadow: 0 10px 24px -8px rgba(154, 51, 244, 0.55);
@@ -2306,7 +2307,7 @@ body {
 .profile-path__grid {
   display: grid;
   grid-template-columns: repeat(8, minmax(90px, 1fr));
-  column-gap: clamp(8px, 1.4vw, 32px);
+  column-gap: clamp(24px, 1.4vw, 32px);
   row-gap: 32px;
   justify-content: stretch;
   justify-items: center;
@@ -2316,6 +2317,7 @@ body {
   width: 105px;
   max-width: 105px;
   min-height: 154px;
+  align-self: start;
   border: 0;
   background: transparent;
   display: flex;
@@ -2358,26 +2360,24 @@ body {
   background: #9a33f4;
 }
 
-.path-card__icon--rare .path-card__glyph { border-color: #38dddd; }
-.path-card__icon--rare .path-card__glyph::after { background: #38dddd; }
-.path-card__icon--epic .path-card__glyph { border-color: #ff00ee; }
-.path-card__icon--epic .path-card__glyph::after { background: #ff00ee; }
-.path-card__icon--legendary .path-card__glyph { border-color: #ffd900; }
-.path-card__icon--legendary .path-card__glyph::after { background: #ffd900; }
+/* Цвет редкости живёт только в обводке карточки: сам квадрат всегда фиолетовый */
 
 .path-card__name {
-  font-family: 'Montserrat', sans-serif;
+  max-width: 100%;
+  font-family: var(--font-text);
   font-size: 20px;
   font-weight: 600;
-  line-height: 1;
-  color: #121212;
+  line-height: 1.15;
+  color: var(--ithub-black);
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .path-card__chip {
-  border-radius: 48px;
+  white-space: nowrap;
+  border-radius: var(--radius-48);
   padding: 4px 12px;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-text);
   font-size: 16px;
   font-weight: 600;
   line-height: 1;

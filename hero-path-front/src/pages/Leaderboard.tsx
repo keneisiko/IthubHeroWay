@@ -285,7 +285,6 @@ export default function Leaderboard() {
                 textAlign: 'center', padding: '40px 20px', color: '#848484',
                 fontFamily: 'Montserrat, sans-serif', fontSize: '18px', fontWeight: 600
               }}>
-                <span style={{ fontSize: '40px', display: 'block', marginBottom: '12px' }}>🔍</span>
                 <p>Ничего не найдено</p>
               </div>
             )}
