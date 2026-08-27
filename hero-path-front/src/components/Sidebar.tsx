@@ -17,7 +17,6 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation()
   const [indicatorY, setIndicatorY] = useState(0)
-  const [indicatorH, setIndicatorH] = useState(72)
   const [hovered, setHovered] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
@@ -31,7 +30,6 @@ export default function Sidebar() {
       const sRect = sidebar.getBoundingClientRect()
       const eRect = el.getBoundingClientRect()
       setIndicatorY(eRect.top - sRect.top)
-      setIndicatorH(eRect.height)
       setReady(true)
     }
     // Небольшой delay чтобы layout успел отрисоваться
@@ -50,7 +48,8 @@ export default function Sidebar() {
           borderRadius: '4px',
           background: '#9a33f4',
           boxShadow: '5px 5px 17.1px 2px #9a33f4',
-          top: indicatorY + (indicatorH - 64) / 2,
+          // маркер центрируется по иконке (52px), а не по всему пункту
+          top: indicatorY + 26 - 32,
           height: '64px',
           transition: 'top 0.4s cubic-bezier(0.22,1,0.36,1)',
           pointerEvents: 'none',

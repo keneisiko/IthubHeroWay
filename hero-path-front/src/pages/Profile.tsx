@@ -18,7 +18,8 @@ import { RARITY_LABELS, unwrapList } from '../lib/apiData'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
-const AXIS_KEYS = ['Мощность', 'Связь', 'Фокус', 'Ритм', 'Отдача'] as const
+// Порядок как в макете: от верхней вершины по часовой стрелке
+const AXIS_KEYS = ['Мощность', 'Фокус', 'Отдача', 'Ритм', 'Связь'] as const
 
 const radarBaseOptions = {
   responsive: true,
@@ -40,13 +41,10 @@ const radarBaseOptions = {
   plugins: { legend: { display: false }, tooltip: { enabled: false } },
 } as const
 
-const AXES = [
-  { key: 'Мощность', position: 'profile-radar__axis--top' },
-  { key: 'Связь', position: 'profile-radar__axis--left' },
-  { key: 'Фокус', position: 'profile-radar__axis--right' },
-  { key: 'Ритм', position: 'profile-radar__axis--bottom-left' },
-  { key: 'Отдача', position: 'profile-radar__axis--bottom-right' },
-] as const
+const AXES = AXIS_KEYS.map((key) => ({ key }))
+
+// Насколько подпись оси отстоит от вершины пятиугольника
+const AXIS_LABEL_GAP = 24
 
 const BADGE_TAB_CATEGORIES: Record<string, string | null> = {
   'Путь': null,
@@ -103,6 +101,12 @@ interface UserBadge {
 interface Point {
   x: number
   y: number
+}
+
+// Подпись оси: точка привязки у вершины и направление, куда её отодвинуть
+interface AxisAnchor extends Point {
+  ux: number
+  uy: number
 }
 
 interface CharacteristicItem {
@@ -279,6 +283,7 @@ export default function Profile() {
   // берём у самого чарта после отрисовки и после каждого ресайза.
   const chartRef = useRef<ChartType<'radar'> | null>(null)
   const [vertices, setVertices] = useState<{ current: Point[]; peak: Point[] }>({ current: [], peak: [] })
+  const [axisAnchors, setAxisAnchors] = useState<AxisAnchor[]>([])
 
   const syncVertices = useCallback(() => {
     const chart = chartRef.current
@@ -286,6 +291,23 @@ export default function Profile() {
     const read = (index: number) =>
       chart.getDatasetMeta(index).data.map((point) => ({ x: point.x, y: point.y }))
     setVertices({ current: read(0), peak: read(1) })
+
+    // Подписи осей ставим по направлению луча, чуть дальше внешней вершины
+    const scale = chart.scales.r as unknown as {
+      xCenter: number
+      yCenter: number
+      drawingArea: number
+      getPointPosition: (i: number, d: number) => { x: number; y: number }
+    }
+    if (!scale) return
+    setAxisAnchors(AXES.map((_, i) => {
+      const outer = scale.getPointPosition(i, scale.drawingArea)
+      const point = scale.getPointPosition(i, scale.drawingArea + AXIS_LABEL_GAP)
+      const dx = outer.x - scale.xCenter
+      const dy = outer.y - scale.yCenter
+      const length = Math.hypot(dx, dy) || 1
+      return { x: point.x, y: point.y, ux: dx / length, uy: dy / length }
+    }))
   }, [])
 
   const radarOptions = useMemo(() => ({
@@ -608,30 +630,37 @@ export default function Profile() {
               {getSkill(AXES[i].key).current}
             </span>
           ))}
-        </div>
 
-        {AXES.map(({ key, position }) => {
-          const skill = getSkill(key)
-          const isActive = activeAxis === key
-          const isHovered = hoveredAxis === key
-          return (
-            <div
-              key={key}
-              className={`profile-radar__axis ${position}${isActive ? ' profile-radar__axis--active' : ''}`}
-              onMouseEnter={() => setHoveredAxis(key)}
-              onMouseLeave={() => setHoveredAxis(null)}
-              onClick={() => setActiveAxis(cur => cur === key ? null : key)}
-            >
-              <span className="profile-radar__axis-icon" aria-hidden="true" />
-              <span>{key}</span>
-              {(isHovered || isActive) && showCharacteristics && (
-                <span className="profile-radar__tooltip">
-                  {key}: {skill.current} / 20 (пик: {skill.peak})
-                </span>
-              )}
-            </div>
-          )
-        })}
+          {axisAnchors.map((anchor, i) => {
+            const key = AXES[i].key
+            const skill = getSkill(key)
+            const isActive = activeAxis === key
+            const isHovered = hoveredAxis === key
+            return (
+              <div
+                key={key}
+                className={`profile-radar__axis${isActive ? ' profile-radar__axis--active' : ''}`}
+                style={{
+                  left: anchor.x,
+                  top: anchor.y,
+                  // сдвигаем подпись на половину её размера наружу от вершины
+                  transform: `translate(calc(-50% + ${anchor.ux * 50}%), calc(-50% + ${anchor.uy * 50}%))`,
+                }}
+                onMouseEnter={() => setHoveredAxis(key)}
+                onMouseLeave={() => setHoveredAxis(null)}
+                onClick={() => setActiveAxis(cur => cur === key ? null : key)}
+              >
+                <span className="profile-radar__axis-icon" aria-hidden="true" />
+                <span>{key}</span>
+                {(isHovered || isActive) && showCharacteristics && (
+                  <span className="profile-radar__tooltip">
+                    {key}: {skill.current} / 20 (пик: {skill.peak})
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
 
         {showCharacteristics && (
         <section className={`profile-history${activeAxis ? ' profile-history--visible' : ''}`} aria-hidden={!activeAxis}>
