@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'rea
 import { useParams } from 'react-router-dom'
 import { useCountUp } from '../useCountUp'
 import { Radar } from 'react-chartjs-2'
+import type { Chart as ChartType } from 'chart.js'
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -19,7 +20,7 @@ ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
 const AXIS_KEYS = ['Мощность', 'Связь', 'Фокус', 'Ритм', 'Отдача'] as const
 
-const radarOptions = {
+const radarBaseOptions = {
   responsive: true,
   maintainAspectRatio: false,
   scales: {
@@ -46,14 +47,6 @@ const AXES = [
   { key: 'Ритм', position: 'profile-radar__axis--bottom-left' },
   { key: 'Отдача', position: 'profile-radar__axis--bottom-right' },
 ] as const
-
-const VALUE_POSITIONS = [
-  { outer: 'profile-radar__value--outer-top', inner: 'profile-radar__value--inner-top' },
-  { outer: 'profile-radar__value--outer-left', inner: 'profile-radar__value--inner-left' },
-  { outer: 'profile-radar__value--outer-right', inner: 'profile-radar__value--inner-right' },
-  { outer: 'profile-radar__value--outer-bottom-left', inner: 'profile-radar__value--inner-bottom-left' },
-  { outer: 'profile-radar__value--outer-bottom-right', inner: 'profile-radar__value--inner-bottom-right' },
-]
 
 const BADGE_TAB_CATEGORIES: Record<string, string | null> = {
   'Путь': null,
@@ -105,6 +98,11 @@ interface UserBadge {
     category: string
   }
   acquired_at: string
+}
+
+interface Point {
+  x: number
+  y: number
 }
 
 interface CharacteristicItem {
@@ -276,6 +274,25 @@ export default function Profile() {
   const pathReached = (i: number) => i <= lastReachedIndex
   const pathNodeState = (i: number) =>
     i === lastReachedIndex ? 'current' : i < lastReachedIndex ? 'done' : 'idle'
+
+  // Подписи значений стоят ровно на вершинах графика, поэтому координаты
+  // берём у самого чарта после отрисовки и после каждого ресайза.
+  const chartRef = useRef<ChartType<'radar'> | null>(null)
+  const [vertices, setVertices] = useState<{ current: Point[]; peak: Point[] }>({ current: [], peak: [] })
+
+  const syncVertices = useCallback(() => {
+    const chart = chartRef.current
+    if (!chart) return
+    const read = (index: number) =>
+      chart.getDatasetMeta(index).data.map((point) => ({ x: point.x, y: point.y }))
+    setVertices({ current: read(0), peak: read(1) })
+  }, [])
+
+  const radarOptions = useMemo(() => ({
+    ...radarBaseOptions,
+    animation: { ...radarBaseOptions.animation, onComplete: syncVertices },
+    onResize: syncVertices,
+  }), [syncVertices])
 
   const selectedAxis = activeAxis ?? 'Мощность'
   const activeHistory = getSkill(selectedAxis).history
@@ -570,7 +587,27 @@ export default function Profile() {
 
       <section className="profile-radar card-entrance" style={{ animationDelay: '0.3s' }}>
         <div className="profile-radar__chart">
-          <Radar data={radarData} options={radarOptions} />
+          <Radar ref={chartRef} data={radarData} options={radarOptions} />
+
+          {showCharacteristics && vertices.peak.map((point, i) => (
+            <span
+              key={`peak-${i}`}
+              className="profile-radar__value profile-radar__value--inner"
+              style={{ left: point.x, top: point.y }}
+            >
+              {getSkill(AXES[i].key).peak}
+            </span>
+          ))}
+
+          {showCharacteristics && vertices.current.map((point, i) => (
+            <span
+              key={`current-${i}`}
+              className="profile-radar__value"
+              style={{ left: point.x, top: point.y }}
+            >
+              {getSkill(AXES[i].key).current}
+            </span>
+          ))}
         </div>
 
         {AXES.map(({ key, position }) => {
@@ -594,16 +631,6 @@ export default function Profile() {
               )}
             </div>
           )
-        })}
-
-        {showCharacteristics && VALUE_POSITIONS.map((pos, i) => {
-          const skill = getSkill(AXES[i].key)
-          return <span key={`outer-${i}`} className={`profile-radar__value ${pos.outer}`}>{skill.current}</span>
-        })}
-
-        {showCharacteristics && VALUE_POSITIONS.map((pos, i) => {
-          const skill = getSkill(AXES[i].key)
-          return <span key={`inner-${i}`} className={`profile-radar__value ${pos.inner} profile-radar__value--inner`}>{skill.peak}</span>
         })}
 
         {showCharacteristics && (

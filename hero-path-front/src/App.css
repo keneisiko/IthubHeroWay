@@ -1502,7 +1502,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding-right: 145px;
 }
 
 .profile__top {
@@ -1510,6 +1509,7 @@ body {
   grid-template-columns: 580px 460px;
   gap: 20px;
   align-items: start;
+  padding-right: 145px;
 }
 
 .profile__left {
@@ -1826,7 +1826,7 @@ body {
 }
 
 .profile-radar {
-  margin-top: 26px;
+  margin: 26px auto 0;
   position: relative;
   width: 899px;
   height: 808px;
@@ -1951,77 +1951,27 @@ body {
 
 .profile-radar__value {
   position: absolute;
+  transform: translate(-50%, -50%);
   min-width: 54px;
   height: 35px;
-  border-radius: 48px;
+  border-radius: var(--radius-48);
   padding: 4px 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-text);
   font-size: 24px;
   font-weight: 700;
   line-height: 1;
-  color: #f5f5f5;
-  background: #9a33f4;
+  color: var(--ithub-white);
+  background: var(--purple-500);
   box-shadow: 4px 4px 7.6px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
 }
 
 .profile-radar__value--inner {
-  color: #121212;
-  background: #f5f5f5;
-}
-
-.profile-radar__value--outer-top {
-  top: 90px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.profile-radar__value--outer-left {
-  left: 49px;
-  top: 324px;
-}
-
-.profile-radar__value--outer-right {
-  right: 49px;
-  top: 324px;
-}
-
-.profile-radar__value--outer-bottom-left {
-  left: 240px;
-  bottom: 106px;
-}
-
-.profile-radar__value--outer-bottom-right {
-  right: 240px;
-  bottom: 106px;
-}
-
-.profile-radar__value--inner-top {
-  top: 150px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.profile-radar__value--inner-left {
-  left: 120px;
-  top: 338px;
-}
-
-.profile-radar__value--inner-right {
-  right: 120px;
-  top: 338px;
-}
-
-.profile-radar__value--inner-bottom-left {
-  left: 209px;
-  bottom: 184px;
-}
-
-.profile-radar__value--inner-bottom-right {
-  right: 209px;
-  bottom: 184px;
+  color: var(--ithub-black);
+  background: var(--ithub-white);
 }
 
 .profile-history {
@@ -2238,9 +2188,10 @@ body {
 .profile-path {
   margin-top: 30px;
   background: #f5f5f5;
-  border: 4px solid #9a33f4;
-  border-radius: 24px;
-  padding: 44px;
+  border: var(--stroke-4) solid var(--purple-500);
+  border-radius: var(--radius-24);
+  /* 40 + рамка 4 = 44 из макета, внутренняя ширина ровно 1092 */
+  padding: 40px;
   box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
   min-height: 813px;
   width: min(1180px, 100%);
@@ -2306,10 +2257,10 @@ body {
 
 .profile-path__grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(90px, 1fr));
-  column-gap: clamp(24px, 1.4vw, 32px);
+  grid-template-columns: repeat(8, 105px);
+  column-gap: 36px;
   row-gap: 32px;
-  justify-content: stretch;
+  justify-content: center;
   justify-items: center;
 }
 
@@ -2323,12 +2274,14 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  /* в макете 8 между иконкой и подписью, 4 между подписью и редкостью */
+  gap: var(--space-4);
 }
 
 .path-card__icon {
   width: 90px;
   height: 90px;
+  margin-bottom: var(--space-4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2375,8 +2328,11 @@ body {
 
 .path-card__chip {
   white-space: nowrap;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
   border-radius: var(--radius-48);
-  padding: 4px 12px;
+  padding: 4px var(--space-12);
   font-family: var(--font-text);
   font-size: 16px;
   font-weight: 600;
