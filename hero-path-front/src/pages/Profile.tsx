@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useCountUp } from '../useCountUp'
 import { Radar } from 'react-chartjs-2'
@@ -26,9 +26,10 @@ const radarOptions = {
     r: {
       beginAtZero: true,
       max: 20,
-      ticks: { display: false },
-      grid: { color: 'rgba(154, 51, 244, 0.42)', lineWidth: 2 },
-      angleLines: { color: 'rgba(154, 51, 244, 0.5)', lineWidth: 2 },
+      // в макете пятиугольник состоит ровно из 5 колец
+      ticks: { display: false, stepSize: 4 },
+      grid: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3, circular: false },
+      angleLines: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3 },
       pointLabels: { display: false },
     },
   },
@@ -73,7 +74,26 @@ interface ProfileData {
   level: number
   rating_current: number | null
   coins_balance?: number
+  rating_zone?: string
+  duel_wins?: number
+  // коды пройденных вех карты пути; бэкенд пока не отдаёт это поле
+  path_reached?: string[]
 }
+
+// Вехи карты пути — постоянные точки программы (из макета).
+// Верхний ряд идёт слева направо, нижний — продолжение того же пути.
+const PATH_TOP = [
+  { code: 'entry', label: 'Вход' },
+  { code: 'first_win', label: 'Первая\nпобеда' },
+  { code: 'first_fail', label: 'Первый\nпровал' },
+  { code: 'first_mission', label: 'Первая\nмиссия' },
+] as const
+
+const PATH_BOTTOM = [
+  { code: 'product', label: 'Продукт' },
+  { code: 'internship', label: 'Стажировка' },
+  { code: 'graduation', label: 'Выпуск' },
+] as const
 
 interface UserBadge {
   id: number
@@ -131,6 +151,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [characteristics, setCharacteristics] = useState<CharacteristicItem[]>([])
   const [badges, setBadges] = useState<UserBadge[]>([])
+  const [allBadges, setAllBadges] = useState<UserBadge['badge'][]>([])
   const [questsCompleted, setQuestsCompleted] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -161,6 +182,7 @@ export default function Profile() {
         setEditForm({ callsign: data.callsign || '' })
         if (!isOwnProfile) {
           setBadges([])
+          setAllBadges([])
           setQuestsCompleted(0)
           setCharacteristics([])
           return
@@ -169,12 +191,14 @@ export default function Profile() {
           api.get('/api/v1/badges/my/'),
           api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
           api.get('/api/v1/profile/me/characteristics/'),
-        ]).then(([badgesRes, questsRes, charsRes]) => {
+          api.get('/api/v1/badges/'),
+        ]).then(([badgesRes, questsRes, charsRes, allBadgesRes]) => {
           const badgeRows = unwrapList<UserBadge>(badgesRes.data)
           badgeRows.sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned))
           setBadges(badgeRows)
           setQuestsCompleted(unwrapList(questsRes.data).length)
           setCharacteristics(unwrapList<CharacteristicItem>(charsRes.data))
+          setAllBadges(unwrapList<UserBadge['badge']>(allBadgesRes.data))
         })
       }),
     ]
@@ -241,6 +265,17 @@ export default function Profile() {
       },
     ],
   }
+
+  // Карта пути: пройденные вехи приходят с бэка; пока поля нет — пройден только вход.
+  const pathPoints = [...PATH_TOP, ...PATH_BOTTOM]
+  const reachedCodes = profile?.path_reached ?? ['entry']
+  const lastReachedIndex = pathPoints.reduce(
+    (last, point, i) => (reachedCodes.includes(point.code) ? i : last),
+    -1,
+  )
+  const pathReached = (i: number) => i <= lastReachedIndex
+  const pathNodeState = (i: number) =>
+    i === lastReachedIndex ? 'current' : i < lastReachedIndex ? 'done' : 'idle'
 
   const selectedAxis = activeAxis ?? 'Мощность'
   const activeHistory = getSkill(selectedAxis).history
@@ -311,7 +346,6 @@ export default function Profile() {
     return 'ach__rarity--common'
   }
 
-  const showRating = isOwnProfile || profile?.rating_current != null
   const showCharacteristics = isOwnProfile
   const pinnedBadges = useMemo(
     () => badges.filter((b) => b.is_pinned).slice(0, 3),
@@ -322,6 +356,15 @@ export default function Profile() {
     if (!category) return badges
     return badges.filter((b) => b.badge.category === category)
   }, [badges, activeTab])
+
+  // Нераскрытые нашивки: в макете они показаны серыми слотами «Условие не выполнено»
+  const lockedBadges = useMemo(() => {
+    const earned = new Set(badges.map((b) => b.badge.code))
+    const category = BADGE_TAB_CATEGORIES[activeTab]
+    return allBadges.filter(
+      (b) => !earned.has(b.code) && (!category || b.category === category),
+    )
+  }, [allBadges, badges, activeTab])
 
   const handlePinBadge = (code: string) => {
     api.post(`/api/v1/badges/${encodeURIComponent(code)}/pin/`)
@@ -433,21 +476,50 @@ export default function Profile() {
                 <span className="profile-row__chip profile-row__chip--light">{profile?.squad || '—'}</span>
               </div>
               <div className="profile-row">
-                <span className="profile-row__label">Рейтинг:</span>
+                <span className="profile-row__label">Статус и уровень:</span>
                 <span className="profile-row__chip profile-row__chip--dark">
-                  {showRating ? (profile?.rating_current ?? '—') : 'Скрыт'}
+                  {profile?.rating_zone ? `${profile.rating_zone} ` : ''}ур. {profile?.level ?? 1}
                 </span>
               </div>
-              <div className="profile-row">
-                <span className="profile-row__label">Уровень:</span>
-                <span className="profile-row__chip profile-row__chip--dark">{profile?.level ?? 1}</span>
-              </div>
+
             </div>
           </section>
 
           <section className="profile-card profile-card--map card-entrance" style={{ animationDelay: '0.1s' }}>
-            <h3 className="profile-map__title">Карта пути</h3>
-            <p className="loading-text" style={{ margin: 0 }}>Раздел в разработке — данные появятся в следующих версиях.</p>
+            <h3 className="profile-map__title">Карта пути:</h3>
+            <div className="profile-map__body">
+              <div className="profile-map__row">
+                {PATH_TOP.map((point, i) => (
+                  <Fragment key={point.code}>
+                    {i > 0 && (
+                      <span className={`profile-map__line profile-map__line--${pathReached(i) ? 'done' : 'idle'}`} />
+                    )}
+                    <span className={`profile-map__node profile-map__node--${pathNodeState(i)}`} />
+                  </Fragment>
+                ))}
+              </div>
+              <div className="profile-map__labels profile-map__labels--top">
+                {PATH_TOP.map((point) => <span key={point.code}>{point.label}</span>)}
+              </div>
+              <div className="profile-map__row profile-map__row--bottom">
+                <span
+                  className={`profile-map__line profile-map__line--first profile-map__line--${pathReached(PATH_TOP.length) ? 'done' : 'idle'}`}
+                />
+                {PATH_BOTTOM.map((point, i) => (
+                  <Fragment key={point.code}>
+                    {i > 0 && (
+                      <span
+                        className={`profile-map__line profile-map__line--${pathReached(PATH_TOP.length + i) ? 'done' : 'idle'}`}
+                      />
+                    )}
+                    <span className={`profile-map__node profile-map__node--${pathNodeState(PATH_TOP.length + i)}`} />
+                  </Fragment>
+                ))}
+              </div>
+              <div className="profile-map__labels profile-map__labels--bottom">
+                {PATH_BOTTOM.map((point) => <span key={point.code}>{point.label}</span>)}
+              </div>
+            </div>
           </section>
         </div>
 
@@ -458,11 +530,17 @@ export default function Profile() {
           <h3 className="profile-aside__title">Статистика:</h3>
           <div className="profile-aside__stats">
             <span className="profile-aside__pill">Выполнено квестов: <strong>{animQuests}</strong></span>
-            <span className="profile-aside__pill">Получено нашивок: <strong>{animBadges}</strong></span>
-            <span className="profile-aside__pill">Монет: <strong>{profile?.coins_balance ?? 0}</strong></span>
+            <span className="profile-aside__pill">
+              Получено нашивок: <strong>{animBadges}</strong>{allBadges.length ? <> из <strong>{allBadges.length}</strong></> : null}
+            </span>
+            {profile?.duel_wins != null && (
+              <span className="profile-aside__pill">Побед в дуэлях: <strong>{profile.duel_wins}</strong></span>
+            )}
           </div>
-          <h3 className="profile-aside__title profile-aside__title--sp">Наставничество:</h3>
-          <button className="profile-aside__mentor-btn btn-press" onClick={mentorModal.show}>Стать наставником</button>
+          <h3 className="profile-aside__title profile-aside__title--sp">Шефство:</h3>
+          <div className="profile-aside__mentor-row">
+            <button className="profile-aside__mentor-btn btn-press" onClick={mentorModal.show}>Стать наставником</button>
+          </div>
         </section>
         )}
 
@@ -529,7 +607,7 @@ export default function Profile() {
         })}
 
         {showCharacteristics && (
-        <section className={`profile-history${activeAxis ? ' profile-history--visible' : ''}`} aria-hidden={!activeAxis}>
+        <section className="profile-history profile-history--visible">
           <span className="profile-history__title">История: {selectedAxis}</span>
           <div className="profile-history__chart">
             <div className="profile-history__grid" aria-hidden="true">
@@ -560,7 +638,7 @@ export default function Profile() {
 
       {isOwnProfile && (
       <section className="profile-path profile-card card-entrance" style={{ animationDelay: '0.4s' }}>
-        <h3 className="profile-achievements__title">Нашивки:</h3>
+        <h3 className="profile-achievements__title">Достижения:</h3>
         <div className="profile-achievements__row">
           {pinnedBadges.length === 0 ? (
             <p className="loading-text">Пока нет закреплённых нашивок</p>
@@ -595,9 +673,11 @@ export default function Profile() {
         <div className="profile-path__grid">
           {filteredBadges.map((card) => (
             <button key={card.id} className="path-card btn-press" type="button">
-              <span className="path-card__icon path-card__icon--common" aria-hidden="true"><span className="path-card__glyph" /></span>
+              <span className={`path-card__icon path-card__icon--${card.badge.rarity}`} aria-hidden="true">
+                <span className="path-card__glyph" />
+              </span>
               <span className="path-card__name">{card.badge.title}</span>
-              <span className="path-card__chip path-card__chip--common">
+              <span className={`path-card__chip path-card__chip--${card.badge.rarity}`}>
                 {RARITY_LABELS[card.badge.rarity] ?? card.badge.rarity}
               </span>
               {!card.is_pinned && (
@@ -614,7 +694,15 @@ export default function Profile() {
               )}
             </button>
           ))}
-          {filteredBadges.length === 0 && (
+          {lockedBadges.map((badge) => (
+            <span key={badge.code} className="path-card path-card--locked" title={badge.title}>
+              <span className="path-card__icon path-card__icon--locked" aria-hidden="true">
+                <span className="path-card__glyph path-card__glyph--locked" />
+              </span>
+              <span className="path-card__locked">Условие не выполнено</span>
+            </span>
+          ))}
+          {filteredBadges.length === 0 && lockedBadges.length === 0 && (
             <p className="loading-text" style={{ gridColumn: '1 / -1' }}>Нет нашивок</p>
           )}
         </div>

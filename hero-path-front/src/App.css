@@ -1775,7 +1775,7 @@ body {
 }
 
 .profile-map__labels--top span {
-  white-space: normal;
+  white-space: pre-line;
 }
 
 .profile-map__labels--bottom span {
@@ -4958,3 +4958,13 @@ body {
   text-decoration: underline;
   text-underline-position: from-font;
 }
+
+/* Шефство: чип подшефного и кнопка в одну строку — по макету Figma */
+.profile-aside__mentor-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.profile-aside__mentor-row .profile-aside__mentor-btn { margin-top: 0; }
