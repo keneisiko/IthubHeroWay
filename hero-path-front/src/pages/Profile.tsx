@@ -43,8 +43,10 @@ const radarBaseOptions = {
 
 const AXES = AXIS_KEYS.map((key) => ({ key }))
 
-// Насколько подпись оси отстоит от вершины пятиугольника
-const AXIS_LABEL_GAP = 24
+// Габариты пилюли со значением: она стоит в вершине пятиугольника,
+// поэтому подпись оси нужно отодвинуть за её пределы
+const VALUE_PILL = { halfWidth: 27, halfHeight: 17.5 }
+const AXIS_LABEL_GAP = 12
 
 const BADGE_TAB_CATEGORIES: Record<string, string | null> = {
   'Путь': null,
@@ -288,11 +290,6 @@ export default function Profile() {
   const syncVertices = useCallback(() => {
     const chart = chartRef.current
     if (!chart) return
-    const read = (index: number) =>
-      chart.getDatasetMeta(index).data.map((point) => ({ x: point.x, y: point.y }))
-    setVertices({ current: read(0), peak: read(1) })
-
-    // Подписи осей ставим по направлению луча, чуть дальше внешней вершины
     const scale = chart.scales.r as unknown as {
       xCenter: number
       yCenter: number
@@ -300,13 +297,26 @@ export default function Profile() {
       getPointPosition: (i: number, d: number) => { x: number; y: number }
     }
     if (!scale) return
+
+    // Пик подписан прямо на своей вершине, текущее значение — в углу
+    // пятиугольника, как в макете.
+    setVertices({
+      current: AXES.map((_, i) => scale.getPointPosition(i, scale.drawingArea)),
+      peak: chart.getDatasetMeta(1).data.map((point) => ({ x: point.x, y: point.y })),
+    })
+
+    // Подпись оси уводим за пилюлю: считаем, насколько та выступает
+    // вдоль луча, и добавляем зазор.
     setAxisAnchors(AXES.map((_, i) => {
       const outer = scale.getPointPosition(i, scale.drawingArea)
-      const point = scale.getPointPosition(i, scale.drawingArea + AXIS_LABEL_GAP)
       const dx = outer.x - scale.xCenter
       const dy = outer.y - scale.yCenter
       const length = Math.hypot(dx, dy) || 1
-      return { x: point.x, y: point.y, ux: dx / length, uy: dy / length }
+      const ux = dx / length
+      const uy = dy / length
+      const pillReach = Math.abs(ux) * VALUE_PILL.halfWidth + Math.abs(uy) * VALUE_PILL.halfHeight
+      const point = scale.getPointPosition(i, scale.drawingArea + pillReach + AXIS_LABEL_GAP)
+      return { x: point.x, y: point.y, ux, uy }
     }))
   }, [])
 
