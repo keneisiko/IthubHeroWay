@@ -856,7 +856,7 @@ body {
 }
 
 .series__header {
-  width: 420px;
+  width: 100%;
   height: 133px;
   display: flex;
   align-items: flex-start;
@@ -874,11 +874,10 @@ body {
   transform: scale(1.06) rotate(-3deg);
 }
 
-.series__title-wrap { width: 281px; height: 118px; }
+.series__title-wrap { flex: 1 0 0; min-width: 0; }
 
 .series__header h3 {
-  width: 281px;
-  height: 46px;
+  width: 100%;
   font-family: 'TT Firs Neue', sans-serif;
   font-size: 36px;
   font-weight: 700;
@@ -887,8 +886,7 @@ body {
 }
 
 .series__header p {
-  width: 281px;
-  height: 72px;
+  width: 100%;
   margin-top: 2px;
   font-family: 'TT Firs Neue', sans-serif;
   font-size: 28px;
@@ -898,8 +896,7 @@ body {
 }
 
 .series__meta {
-  width: 420px;
-  height: 27px;
+  width: 100%;
   display: flex;
   justify-content: space-between;
   font-family: var(--font-text);
@@ -914,7 +911,7 @@ body {
 .series__meta--bottom span:last-child { color: #9a33f4; }
 
 .series__progress-row {
-  width: 420px;
+  width: 100%;
   height: 30px;
   display: flex;
   align-items: center;
@@ -933,7 +930,8 @@ body {
 .series__circle--right { background: #121212; }
 
 .series__progress {
-  width: 344px;
+  flex: 1 0 0;
+  min-width: 0;
   height: 12px;
   border-radius: 6px;
   background: #121212;
@@ -2215,7 +2213,7 @@ body {
 
 .profile-path__grid {
   display: grid;
-  grid-template-columns: repeat(8, 105px);
+  grid-template-columns: repeat(auto-fit, 105px);
   column-gap: 36px;
   row-gap: 32px;
   justify-content: center;
@@ -2412,7 +2410,7 @@ body {
 
 .q1 {
   display: grid;
-  grid-template-columns: 700px 340px;
+  grid-template-columns: minmax(0, 700px) minmax(0, 340px);
   gap: var(--space-20);
   align-items: start;
 }
@@ -2532,6 +2530,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* в макете карточки уже слота на 8 с каждой стороны */
+  padding: 0 var(--space-8);
 }
 
 .q1__card {
@@ -4705,8 +4705,11 @@ body {
 
   .leaderboard-page,
   .shop-page,
-  .squad-page,
-  .profile {
+  .squad-page {
+    padding-right: 130px;
+  }
+
+  .profile__top {
     padding-right: 130px;
   }
 
@@ -4738,8 +4741,13 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .q1__weekly-cards {
-    grid-template-columns: 1fr;
+  .q1__choice-options {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .q1__option {
+    width: 100%;
   }
 
   .q1__tabs-row {
@@ -4752,8 +4760,11 @@ body {
 
   .leaderboard-page,
   .shop-page,
-  .squad-page,
-  .profile {
+  .squad-page {
+    padding-right: 0;
+  }
+
+  .profile__top {
     padding-right: 0;
   }
 

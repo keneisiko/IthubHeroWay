@@ -378,15 +378,15 @@ export default function Quests() {
         </div>
 
         <section className="q1__series">
-          <div className="q1__series-head">
-            <img className="q1__series-icon-img" src={seriesIcon} alt="" aria-hidden="true" />
-            <div className="q1__series-text">
-              <div className="q1__series-label">Серия:</div>
-              <div className="q1__series-sub">
+          <div className="series__header">
+            <img className="series__icon-image" src={seriesIcon} alt="" aria-hidden="true" />
+            <div className="series__title-wrap">
+              <h3>Серия:</h3>
+              <p>
                 {strike
                   ? `${strike.late_strike} ${dayWord(strike.late_strike)} без опозданий`
                   : 'Данные обновляются после синхронизации с HikCentral'}
-              </div>
+              </p>
             </div>
           </div>
 
