@@ -58,6 +58,7 @@ export default function Quests() {
   const [activity, setActivity] = useState<Activity[]>([])
   const [recentActivity, setRecentActivity] = useState<Activity[]>([])
   const [selfReportQuestCode, setSelfReportQuestCode] = useState<string | null>(null)
+  const [weeklyChoice, setWeeklyChoice] = useState<string | null>(null)
   const [strike, setStrike] = useState<{
     late_strike: number
     bonus_at_7: number
@@ -160,8 +161,16 @@ export default function Quests() {
   }
 
   const currentQuests = activeTab === 0 ? quests : activeTab === 1 ? completedQuests : []
+  // Еженедельный выбор: бэкенд не группирует квесты в пары, поэтому
+  // вариантами показываем активные еженедельные квесты — выбранный
+  // становится тем, что подтверждает кнопка внизу блока.
+  const weeklyOptions = quests.filter((q) => !q.completed && q.kind === 'Еженедельный').slice(0, 2)
+  const focusedWeekly = weeklyChoice ?? weeklyOptions[0]?.code ?? null
+
   // В макете подтверждение и пометка об автопроверке — общие для блока
-  const confirmableQuest = currentQuests.find((q) => !q.completed && q.confirm)
+  const confirmableQuest =
+    currentQuests.find((q) => q.code === weeklyChoice && !q.completed && q.confirm)
+    ?? currentQuests.find((q) => !q.completed && q.confirm)
   const autoQuest = currentQuests.find((q) => !q.completed && q.autoVerify)
 
   if (loading) {
@@ -313,6 +322,43 @@ export default function Quests() {
                 <div className="q1__slot-auto">Выполняется автоматически</div>
               )}
             </div>
+
+            {weeklyOptions.length > 1 && (
+              <section className="q1__choice">
+                <h3 className="q1__choice-title">Еженедельный выбор</h3>
+                <div className="q1__choice-box">
+                  <p className="q1__choice-lead">Выбери одно из двух заданий</p>
+                  <div className="q1__choice-options">
+                    {weeklyOptions.map((option, i) => {
+                      const isFocused = option.code === focusedWeekly
+                      return (
+                        <article
+                          key={option.code}
+                          className={`q1__option${isFocused ? ' q1__option--focused' : ''}`}
+                          onClick={() => setWeeklyChoice(option.code)}
+                        >
+                          <h4 className="q1__option-title">Вариант {String.fromCharCode(65 + i)}</h4>
+                          <p className="q1__option-task">{option.title}</p>
+                          <div className="q1__option-reward">{option.reward}</div>
+                          {isFocused && (
+                            <button
+                              type="button"
+                              className="q1__option-pick btn-press"
+                              onClick={() => {
+                                setWeeklyChoice(option.code)
+                                addToast(`Выбрано: ${option.title}`)
+                              }}
+                            >
+                              Выбрать
+                            </button>
+                          )}
+                        </article>
+                      )
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
           </section>
         )}
       </div>

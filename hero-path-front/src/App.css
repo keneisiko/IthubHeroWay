@@ -4978,3 +4978,114 @@ body {
   padding: 12px var(--space-16);
   text-align: center;
 }
+
+/* Еженедельный выбор */
+.q1__choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-20);
+  background: var(--ithub-white);
+  border-radius: var(--radius-24);
+  box-shadow: var(--card-shadow);
+}
+
+.q1__choice-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--purple-500);
+}
+
+.q1__choice-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-20);
+  background: var(--purple-500);
+  border-radius: var(--radius-12);
+  box-shadow: var(--card-shadow);
+}
+
+.q1__choice-lead {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-text);
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.q1__choice-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-16);
+  width: 100%;
+}
+
+.q1__option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 289px;
+  padding: var(--space-20);
+  background: var(--ithub-white);
+  border: var(--stroke-4) solid var(--purple-500);
+  /* выделенный вариант скруглён сильнее — как в макете */
+  border-radius: var(--radius-8);
+  box-shadow: var(--card-shadow);
+  transition: border-radius 0.25s ease;
+}
+
+.q1__option:not(.q1__option--focused) { cursor: pointer; }
+
+.q1__option--focused { border-radius: var(--radius-24); }
+
+.q1__option-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--purple-500);
+}
+
+.q1__option-task {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ithub-black);
+}
+
+.q1__option-reward {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 43px;
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-12);
+  background: var(--ithub-black);
+  font-family: var(--font-text);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--sys-yellow);
+  text-align: center;
+}
+
+.q1__option-pick {
+  height: 63px;
+  border: var(--stroke-4) solid var(--ithub-white);
+  border-radius: var(--radius-16);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--card-shadow);
+}
+
