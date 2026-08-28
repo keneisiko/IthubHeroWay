@@ -189,7 +189,8 @@ export default function Shop() {
         </div>
       ) : (
       <>
-      <div className="shop-page__band shop-page__band--tabs">
+      <div className="shop-page__head">
+        <div className="shop-page__head-left">
         <nav className="shop-tabs" aria-label="Категории магазина">
           <div className="shop-tabs__labels" role="tablist" ref={tabIndicator.containerRef}>
             {TABS.map((label, index) => (
@@ -210,25 +211,22 @@ export default function Shop() {
             />
           </div>
         </nav>
-      </div>
 
-      <div className="shop-page__band shop-page__band--split">
-        <div className="shop-purchases-frame">
-          <button type="button" className="shop-purchases-btn btn-press" onClick={() => setShowPurchases(true)}>
-            <span className="shop-purchases-btn__label">Мои покупки</span>
-          </button>
+          <div className="shop-purchases-frame">
+            <button type="button" className="shop-purchases-btn btn-press" onClick={() => setShowPurchases(true)}>
+              <span className="shop-purchases-btn__label">Мои покупки</span>
+            </button>
+          </div>
         </div>
-        <div className="shop-page__split-spacer" aria-hidden="true" />
+
         <section className="shop-wallet" aria-label="Баланс монет">
-          <div className="shop-wallet__stack">
-            <p className="shop-wallet__label">Баланс:</p>
-            <div className="shop-wallet__amount">
-              <span className="shop-wallet__coin" aria-hidden="true" />
-              <span className="shop-wallet__value">{coins}</span>
-            </div>
+          <p className="shop-wallet__label">Сколько монет у пользователя:</p>
+          <div className="shop-wallet__amount">
+            <span className="shop-wallet__coin" aria-hidden="true" />
+            <span className="shop-wallet__value">{coins}</span>
           </div>
           <button type="button" className="shop-wallet__history btn-press" onClick={() => setShowHistory(true)}>
-            <span className="shop-wallet__history-label">История</span>
+            <span className="shop-wallet__history-label">История покупок</span>
           </button>
         </section>
       </div>
@@ -239,7 +237,12 @@ export default function Shop() {
         ) : products.map((item, i) => {
           const isPurchased = purchasedCodes.has(item.code)
           return (
-          <article key={item.id} className="shop-card hover-lift" style={{ animationDelay: `${i * 50}ms` }}>
+          <article
+            key={item.id}
+            className="shop-card hover-lift"
+            style={{ animationDelay: `${i * 50}ms` }}
+            onClick={() => setShowDetail(item.id)}
+          >
             <img className="shop-card__thumb" src={item.image ?? palmSky} alt="" width={300} height={184} loading="lazy" />
             <h2 className="shop-card__title">{item.title}</h2>
             <div className="shop-card__price">
@@ -250,13 +253,10 @@ export default function Shop() {
               <button
                 type="button"
                 className="shop-card__buy btn-press"
-                onClick={() => setShowPurchase(item.id)}
+                onClick={(e) => { e.stopPropagation(); setShowPurchase(item.id) }}
                 disabled={isPurchased}
               >
                 {isPurchased ? 'Куплено' : 'Купить'}
-              </button>
-              <button type="button" className="shop-card__detail btn-press" onClick={() => setShowDetail(item.id)}>
-                ?
               </button>
             </div>
           </article>
