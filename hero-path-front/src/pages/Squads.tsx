@@ -389,10 +389,8 @@ export default function Squads() {
     <div className="dashboard squad-page page-enter">
       <div className="squad-page__top">
         <section className="squad-my" aria-labelledby="squad-my-title">
-          <div className="squad-my__title-row">
-            <h2 id="squad-my-title" className="squad-my__title">{squad.name}</h2>
-            <div className="squad-my__course"><span>Курс: {squad.course}</span></div>
-          </div>
+          <h2 id="squad-my-title" className="squad-my__title">{squad.name}</h2>
+          <div className="squad-my__course"><span>Курс: {squad.course}</span></div>
           <dl className="squad-my__stats">
             <div className="squad-my__row">
               <dt className="squad-my__label">Рейтинг:</dt>
@@ -403,7 +401,7 @@ export default function Squads() {
               <dd><span className="squad-pill squad-pill--light">{squad.members_count}</span></dd>
             </div>
             <div className="squad-my__row">
-              <dt className="squad-my__label">Дельта роста:</dt>
+              <dt className="squad-my__label">Дельта роста за неделю:</dt>
               <dd>
                 <span className="squad-pill squad-pill--dark squad-pill--delta">
                   {squad.delta}
@@ -414,7 +412,7 @@ export default function Squads() {
               </dd>
             </div>
             <div className="squad-my__row">
-              <dt className="squad-my__label">Место в рейтинге:</dt>
+              <dt className="squad-my__label">Место в общем рейтинге отрядов:</dt>
               <dd><span className="squad-pill squad-pill--dark squad-pill--wide">{squad.rank}</span></dd>
             </div>
           </dl>
@@ -444,11 +442,18 @@ export default function Squads() {
 
           <section className="squad-actions" aria-label="Действия отряда">
             <div className="squad-actions__coins">
-              <span className="squad-actions__coins-text">В этом месяце:</span>
+              <span className="squad-actions__coins-text">В этом месяце отряд получил</span>
               <span className="squad-actions__coins-badge">{squad.coins_month}</span>
               <span className="squad-actions__coins-text">монет</span>
             </div>
             <button type="button" className="squad-actions__btn squad-actions__btn--share btn-press" onClick={handleShare}>Поделиться</button>
+            <button
+              type="button"
+              className="squad-actions__btn squad-actions__btn--invite btn-press"
+              onClick={() => addToast('Приглашения пока не подключены на бэкенде', 'error')}
+            >
+              Пригласить
+            </button>
           </section>
         </div>
       </div>
