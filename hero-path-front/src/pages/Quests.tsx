@@ -281,19 +281,19 @@ export default function Quests() {
                         {q.note && <div className="q1__card-team">{q.note}</div>}
                       </div>
                       <div className="q1__card-steps" aria-hidden="true">
-                        <span className="q1__step q1__step--red" style={{ opacity: q.progress >= 25 ? 1 : 0.3 }} />
+                        <span className="q1__step q1__step--red" />
                         <span className="q1__step-seg q1__step-seg--red">
                           <span className="q1__step-fill" style={{ width: `${Math.min(100, q.progress / 25 * 100)}%`, background: getProgressColor(q.progress) }} />
                         </span>
-                        <span className="q1__step q1__step--yellow" style={{ opacity: q.progress >= 50 ? 1 : 0.3 }} />
+                        <span className="q1__step q1__step--yellow" />
                         <span className="q1__step-seg q1__step-seg--yellow">
                           <span className="q1__step-fill" style={{ width: `${Math.min(100, (q.progress - 25) / 25 * 100)}%`, background: getProgressColor(q.progress) }} />
                         </span>
-                        <span className="q1__step q1__step--violet" style={{ opacity: q.progress >= 75 ? 1 : 0.3 }} />
+                        <span className="q1__step q1__step--violet" />
                         <div className="q1__step-rail">
                           <div className="q1__step-fill" style={{ width: `${q.progress}%`, background: getProgressColor(q.progress), transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' }} />
                         </div>
-                        <span className="q1__step q1__step--green" style={{ opacity: q.progress >= 100 ? 1 : 0.3 }} />
+                        <span className="q1__step q1__step--green" />
                       </div>
                       <div className="q1__card-reward">
                         Награда:&nbsp;<span className="q1__card-reward-coins">{q.reward}</span>
