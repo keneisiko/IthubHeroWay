@@ -281,16 +281,26 @@ export default function Shop() {
         </div>
       </Modal>
 
-      <Modal open={showDetail !== null} onClose={() => setShowDetail(null)} title={selectedProduct?.title} width="600px">
-        <div className="shop-modal__detail">
-          <img src={selectedProduct?.image ?? palmSky} alt="" className="shop-modal__detail-img" />
-          <div className="shop-modal__detail-info">
-            <div className="shop-modal__price-tag">
-              <span className="shop-wallet__coin" aria-hidden="true" />
-              <span>{selectedProduct?.price}</span>
+      <Modal open={showDetail !== null} onClose={() => setShowDetail(null)} width="1180px">
+        <div className="shop-detail">
+          <img src={selectedProduct?.image ?? palmSky} alt="" className="shop-detail__image" />
+          <div className="shop-detail__info">
+            <h3 className="shop-detail__title">{selectedProduct?.title}</h3>
+            <div className="shop-detail__price">
+              <span className="shop-card__coin" aria-hidden="true" />
+              <span className="shop-card__price-value">{selectedProduct?.price}</span>
             </div>
-            <p className="shop-modal__detail-desc">{selectedProduct?.desc}</p>
-            <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => { setShowDetail(null); setShowPurchase(showDetail) }}>
+            <div className="shop-detail__about">
+              <h4 className="shop-detail__about-title">Описание</h4>
+              <p className="shop-detail__desc">
+                {selectedProduct?.desc || 'Описание пока не заполнено.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="shop-detail__buy btn-press"
+              onClick={() => { setShowDetail(null); setShowPurchase(showDetail) }}
+            >
               Купить
             </button>
           </div>
