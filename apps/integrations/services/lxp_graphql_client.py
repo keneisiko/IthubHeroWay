@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from dataclasses import dataclass
 from datetime import date
-
-import logging
 
 import requests
 from django.conf import settings

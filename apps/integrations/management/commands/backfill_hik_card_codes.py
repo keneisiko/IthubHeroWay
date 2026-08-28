@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.accounts.models import Role
 from apps.integrations.models import HikSnapshot
 from apps.integrations.services.hik_snapshot_service import get_events_from_snapshot
-from apps.integrations.services.hik_xlsx_parser import load_tabular_rows, parse_hik_export_rows
+from apps.integrations.services.hik_xlsx_parser import parse_hik_export_rows
 
 
 class Command(BaseCommand):

@@ -1,12 +1,11 @@
+import requests
+from celery import current_app
 from django.conf import settings
+from django.core.cache import cache
 from django.db import connection
 from django.utils import timezone
 from rest_framework import permissions, views
 from rest_framework.response import Response
-
-import requests
-from celery import current_app
-from django.core.cache import cache
 
 
 def _db_ok() -> bool:

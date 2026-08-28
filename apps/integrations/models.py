@@ -60,6 +60,9 @@ class ExternalEvent(models.Model):
             models.Index(fields=["source", "event_type", "event_date"]),
         ]
 
+    def __str__(self) -> str:
+        return f"{self.source}:{self.external_event_id}"
+
     def save(self, *args, **kwargs):
         """Держать колонки согласованными с payload.
 

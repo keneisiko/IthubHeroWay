@@ -25,6 +25,9 @@ class Respect(models.Model):
             models.Index(fields=["to_user", "-created_at"]),
         ]
 
+    def __str__(self) -> str:
+        return f"{self.from_user_id} → {self.to_user_id}"
+
 
 class DuelStatus(models.TextChoices):
     PENDING = "pending", "Ожидает"
@@ -57,6 +60,9 @@ class Duel(models.Model):
         indexes = [
             models.Index(fields=["status", "-created_at"]),
         ]
+
+    def __str__(self) -> str:
+        return f"{self.challenger_id} vs {self.opponent_id} ({self.status})"
 
 
 class Mentorship(models.Model):
@@ -91,3 +97,6 @@ class Mentorship(models.Model):
                 name="social_mentorship_mentor_ne_mentee",
             ),
         ]
+
+    def __str__(self) -> str:
+        return f"{self.mentor_id} → {self.mentee_id}"

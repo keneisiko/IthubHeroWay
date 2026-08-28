@@ -31,9 +31,9 @@ HTTP API. Браузер нужен только чтобы получить с�
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Iterator
 
 import requests
 from django.conf import settings

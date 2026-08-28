@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-
 from apps.integrations.models import HikSnapshot
 from apps.integrations.services.hik_snapshot_service import (
     apply_hik_snapshot,

@@ -3,7 +3,6 @@ from django.contrib.auth import get_user_model
 from apps.progress.models import Characteristic, CharacteristicHistory
 from apps.progress.services.lxp_characteristics import update_lxp_pillars_from_snapshot
 
-
 DEFAULT_PILLARS = ("discipline", "leadership", "teamwork", "initiative", "growth")
 
 

@@ -27,9 +27,6 @@ def _complete_quest_idempotent(user, quest, reviewer):
         quest,
         reason=f"Quest approved (self-report): {quest.code}",
     )
-    from django.contrib.admin.models import CHANGE, LogEntry
-    from django.contrib.contenttypes.models import ContentType
-
     LogEntry.objects.log_action(
         user_id=reviewer.pk,
         content_type_id=ContentType.objects.get_for_model(UserQuestProgress).pk,

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.integrations.services.lxp_graphql_client import LXPGraphQLClient
 from apps.integrations.services.lxp_browser_token import BrowserTokenConfig, fetch_lxp_bearer_token
+from apps.integrations.services.lxp_graphql_client import LXPGraphQLClient
 
 
 class Command(BaseCommand):

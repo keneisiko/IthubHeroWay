@@ -1,10 +1,11 @@
-from django.utils import timezone
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 
 from apps.accounts.permissions import IsKnownRole
 from apps.progress.services.rewards import local_day_start
+
 from .models import (
     Quest,
     QuestRewardTransaction,
@@ -15,8 +16,8 @@ from .models import (
 )
 from .serializers import (
     CompleteQuestSerializer,
-    QuestSerializer,
     QuestRewardTransactionSerializer,
+    QuestSerializer,
     SelfReportCreateSerializer,
     UpdateQuestProgressSerializer,
     UserQuestProgressSerializer,

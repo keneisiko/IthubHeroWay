@@ -2,7 +2,6 @@ from django.urls import path
 
 from apps.authapp.views import RefreshView
 
-from .views import DashboardView, MeProfileView, PublicProfileView
 from .characteristics_views import MeCharacteristicsView
 from .squads_views import (
     SquadJoinView,
@@ -12,7 +11,7 @@ from .squads_views import (
     SquadMembersView,
     SquadMeView,
 )
-
+from .views import DashboardView, MeProfileView, PublicProfileView
 
 urlpatterns = [
     # `auth/jwt/create/` удалён намеренно: он проверял локальный пароль Django

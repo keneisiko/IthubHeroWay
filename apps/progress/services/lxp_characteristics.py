@@ -5,8 +5,8 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 
 from apps.integrations.models import LXPSnapshot
-from apps.progress.models import Characteristic, CharacteristicHistory
 from apps.integrations.services.lxp_snapshot_format import unwrap_category
+from apps.progress.models import Characteristic, CharacteristicHistory
 
 PILLAR_POWER = "power"
 PILLAR_RHYTHM = "rhythm"

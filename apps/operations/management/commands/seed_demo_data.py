@@ -11,14 +11,14 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Role, Squad, Track
-from apps.operations.services.environment import ensure_not_production
 from apps.badges.models import Badge, BadgeCategory, BadgeRarity
 from apps.integrations.models import TelegramAccountLink
+from apps.operations.services.environment import ensure_not_production
 from apps.progress.models import Characteristic, CharacteristicHistory, UserStrike
 from apps.progress.services.pillar_labels import UI_PILLARS
 from apps.quests.models import Quest, QuestType, UserQuestProgress
-from apps.shop.models import ShopItem, ShopItemType
 from apps.schedule.models import Schedule
+from apps.shop.models import ShopItem, ShopItemType
 
 User = get_user_model()
 SYNTHETIC_TELEGRAM_BASE = 5_100_000_000

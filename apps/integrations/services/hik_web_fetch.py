@@ -13,7 +13,7 @@ from datetime import date, datetime, time
 
 from django.utils import timezone
 
-from apps.integrations.services.hik_session import get_session_cookies, drop_session
+from apps.integrations.services.hik_session import drop_session, get_session_cookies
 from apps.integrations.services.hik_web_client import HikWebAuthError, HikWebClient
 
 logger = logging.getLogger(__name__)

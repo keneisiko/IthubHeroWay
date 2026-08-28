@@ -1,13 +1,14 @@
 from django.contrib import admin
 from django.urls import include, path
+from django_prometheus import exports
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.operations.admin_views import curator_dashboard, hq_dashboard, tutor_dashboard
+from apps.operations.health_views import HealthView, ReadyView
 from hero_path.admin_site import setup_admin_site
 
+# Подписи админки проставляются до того, как admin.site.urls попадёт в маршруты.
 setup_admin_site()
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from django_prometheus import exports
-from apps.operations.health_views import HealthView, ReadyView
-from apps.operations.admin_views import curator_dashboard, hq_dashboard, tutor_dashboard
 
 urlpatterns = [
     path("admin/curator/", curator_dashboard, name="admin-curator-dashboard"),

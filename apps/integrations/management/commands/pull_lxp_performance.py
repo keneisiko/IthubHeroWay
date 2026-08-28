@@ -14,14 +14,14 @@ from django.utils import timezone
 
 from apps.accounts.models import Role
 from apps.integrations.lxp_task_helpers import refresh_lxp_token_sync
-from apps.operations.services.environment import ensure_not_production
-from apps.integrations.models import LXPSnapshot, TelegramAccountLink
-from apps.integrations.services.lxp_snapshot_store import save_snapshot
+from apps.integrations.models import TelegramAccountLink
 from apps.integrations.services.lxp_graphql_client import (
     LXPAuthError,
     LXPGraphQLClient,
     LXPRequestError,
 )
+from apps.integrations.services.lxp_snapshot_store import save_snapshot
+from apps.operations.services.environment import ensure_not_production
 from apps.progress.services.lxp_rating_from_snapshot import apply_rating_from_lxp_snapshot
 
 SYNTHETIC_TELEGRAM_BASE = 5_100_000_000

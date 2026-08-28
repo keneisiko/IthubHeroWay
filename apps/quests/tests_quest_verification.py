@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import datetime, time
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -10,7 +10,7 @@ from apps.accounts.models import Role
 from apps.integrations.models import ExternalEvent, TelegramAccountLink
 from apps.quests.models import Quest, QuestType, QuestVerifierKind, UserQuestProgress
 from apps.quests.services.quest_verification import verify_quest_for_user
-from apps.quests.services.verifiers import verify_hik_on_time, verify_hik_no_late
+from apps.quests.services.verifiers import verify_hik_no_late, verify_hik_on_time
 
 User = get_user_model()
 

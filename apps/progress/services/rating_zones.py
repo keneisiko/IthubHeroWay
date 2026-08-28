@@ -51,7 +51,7 @@ def rating_zone(rating: int) -> str:
 
 def rating_progress(rating: int) -> dict:
     current_idx = 0
-    for idx, (threshold, code, label) in enumerate(RATING_ZONES):
+    for idx, (threshold, _code, _label) in enumerate(RATING_ZONES):
         if rating >= threshold:
             current_idx = idx
     current_threshold, zone, zone_label = RATING_ZONES[current_idx]

@@ -2,6 +2,7 @@ from rest_framework import generics, status, views
 from rest_framework.response import Response
 
 from apps.accounts.permissions import IsKnownRole
+
 from .models import Badge, UserBadge
 from .serializers import BadgeSerializer, UserBadgeSerializer
 from .services import award_badges_for_user

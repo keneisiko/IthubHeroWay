@@ -1,17 +1,17 @@
+from django.core.cache import cache
 from rest_framework import generics, views
 from rest_framework.response import Response
-from django.core.cache import cache
 
 from apps.operations.services.cache import invalidate_profile
-from .models import User
-from .serializers import MeProfileSerializer, PublicProfileSerializer
-from .permissions import IsKnownRole
-from .characteristics_views import MeCharacteristicsView
-from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
 from apps.progress.models import UserStrike
 from apps.progress.services.late_penalties import late_streak_bonus_for_days
 from apps.progress.services.pillar_labels import skills_percent_by_label
 from apps.progress.services.rating_zones import rating_progress
+from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
+
+from .models import User
+from .permissions import IsKnownRole
+from .serializers import MeProfileSerializer, PublicProfileSerializer
 
 
 class MeProfileView(generics.RetrieveUpdateAPIView):

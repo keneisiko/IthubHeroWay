@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
+
 from .models import RatingLog
 from .serializers import LeaderboardAgentSerializer, RatingLogSerializer, RatingMeSerializer
 

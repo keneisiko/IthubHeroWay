@@ -8,12 +8,12 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.integrations.lxp_task_helpers import refresh_lxp_token_sync
-from apps.integrations.services.hik_import import import_from_portal
-from apps.integrations.services.lxp_snapshot_store import save_snapshot
 from apps.integrations.services.hik_attendance_processor import process_unprocessed_hik_events, save_hik_row_as_event
 from apps.integrations.services.hik_client import HikCentralClient, HikClientError
+from apps.integrations.services.hik_import import import_from_portal
 from apps.integrations.services.hik_snapshot_service import apply_hik_snapshot
 from apps.integrations.services.lxp_graphql_client import LXPGraphQLClient
+from apps.integrations.services.lxp_snapshot_store import save_snapshot
 from apps.integrations.services.telegram_alert import send_alert_to_admin
 
 logger = logging.getLogger(__name__)

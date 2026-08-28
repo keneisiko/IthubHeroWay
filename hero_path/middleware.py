@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import traceback
 
-from django.http import Http404
 from django.core.exceptions import PermissionDenied
+from django.http import Http404
 
 from apps.integrations.services.telegram_alert import send_alert_to_admin
 

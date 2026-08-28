@@ -79,10 +79,13 @@ class User(AbstractUser):
         db_index=True,
         help_text="Код карты / personCode для HikCentral (привязка проходов к пользователю)",
     )
-    hik_person_id = models.CharField(
+    hik_person_id = models.CharField(  # noqa: DJ001
         "ID лица Hik",
         max_length=100,
         blank=True,
+        # NULL, а не пустая строка: «лица нет в Hik» и «лицо есть, идентификатор
+        # пустой» — разные состояния, а соседний hik_card_code обязан быть
+        # nullable из-за unique. Семантику держим одинаковой.
         null=True,
         db_index=True,
         help_text="Идентификатор лица в HikCentral при наличии",

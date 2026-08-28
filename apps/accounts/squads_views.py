@@ -12,8 +12,7 @@ from rest_framework.response import Response
 
 from apps.operations.services.cache import invalidate_squad_leaderboard
 from apps.progress.models import RatingLog
-from apps.quests.models import Quest, UserQuestProgress
-from apps.quests.models import QuestRewardTransaction
+from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
 
 from .models import Role, Squad, User
 from .permissions import IsKnownRole

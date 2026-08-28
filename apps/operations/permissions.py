@@ -1,6 +1,5 @@
 from rest_framework.permissions import BasePermission
 
-
 STAFF_ROLES = {"curator", "tutor", "admin", "hq"}
 
 

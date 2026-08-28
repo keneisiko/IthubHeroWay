@@ -25,7 +25,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"hero_path/settings/*.py" = ["F403", "F405"]  # star-import профилей настроек
+# Модули настроек живут по своим правилам: профили собираются star-импортом,
+# имена вроде RATING_LIMITS «не используются» только с точки зрения линтера —
+# на деле их читает django.conf.settings, а часть импортов намеренно стоит
+# ниже по файлу, после вычисления зависящих от env значений.
+"hero_path/settings/*.py" = ["F403", "F405", "F401", "E402"]
 
 [tool.coverage.run]
 source = ["apps", "hero_path"]

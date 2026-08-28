@@ -1,11 +1,11 @@
-from datetime import date, datetime, time
+from datetime import date, time
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models import Role
-from apps.integrations.models import ExternalEvent, HikSnapshot
+from apps.integrations.models import ExternalEvent
 from apps.integrations.services.hik_snapshot_service import (
     apply_hik_snapshot,
     build_synthetic_snapshot,

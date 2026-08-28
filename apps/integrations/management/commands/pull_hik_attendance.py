@@ -173,8 +173,8 @@ class Command(BaseCommand):
     def _maybe_verify_quests(self, opts, target_date: date) -> None:
         if not opts["verify_quests"] or opts["skip_process"]:
             return
-        from apps.quests.services.quest_verification import verify_all_auto_quests
         from apps.quests.models import QuestType
+        from apps.quests.services.quest_verification import verify_all_auto_quests
 
         stats = verify_all_auto_quests(target_date, quest_types=[QuestType.DAILY])
         self.stdout.write(self.style.SUCCESS(f"Квесты (daily): {stats}"))

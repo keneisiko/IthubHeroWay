@@ -1,5 +1,4 @@
 import logging
-from typing import Tuple
 
 import requests
 from django.conf import settings
@@ -8,7 +7,7 @@ from django.contrib.auth import get_user_model
 logger = logging.getLogger(__name__)
 
 
-def verify_lxp_credentials(email: str, password: str) -> Tuple[bool, str]:
+def verify_lxp_credentials(email: str, password: str) -> tuple[bool, str]:
     """Проверить учебную почту и пароль в LXP.
 
     Если LXP не настроен, в разработке допускается запасной путь — проверка
