@@ -23,7 +23,8 @@ from apps.integrations.services.telegram_activation import (
     attempts_exceeded,
 )
 from apps.integrations.services.telegram_alert import send_alert_to_admin
-from apps.quests.models import Quest, UserQuestProgress
+from apps.quests.models import UserQuestProgress
+from apps.quests.services.quest_periods import quests_for_date
 
 logger = logging.getLogger(__name__)
 
@@ -138,16 +139,9 @@ class Command(BaseCommand):
                 bot.reply_to(message, "Сначала активируй аккаунт через /activate.")
                 return
 
-            now = timezone.now()
-            # distinct() обязателен: объединение queryset'ов иначе даёт дубли.
-            quests = list(
-                (
-                    Quest.objects.filter(is_active=True, quest_type="daily", start_at__isnull=True)
-                    | Quest.objects.filter(is_active=True, quest_type="daily", start_at__lte=now)
-                )
-                .distinct()
-                .order_by("id")[:10]
-            )
+            # Ежедневные квесты живут экземплярами на дату: без выборки по
+            # сегодняшнему периоду бот показывал бы и все вчерашние.
+            quests = list(quests_for_date(timezone.localdate(), ["daily"])[:10])
             if not quests:
                 bot.reply_to(message, "Сегодня нет активных ежедневных квестов.")
                 return

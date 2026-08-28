@@ -7,18 +7,27 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from apps.quests.models import Quest, QuestTemplate
+from apps.quests.services.quest_periods import period_key_for
 
 
 class SyncQuestTemplatesTests(TestCase):
+    def _daily_quest(self) -> Quest:
+        """Экземпляр ежедневного квеста на сегодня: у периодических квестов
+        код содержит дату (см. quest_periods)."""
+        from django.utils import timezone
+
+        key = period_key_for("daily", timezone.localdate())
+        return Quest.objects.get(code=f"daily-hik-on-time:{key}")
+
     def test_rerun_keeps_manual_edits(self):
         """Повторный прогон не должен откатывать правки, сделанные в админке."""
         call_command("sync_quest_templates", stdout=StringIO())
 
-        quest = Quest.objects.get(code="daily-hik-on-time")
+        quest = self._daily_quest()
         Quest.objects.filter(pk=quest.pk).update(
             title="Свой заголовок", reward_coins=99, is_active=False
         )
-        QuestTemplate.objects.filter(code=quest.code).update(title="Свой шаблон")
+        QuestTemplate.objects.filter(code="daily-hik-on-time").update(title="Свой шаблон")
 
         call_command("sync_quest_templates", stdout=StringIO())
 
@@ -26,17 +35,19 @@ class SyncQuestTemplatesTests(TestCase):
         self.assertEqual(quest.title, "Свой заголовок")
         self.assertEqual(quest.reward_coins, 99)
         self.assertFalse(quest.is_active)
-        self.assertEqual(QuestTemplate.objects.get(code=quest.code).title, "Свой шаблон")
+        self.assertEqual(QuestTemplate.objects.get(code="daily-hik-on-time").title, "Свой шаблон")
 
     def test_update_existing_flag_restores_defaults(self):
         call_command("sync_quest_templates", stdout=StringIO())
-        Quest.objects.filter(code="daily-hik-on-time").update(title="Свой заголовок", reward_coins=99)
+        QuestTemplate.objects.filter(code="daily-hik-on-time").update(
+            title="Свой шаблон", reward_coins=99
+        )
 
         call_command("sync_quest_templates", "--update-existing", stdout=StringIO())
 
-        quest = Quest.objects.get(code="daily-hik-on-time")
-        self.assertEqual(quest.title, "Утренний чек-ин")
-        self.assertEqual(quest.reward_coins, 5)
+        template = QuestTemplate.objects.get(code="daily-hik-on-time")
+        self.assertEqual(template.title, "Утренний чек-ин")
+        self.assertEqual(template.reward_coins, 5)
 
     def test_rerun_does_not_duplicate_quests(self):
         call_command("sync_quest_templates", stdout=StringIO())

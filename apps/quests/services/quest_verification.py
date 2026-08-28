@@ -6,27 +6,27 @@ import logging
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Role
 from apps.quests.models import Quest, QuestType, QuestVerifierKind
 from apps.quests.services.quest_completion import complete_quest_idempotent, update_quest_progress
 from apps.quests.services.quest_conditions import is_auto_verified, resolve_verifier_config
+from apps.quests.services.quest_periods import ensure_period_quests, quests_for_date
 from apps.quests.services.verifiers import run_verifier
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-def _active_quests_queryset(quest_types: list[str] | None = None):
-    now = timezone.now()
-    qs = Quest.objects.filter(is_active=True).filter(
-        Q(start_at__isnull=True) | Q(start_at__lte=now)
-    ).filter(Q(end_at__isnull=True) | Q(end_at__gte=now))
-    if quest_types:
-        qs = qs.filter(quest_type__in=quest_types)
-    return qs.order_by("id")
+def _active_quests_queryset(quest_types: list[str] | None = None, target_date: date | None = None):
+    """Квесты, действующие на дату проверки.
+
+    Периодические квесты живут экземплярами на день/неделю, поэтому выбирать
+    их «по текущему моменту» нельзя: проверка за вчера должна брать вчерашний
+    экземпляр, а не сегодняшний.
+    """
+    return quests_for_date(target_date or timezone.localdate(), quest_types)
 
 
 def _eligible_users():
@@ -98,7 +98,10 @@ def verify_all_auto_quests(
     if quest_types is None:
         quest_types = [QuestType.DAILY, QuestType.WEEKLY]
 
-    quests = [q for q in _active_quests_queryset(quest_types) if is_auto_verified(q)]
+    # Экземпляры на период создаются здесь же: иначе автопроверка в 06:15
+    # работала бы по вчерашним квестам, а сегодняшних ещё не существовало бы.
+    ensure_period_quests(target_date)
+    quests = [q for q in _active_quests_queryset(quest_types, target_date) if is_auto_verified(q)]
     users = list(_eligible_users())
 
     stats = {

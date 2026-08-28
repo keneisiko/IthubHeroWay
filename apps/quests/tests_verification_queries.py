@@ -124,8 +124,10 @@ class VerifyAllTemplateLookupTests(TestCase):
 
         self.assertEqual(stats["users"], 4)
         template_queries = [q for q in ctx.captured_queries if "quests_questtemplate" in q["sql"]]
-        self.assertEqual(
+        # Один запрос — создание экземпляров квестов на период, второй —
+        # разбор конфигурации верификатора. Оба не зависят от числа студентов.
+        self.assertLessEqual(
             len(template_queries),
-            1,
+            2,
             f"шаблон квеста запрошен {len(template_queries)} раз при 4 пользователях",
         )

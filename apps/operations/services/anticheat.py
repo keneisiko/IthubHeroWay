@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-
 YELLOW_ZONE_MIN = 200
 YELLOW_ZONE_MAX = 399
 

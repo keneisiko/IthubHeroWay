@@ -20,17 +20,25 @@ from apps.operations.admin_rbac import (
     is_superadmin,
     is_tutor,
 )
+from apps.progress.services.drive_awards import UnknownDriveCode, grant_drive_award_bulk
+from apps.progress.services.drive_awards import available_codes as available_drive_codes
 from apps.progress.services.rating_zones import ZONE_COLORS, ZONE_NAMES_RU
 from apps.progress.services.rating_zones import rating_zone as zone_of
 from apps.progress.services.rewards import grant_coins_with_daily_cap
-from apps.quests.models import Quest, QuestType, SeasonalEvent, UserQuestProgress
+from apps.quests.models import Quest, QuestType, UserQuestProgress
 
 from .models import Role, Squad, Track, User
+
+
+def _drive_choices():
+    """Коды «Движа» с их стоимостью — прямо из настроек, без дублирования."""
+    return [(code, f"{code} (+{points})") for code, points in sorted(available_drive_codes().items())]
 
 
 class UserAdminActionForm(ActionForm):
     reason = forms.CharField(required=False, label="Причина")
     recovery_days = forms.IntegerField(required=False, min_value=3, max_value=7, initial=5, label="Дней квеста")
+    drive_code = forms.ChoiceField(required=False, choices=_drive_choices, label="Тип активности")
 
 
 @admin.register(Track)
@@ -68,7 +76,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
     list_filter = ("role", "squad", "is_active", "date_joined")
     search_fields = ("username", "callsign", "first_name", "last_name", "email", "hik_card_code")
     ordering = ("-rating_current", "username")
-    actions = ("grant_event_bonus", "create_recovery_quest")
+    actions = ("grant_event_bonus", "create_recovery_quest", "grant_drive_award")
     fieldsets = BaseUserAdmin.fieldsets + (
         (
             "Путь героя",
@@ -159,6 +167,51 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
                 )
                 updated += 1
         self.message_user(request, f"Начислено +10 монет для {updated} студентов.", level=messages.SUCCESS)
+
+    @admin.action(description="Начислить рейтинг за активность («Движ»)")
+    def grant_drive_award(self, request, queryset):
+        """Единственная точка, где начисляются коэффициенты RATING_DRIVE.
+
+        Раньше блок «Движ» не был подключён нигде: мероприятия, олимпиады и
+        проекты на рейтинг не влияли вообще.
+        """
+        if not (is_tutor(request.user) or is_hq(request.user) or is_admin(request.user)):
+            self.message_user(
+                request,
+                "Действие доступно тьютору, штабу и администратору.",
+                level=messages.ERROR,
+            )
+            return
+
+        code = (request.POST.get("drive_code") or "").strip()
+        if not code:
+            self.message_user(request, "Выберите тип активности.", level=messages.ERROR)
+            return
+
+        note = (request.POST.get("reason") or "").strip()
+        agents = queryset.filter(role=Role.AGENT)
+        try:
+            result = grant_drive_award_bulk(agents, code, note=note)
+        except UnknownDriveCode as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return
+
+        for user in agents:
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ContentType.objects.get_for_model(User).pk,
+                object_id=user.pk,
+                object_repr=str(user),
+                action_flag=CHANGE,
+                change_message=f"Движ {code}: +{result.points_each} рейтинга. {note}".strip(),
+            )
+
+        self.message_user(
+            request,
+            f"«{code}»: начислено {result.granted} студентам по +{result.points_each}; "
+            f"повторно за сегодня пропущено {result.skipped_duplicate}.",
+            level=messages.SUCCESS,
+        )
 
     @admin.action(description="Тьютор: создать восстановительный квест (3-7 дней)")
     def create_recovery_quest(self, request, queryset):

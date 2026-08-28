@@ -140,6 +140,46 @@ docker compose exec web python manage.py sync_hik_events
 
 Документация API: [docs/HIKCENTRAL.md](docs/HIKCENTRAL.md).
 
+## Рейтинг
+
+Модель годовая и событийная: рейтинг копится за учебный год и меняется только
+на событиях — закрытая контрольная точка, просроченная тема, выполненный квест,
+активность из блока «Движ». Стоимость темы нормирована по курсу, поэтому курсы
+с разным объёмом программы имеют сопоставимый годовой максимум.
+
+Полное описание, коэффициенты и ограничения: [docs/RATING_FROM_LXP.md](docs/RATING_FROM_LXP.md).
+
+```bash
+# Начало нового учебного года: все возвращаются к стартовым 300
+docker compose exec web python manage.py start_rating_year --dry-run
+docker compose exec web python manage.py start_rating_year
+```
+
+## Продакшен
+
+Прод-стек — [docker-compose.prod.yml](docker-compose.prod.yml) (nginx, gunicorn, Celery, beat,
+Telegram-бот, PostgreSQL, Redis). Пошаговая инструкция: [docs/DEPLOY.md](docs/DEPLOY.md).
+
+```bash
+cp .env.prod.example .env.prod   # заполнить секреты
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+Фронтенд в прод-стек не входит: у `hero-path-front` пока только dev-сервер Vite.
+
+### Активация аккаунтов
+
+`import_lxp_students` заводит карточки студентов **неактивными**. Вход открывается
+в момент привязки Telegram (`/activate` у бота), где студент подтверждает учебную
+почту и пароль от LXP. Без этого войти по одному лишь паролю от LXP нельзя.
+
+Для баз, импортированных до этого поведения:
+
+```bash
+docker compose exec web python manage.py deactivate_unlinked_agents --dry-run
+docker compose exec web python manage.py deactivate_unlinked_agents
+```
+
 ## Frontend (`hero-path-front`)
 
 React + TypeScript + Vite: дашборд, профиль, квесты, магазин, отряды, рейтинг.

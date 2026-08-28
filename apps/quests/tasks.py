@@ -7,6 +7,7 @@ from django.core.management import call_command
 from django.utils import timezone
 
 from apps.quests.models import QuestType
+from apps.quests.services.quest_periods import ensure_period_quests
 from apps.quests.services.quest_verification import verify_all_auto_quests
 
 
@@ -15,6 +16,18 @@ def send_daily_quest() -> str:
     """Ensure quest templates are synced (07:30). Notifications — отдельно."""
     call_command("sync_quest_templates")
     return "sync_quest_templates:ok"
+
+
+@shared_task
+def create_period_quests(target_date_iso: str | None = None) -> dict:
+    """Завести экземпляры ежедневных и еженедельных квестов на день.
+
+    Автопроверка делает это сама, но отдельная утренняя задача нужна, чтобы
+    активные квесты были видны студенту в боте с начала дня, а не только
+    после первой проверки.
+    """
+    target = date.fromisoformat(target_date_iso) if target_date_iso else timezone.localdate()
+    return ensure_period_quests(target)
 
 
 @shared_task

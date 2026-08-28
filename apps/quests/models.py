@@ -74,6 +74,18 @@ class Quest(models.Model):
     is_active = models.BooleanField("Активен", default=True)
     start_at = models.DateTimeField("Начало", null=True, blank=True)
     end_at = models.DateTimeField("Окончание", null=True, blank=True)
+    period_key = models.CharField(
+        "Период",
+        max_length=32,
+        blank=True,
+        db_index=True,
+        help_text=(
+            "Дата для ежедневных квестов или неделя для еженедельных. "
+            "Награда уникальна на пару «пользователь + квест», поэтому без "
+            "отдельного экземпляра на период ежедневный квест оплачивался "
+            "ровно один раз за всё время."
+        ),
+    )
     created_at = models.DateTimeField("Создан", auto_now_add=True)
 
     class Meta:
@@ -82,6 +94,7 @@ class Quest(models.Model):
         indexes = [
             models.Index(fields=["is_active", "quest_type"]),
             models.Index(fields=["start_at", "end_at"]),
+            models.Index(fields=["quest_type", "period_key"]),
         ]
 
     def __str__(self) -> str:

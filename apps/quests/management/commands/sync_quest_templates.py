@@ -7,15 +7,18 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.quests.models import Quest, QuestTemplate, QuestType, QuestVerifierKind
+from apps.quests.services.quest_periods import PERIODIC_TYPES, ensure_period_quests
 
 DEFAULT_TEMPLATES = [
     {
         "code": "daily-hik-on-time",
         "title": "Утренний чек-ин",
-        "description": "Пройди через турникет до 10:00 без опоздания (HikCentral + расписание отряда).",
+        "description": "Пройди через турникет к началу первой пары своего отряда (HikCentral + расписание).",
         "quest_type": QuestType.DAILY,
         "verifier": QuestVerifierKind.HIK_ON_TIME,
-        "verifier_params": {"deadline_hour": 10, "deadline_minute": 0},
+        # Дедлайн берётся из расписания отряда; значения ниже — запасной
+        # вариант для отрядов без расписания.
+        "verifier_params": {"deadline_hour": 10, "deadline_minute": 0, "grace_minutes": 0},
         "reward_coins": 5,
         "reward_rating_delta": 2,
     },
@@ -30,14 +33,16 @@ DEFAULT_TEMPLATES = [
         "reward_rating_delta": 3,
     },
     {
-        "code": "daily-lxp-attendance",
-        "title": "Посещение занятий",
-        "description": "Подтверждённая посещаемость в LXP за учебный день.",
-        "quest_type": QuestType.DAILY,
+        # Был ежедневным на флаге hasAttendance, который не привязан ко дню:
+        # квест выполнялся сам собой у всех, кто вообще ходит на пары.
+        "code": "weekly-lxp-attendance",
+        "title": "Посещаемость 80%",
+        "description": "Держи посещаемость по дисциплинам не ниже 80% (данные LXP).",
+        "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.LXP_ATTENDANCE,
-        "verifier_params": {"use_previous_day": True},
-        "reward_coins": 8,
-        "reward_rating_delta": 3,
+        "verifier_params": {"min_percent": 80},
+        "reward_coins": 15,
+        "reward_rating_delta": 6,
     },
     {
         "code": "weekly-yougile-tasks",
@@ -165,6 +170,14 @@ class Command(BaseCommand):
                     tpl.save(update_fields=list(defaults))
 
                 conditions = tpl.build_conditions()
+
+                if tpl.quest_type in PERIODIC_TYPES:
+                    # Ежедневные и еженедельные квесты живут экземплярами на
+                    # период (`quest_periods.ensure_period_quests`). Одна строка
+                    # на код означала бы одну награду за всё время.
+                    self.stdout.write(f"  {tpl.code} [{tpl.quest_type}] шаблон, экземпляры создаются на период")
+                    continue
+
                 quest_defaults = {
                     "title": tpl.title,
                     "description": tpl.description,
@@ -187,9 +200,14 @@ class Command(BaseCommand):
 
                 self.stdout.write(f"  {quest.code} [{quest.quest_type}] verifier={conditions.get('verifier')}")
 
+        # Сразу заводим экземпляры на сегодня, чтобы после синхронизации
+        # у студентов были активные квесты, не дожидаясь ночной задачи.
+        periodic = ensure_period_quests()
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"Шаблонов: {len(DEFAULT_TEMPLATES)} (новых {created_tpl}), "
-                f"квестов создано: {created_quests}, обновлено: {updated}, без изменений: {skipped}"
+                f"квестов создано: {created_quests}, обновлено: {updated}, без изменений: {skipped}; "
+                f"экземпляров на сегодня: +{periodic['created']} (уже было {periodic['existing']})"
             )
         )

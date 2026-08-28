@@ -7,6 +7,8 @@ class RatingChangeSource(models.TextChoices):
     BADGE = "badge", "Значок"
     SHOP = "shop", "Магазин"
     SOCIAL = "social", "Социальное"
+    # Мероприятия, олимпиады, волонтёрство, проекты — блок RATING_DRIVE.
+    DRIVE = "drive", "Движ"
     MANUAL = "manual", "Вручную"
     SYSTEM = "system", "Система"
 
@@ -59,6 +61,9 @@ class Characteristic(models.Model):
             models.UniqueConstraint(fields=["user", "pillar"], name="uniq_characteristic_per_user_pillar"),
         ]
 
+    def __str__(self) -> str:
+        return f"{self.user_id}:{self.pillar}={self.current}"
+
 
 class CharacteristicHistory(models.Model):
     characteristic = models.ForeignKey(
@@ -74,6 +79,9 @@ class CharacteristicHistory(models.Model):
     class Meta:
         verbose_name = "История характеристики"
         verbose_name_plural = "История характеристик"
+
+    def __str__(self) -> str:
+        return f"{self.characteristic_id}:{self.value} ({self.formula_version})"
 
 
 class UserStrike(models.Model):
@@ -97,3 +105,54 @@ class UserStrike(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id}: att={self.attendance_strike} late={self.late_strike}"
+
+
+class LXPTopicState(models.Model):
+    """Состояние тем студента на момент последнего снимка LXP.
+
+    Без него рейтинг приходилось считать от текущего состояния, и одна и та же
+    незакрытая тема штрафовалась каждый день заново. Здесь хранится, что уже
+    было учтено, поэтому начисление идёт за событие: тема закрылась — плюс,
+    тема висит открытой дольше срока — минус один раз.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Пользователь",
+        on_delete=models.CASCADE,
+        related_name="lxp_topic_state",
+    )
+    # {"<дисциплина>:<тема>": {"closed": bool, "since": "YYYY-MM-DD", "penalized": bool}}
+    topics = models.JSONField("Темы", default=dict, blank=True)
+    last_snapshot_date = models.DateField("Последний учтённый снимок", null=True, blank=True)
+    # Первый снимок только фиксирует состояние: начислять за темы, закрытые
+    # до подключения системы, было бы выдачей рейтинга задним числом.
+    baseline_done = models.BooleanField("База зафиксирована", default=False)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+
+    class Meta:
+        verbose_name = "Состояние тем LXP"
+        verbose_name_plural = "Состояния тем LXP"
+
+    def __str__(self) -> str:
+        return f"{self.user_id}: тем={len(self.topics or {})} на {self.last_snapshot_date}"
+
+
+class CourseTopicNorm(models.Model):
+    """Ожидаемое число тем за год по курсу — делитель годового бюджета.
+
+    Курс с 60 темами и курс с 30 темами при одинаковой цене темы получали бы
+    за год вдвое разный максимум. Здесь копится наблюдаемый максимум объёма
+    по курсу, и цена одной темы считается от него.
+    """
+
+    course = models.PositiveSmallIntegerField("Курс", unique=True)
+    expected_topics = models.PositiveIntegerField("Ожидаемое число тем", default=0)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+
+    class Meta:
+        verbose_name = "Нормировка курса"
+        verbose_name_plural = "Нормировки курсов"
+
+    def __str__(self) -> str:
+        return f"курс {self.course}: {self.expected_topics} тем"

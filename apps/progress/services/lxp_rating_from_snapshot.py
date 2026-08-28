@@ -1,7 +1,21 @@
-"""
-Пересчёт рейтинга по данным LXPSnapshot (v1): темы/КТ и флаг посещаемости searchStudents.
+"""Рейтинг из снимка LXP: событийная годовая модель.
 
-Эвристики статусов тем задокументированы в docs/RATING_FROM_LXP.md.
+Раньше сервис каждый день заново оценивал текущее состояние: +20 за каждую
+закрытую тему и −20 за каждую открытую. Одно и то же положение дел
+пересчитывалось ежедневно, поэтому студент с двенадцатью открытыми темами
+терял по 20 в день просто за то, что семестр только начался, а отличник
+упирался в потолок 1000 за полторы недели.
+
+Теперь начисляется только изменение между снимками:
+
+* тема перешла из открытой в закрытую → плюс, один раз за тему;
+* тема висит открытой дольше `TOPIC_STALE_DAYS` → минус, один раз за тему;
+* просто открытая тема, срок которой не вышел, не стоит ничего.
+
+Стоимость темы нормирована по курсу (см. `course_norm`), поэтому курсы
+с разным объёмом программы имеют сопоставимый годовой максимум.
+
+Эвристики статусов — в `apps.progress.services.ct_status`.
 """
 
 from __future__ import annotations
@@ -17,72 +31,15 @@ from django.db.models import Q
 from apps.accounts.models import User
 from apps.integrations.models import LXPSnapshot
 from apps.integrations.services.lxp_snapshot_format import unwrap_category
-from apps.progress.models import RatingChangeSource, RatingLog
+from apps.progress.models import LXPTopicState, RatingChangeSource, RatingLog
+from apps.progress.services.academic_year import academic_year_label
+from apps.progress.services.course_norm import observe_course_volume, points_per_topic
+from apps.progress.services.ct_status import iter_user_topics
 
 logger = logging.getLogger(__name__)
 
-
-def _topic_closed(status) -> bool:
-    s = ("" if status is None else str(status)).strip().upper()
-    if not s:
-        return False
-    markers = (
-        "PASSED",
-        "DONE",
-        "SUCCESS",
-        "ACCEPTED",
-        "CLOSED",
-        "COMPLETE",
-        "ЗАЧТ",
-        "СДАН",
-        "APPROVED",
-    )
-    return any(m in s for m in markers)
-
-
-def _collect_topic_counts(control_points_flat: dict) -> tuple[int, int]:
-    closed_n = 0
-    open_n = 0
-    for _, disc_payload in control_points_flat.items():
-        if not isinstance(disc_payload, dict):
-            continue
-        topics = disc_payload.get("topics") or []
-        if not isinstance(topics, list):
-            continue
-        for topic in topics:
-            if not isinstance(topic, dict):
-                continue
-            st = topic.get("status")
-            if _topic_closed(st):
-                closed_n += 1
-            else:
-                open_n += 1
-    return closed_n, open_n
-
-
-def _attendance_row(snapshot_data: dict, lxp_uid: str) -> dict | None:
-    att = unwrap_category(snapshot_data.get("attendance"))
-    row = att.get(lxp_uid)
-    return row if isinstance(row, dict) else None
-
-
-def _full_week_attendance_bonus(lxp_uid: str, end_date: date) -> int:
-    """+15 если за 7 календарных дней подряд has_attendance === true в снимках."""
-    kp = getattr(settings, "RATING_KP", {})
-    bonus = int(kp.get("ATTENDANCE_FULL_WEEK", 15))
-    start = end_date - timedelta(days=6)
-    snaps = LXPSnapshot.objects.filter(date__gte=start, date__lte=end_date).order_by("date")
-    if snaps.count() < 7:
-        return 0
-    for snap in snaps:
-        row = _attendance_row(snap.data or {}, lxp_uid)
-        if not row or row.get("has_attendance") is not True:
-            return 0
-    return bonus
-
-
-def _bonus_already_applied(user_id: int, source_id: str) -> bool:
-    return RatingLog.objects.filter(user_id=user_id, source_id=source_id).exists()
+RATING_FLOOR = 0
+RATING_CEILING = 1000
 
 
 @dataclass(frozen=True)
@@ -94,17 +51,115 @@ class LxpRatingApplyResult:
     notes: str
 
 
+@dataclass
+class _UserOutcome:
+    closed_now: int = 0
+    stale_now: int = 0
+    open_total: int = 0
+    stale_total: int = 0
+    delta_positive: int = 0
+    delta_negative: int = 0
+    all_closed_bonus: int = 0
+
+
+def _cfg() -> dict:
+    return getattr(settings, "RATING_YEAR", {})
+
+
+def _bonus_already_applied(user_id: int, source_id: str) -> bool:
+    return RatingLog.objects.filter(user_id=user_id, source_id=source_id).exists()
+
+
 def _already_applied_user_ids(snapshot_date: date) -> set[int]:
     """Кому дельта за эту дату уже начислена.
 
-    Основная дельта записывается с `source_id` = дата снимка. Без этой проверки
-    повторный запуск за ту же дату (ретрай Celery, ручной прогон, повторная
-    выгрузка снимка) начислял всё заново — рейтинг просто удваивался.
+    Состояние тем само по себе идемпотентно — второй проход не увидит
+    переходов. Но проверка по журналу дешевле и оставляет понятный след.
     """
     return set(
-        RatingLog.objects.filter(source_id=snapshot_date.isoformat()).values_list(
-            "user_id", flat=True
-        )
+        RatingLog.objects.filter(source_id=snapshot_date.isoformat()).values_list("user_id", flat=True)
+    )
+
+
+def _apply_topic_transitions(
+    state: LXPTopicState,
+    current: dict[str, bool],
+    snapshot_date: date,
+    per_topic_points: int,
+    stale_days: int,
+    stale_penalty: int,
+) -> _UserOutcome:
+    """Сравнить снимок с сохранённым состоянием и посчитать дельту."""
+    outcome = _UserOutcome()
+    stored: dict = state.topics if isinstance(state.topics, dict) else {}
+    updated: dict = {}
+
+    for key, closed in current.items():
+        previous = stored.get(key) if isinstance(stored.get(key), dict) else None
+
+        if closed:
+            was_open = previous is not None and not previous.get("closed")
+            if was_open:
+                outcome.closed_now += 1
+                outcome.delta_positive += per_topic_points
+            updated[key] = {"closed": True, "since": snapshot_date.isoformat(), "penalized": False}
+            continue
+
+        outcome.open_total += 1
+
+        # Тема, открывшаяся заново после закрытия, начинает отсчёт срока с нуля.
+        since_raw = None
+        penalized = False
+        if previous is not None and not previous.get("closed"):
+            since_raw = previous.get("since")
+            penalized = bool(previous.get("penalized"))
+
+        since = snapshot_date.isoformat() if not since_raw else str(since_raw)
+        try:
+            since_date = date.fromisoformat(since)
+        except ValueError:
+            since_date = snapshot_date
+            since = snapshot_date.isoformat()
+
+        if (snapshot_date - since_date).days > stale_days:
+            outcome.stale_total += 1
+            if not penalized:
+                outcome.stale_now += 1
+                outcome.delta_negative += stale_penalty
+                penalized = True
+
+        updated[key] = {"closed": False, "since": since, "penalized": penalized}
+
+    state.topics = updated
+    state.last_snapshot_date = snapshot_date
+    return outcome
+
+
+def _seed_baseline(user, state: LXPTopicState, current: dict[str, bool], snapshot_date: date) -> None:
+    """Зафиксировать первый снимок без начислений.
+
+    Начислять за темы, закрытые до подключения системы, значило бы выдать
+    рейтинг задним числом — причём тем больше, чем старше курс.
+    """
+    state.topics = {
+        key: {"closed": bool(closed), "since": snapshot_date.isoformat(), "penalized": False}
+        for key, closed in current.items()
+    }
+    state.last_snapshot_date = snapshot_date
+    state.baseline_done = True
+    state.save(update_fields=["topics", "last_snapshot_date", "baseline_done", "updated_at"])
+    # Нулевая запись журнала за эту дату: без неё повторный прогон того же дня
+    # считался бы первым «настоящим» и мог что-то начислить.
+    RatingLog.objects.get_or_create(
+        user=user,
+        source_id=snapshot_date.isoformat(),
+        defaults={
+            "value_before": user.rating_current,
+            "value_after": user.rating_current,
+            "delta": 0,
+            "source": RatingChangeSource.SYSTEM,
+            "reason": f"LXP {snapshot_date.isoformat()}: зафиксировано исходное состояние тем",
+        },
     )
 
 
@@ -114,6 +169,7 @@ def apply_rating_from_lxp_snapshot(
     snapshot_row: LXPSnapshot | None = None,
     force: bool = False,
 ) -> LxpRatingApplyResult:
+    cfg = _cfg()
     kp = getattr(settings, "RATING_KP", {})
     limits = getattr(settings, "RATING_LIMITS", {})
 
@@ -131,145 +187,154 @@ def apply_rating_from_lxp_snapshot(
     meta = raw.get("meta") or {}
     partial = bool(meta.get("partial"))
 
-    ct_ok = bool((raw.get("control_points") or {}).get("ok")) if isinstance(raw.get("control_points"), dict) else False
-    ct_data = unwrap_category(raw.get("control_points"))
+    ct_block = raw.get("control_points")
+    ct_ok = bool(ct_block.get("ok")) if isinstance(ct_block, dict) else False
+    ct_data = unwrap_category(ct_block)
 
-    att_block = raw.get("attendance")
-    att_data = unwrap_category(att_block if isinstance(att_block, dict) else {})
+    if not ct_ok:
+        # Без данных по темам сравнивать не с чем. Раньше в этом случае всё
+        # равно применялся штраф за посещаемость — теперь снимок без КТ
+        # просто ничего не меняет.
+        return LxpRatingApplyResult(
+            snapshot_date=snapshot_date,
+            users_considered=0,
+            users_updated=0,
+            partial_snapshot=partial,
+            notes="control_points_not_ok",
+        )
 
-    ct_pos_cap = int(limits.get("LXP_SNAPSHOT_CT_POSITIVE_CAP", 40))
-    ct_neg_cap = int(limits.get("LXP_SNAPSHOT_CT_NEGATIVE_CAP", 60))
-    abs_cap = int(limits.get("LXP_SNAPSHOT_ABSENCE_CAP", 10))
-
-    block_thr = int(limits.get("CT_UNCLOSED_BLOCK_THRESHOLD", 2))
+    stale_days = int(cfg.get("TOPIC_STALE_DAYS", 30))
+    stale_penalty = int(cfg.get("STALE_PENALTY_PER_TOPIC", -20))
+    block_threshold = int(cfg.get("STALE_BLOCK_THRESHOLD", 2))
+    bonus_cooldown = int(cfg.get("ALL_CLOSED_BONUS_COOLDOWN_DAYS", 30))
     max_when_blocked = int(limits.get("MAX_RATING_WHEN_BLOCKED", 399))
+    all_closed_bonus_value = int(kp.get("CT_ALL_CLOSED_BONUS", 30))
 
-    ct_on = int(kp.get("CT_ON_TIME", 20))
-    ct_miss = int(kp.get("CT_NOT_SUBMITTED", -20))
-    abs_unexcused = int(kp.get("ABSENCE_UNEXCUSED", -10))
-    ct_all_bonus = int(kp.get("CT_ALL_CLOSED_BONUS", 30))
+    qs = (
+        User.objects.filter(telegram_link__is_active=True)
+        .exclude(Q(lxp_user_id__isnull=True) | Q(lxp_user_id=""))
+        .select_related("squad")
+    )
 
-    qs = User.objects.filter(
-        telegram_link__is_active=True,
-    ).exclude(Q(lxp_user_id__isnull=True) | Q(lxp_user_id=""))
+    # Сначала объёмы по курсам: цена темы должна учитывать сегодняшний снимок
+    # целиком, иначе первый обработанный студент курса задавал бы норму всем.
+    for user in qs.iterator(chunk_size=200):
+        per_user = ct_data.get((user.lxp_user_id or "").strip())
+        if isinstance(per_user, dict) and per_user:
+            observe_course_volume(
+                user.squad.course if user.squad else None,
+                sum(1 for _ in iter_user_topics(per_user)),
+            )
 
     considered = 0
     updated = 0
+    baselines = 0
     skipped_already_applied = 0
-
     already_applied = set() if force else _already_applied_user_ids(snapshot_date)
+    year_label = academic_year_label(snapshot_date)
 
     for user in qs.iterator(chunk_size=200):
         lxp_uid = (user.lxp_user_id or "").strip()
         if not lxp_uid:
             continue
+        per_user = ct_data.get(lxp_uid)
+        if not isinstance(per_user, dict) or not per_user:
+            continue
 
         considered += 1
-
         if user.pk in already_applied:
             skipped_already_applied += 1
             continue
 
-        closed_topics = 0
-        open_topics = 0
-        unclosed_total = int(user.unclosed_ct_count)
-        delta_ct = 0
-
-        if ct_ok:
-            per_user = ct_data.get(lxp_uid)
-            if isinstance(per_user, dict) and per_user:
-                closed_topics, open_topics = _collect_topic_counts(per_user)
-                unclosed_total = open_topics
-                raw_pos = closed_topics * ct_on
-                raw_neg = open_topics * ct_miss
-                pos_applied = min(raw_pos, ct_pos_cap)
-                neg_applied = max(raw_neg, -ct_neg_cap)
-                delta_ct = pos_applied + neg_applied
-
-        delta_att = 0
-        row_att = att_data.get(lxp_uid)
-        if isinstance(row_att, dict) and row_att.get("has_attendance") is False:
-            delta_att = max(-abs_cap, abs_unexcused)
-
-        delta_bonus = 0
-        ct_bonus = 0
-        week_bonus = 0
-        ct_source = f"ct_all_closed:{snapshot_date.isoformat()}"
-        week_start = snapshot_date - timedelta(days=6)
-        week_source = f"attendance_full_week:{week_start.isoformat()}"
-
-        if ct_ok and open_topics == 0 and closed_topics > 0 and not _bonus_already_applied(user.pk, ct_source):
-            ct_bonus = ct_all_bonus
-        if not _bonus_already_applied(user.pk, week_source):
-            week_bonus = _full_week_attendance_bonus(lxp_uid, snapshot_date)
-        delta_bonus = ct_bonus + week_bonus
-
-        delta = delta_ct + delta_att + delta_bonus
-
-        before = int(user.rating_current)
-        rating_after = max(0, min(1000, before + delta))
-
-        if unclosed_total >= block_thr:
-            rating_after = min(rating_after, max_when_blocked)
-
-        if (
-            rating_after == before
-            and unclosed_total == user.unclosed_ct_count
-            and delta_bonus == 0
-        ):
+        current = dict(iter_user_topics(per_user))
+        if not current:
             continue
 
-        reason_parts = [
-            f"LXP {snapshot_date.isoformat()}",
-            f"Δ={delta}",
-            f"topics_closed={closed_topics}/open={open_topics}",
-            f"bonus={delta_bonus}",
-            f"partial={partial}",
-        ]
-        reason = "; ".join(reason_parts)[:250]
-
         with transaction.atomic():
+            state, _ = LXPTopicState.objects.select_for_update().get_or_create(user=user)
+
+            if not state.baseline_done:
+                _seed_baseline(user, state, current, snapshot_date)
+                baselines += 1
+                continue
+
+            per_topic_points = points_per_topic(user.squad.course if user.squad else None)
+            outcome = _apply_topic_transitions(
+                state, current, snapshot_date, per_topic_points, stale_days, stale_penalty
+            )
+
+            bonus_source = f"ct_all_closed:{year_label}"
+            if outcome.open_total == 0 and not _bonus_already_applied(user.pk, bonus_source):
+                recent = RatingLog.objects.filter(
+                    user_id=user.pk,
+                    source_id__startswith="ct_all_closed:",
+                    created_at__date__gte=snapshot_date - timedelta(days=bonus_cooldown),
+                ).exists()
+                if not recent:
+                    outcome.all_closed_bonus = all_closed_bonus_value
+
+            positive = outcome.delta_positive + outcome.all_closed_bonus
+            negative = outcome.delta_negative
+
             u = User.objects.select_for_update().get(pk=user.pk)
-            u.unclosed_ct_count = min(unclosed_total, 65535)
-            u.rating_current = rating_after
+            before = int(u.rating_current)
+            blocked = outcome.stale_total >= block_threshold
+
+            # Блокировка запрещает рост, но больше не срезает накопленное:
+            # рейтинг копится за год, и обнулять вклад прошлых месяцев из-за
+            # двух зависших тем нечестно. Штрафы при этом применяются.
+            if blocked:
+                positive = min(positive, max(0, max_when_blocked - before))
+
+            delta = positive + negative
+            after = max(RATING_FLOOR, min(RATING_CEILING, before + delta))
+            stale_total = min(outcome.stale_total, 65535)
+
+            if after == before and stale_total == user.unclosed_ct_count:
+                state.save(update_fields=["topics", "last_snapshot_date", "updated_at"])
+                continue
+
+            u.unclosed_ct_count = stale_total
+            u.rating_current = after
             u.save(update_fields=["unclosed_ct_count", "rating_current"])
+            state.save(update_fields=["topics", "last_snapshot_date", "updated_at"])
+
+            reason = "; ".join(
+                [
+                    f"LXP {snapshot_date.isoformat()} ({year_label})",
+                    f"delta={after - before}",
+                    f"closed={outcome.closed_now}x{per_topic_points}",
+                    f"stale_new={outcome.stale_now}/{outcome.stale_total}",
+                    f"bonus={outcome.all_closed_bonus}",
+                    f"blocked={blocked}",
+                ]
+            )[:250]
+
             RatingLog.objects.create(
                 user=u,
                 value_before=before,
-                value_after=rating_after,
-                delta=rating_after - before,
+                value_after=after,
+                delta=after - before,
                 source=RatingChangeSource.SYSTEM,
                 source_id=snapshot_date.isoformat(),
                 reason=reason,
             )
-            if ct_bonus:
+            if outcome.all_closed_bonus:
                 RatingLog.objects.get_or_create(
                     user=u,
-                    source_id=ct_source,
+                    source_id=bonus_source,
                     defaults={
-                        "value_before": rating_after,
-                        "value_after": rating_after,
+                        "value_before": after,
+                        "value_after": after,
                         "delta": 0,
                         "source": RatingChangeSource.SYSTEM,
-                        "reason": "Маркер: все КТ закрыты",
-                    },
-                )
-            if week_bonus:
-                RatingLog.objects.get_or_create(
-                    user=u,
-                    source_id=week_source,
-                    defaults={
-                        "value_before": rating_after,
-                        "value_after": rating_after,
-                        "delta": 0,
-                        "source": RatingChangeSource.SYSTEM,
-                        "reason": "Маркер: неделя без пропусков",
+                        "reason": f"Маркер: все КТ закрыты ({year_label})",
                     },
                 )
             updated += 1
 
     notes = (
-        f"control_points_ok={ct_ok} partial_meta={partial} "
+        f"control_points_ok=True partial_meta={partial} baselines={baselines} "
         f"already_applied={skipped_already_applied}"
     )
     logger.info(

@@ -12,7 +12,9 @@ from apps.accounts.models import User
 from apps.integrations.models import ExternalEvent
 from apps.integrations.services.lxp_snapshot_reader import get_student_attendance, get_student_ct
 from apps.progress.models import UserStrike
+from apps.progress.services.ct_status import is_topic_closed
 from apps.quests.models import QuestVerifierKind
+from apps.schedule.models import Schedule
 
 
 @dataclass
@@ -23,7 +25,9 @@ class VerificationResult:
     message: str = ""
 
 
-CLOSED_CT_STATUSES = {"closed", "done", "completed", "passed", "accepted", "сдан", "закрыт"}
+# Определение «КТ закрыта» одно на весь проект: рейтинг и квесты обязаны
+# сходиться, иначе студент видит начисление за КТ и невыполненный квест
+# «закрой КТ» одновременно.
 
 
 def _hik_events_for_user_on_date(user_id: int, day: date) -> list[dict]:
@@ -67,11 +71,40 @@ def _parse_event_time(value) -> datetime | None:
     return None
 
 
+def _checkin_deadline(user: User, params: dict, target_date: date) -> datetime:
+    """Дедлайн утреннего чек-ина: начало первой пары отряда плюс запас.
+
+    Раньше дедлайн был жёстко 10:00 для всех. Отряд второй смены, пришедший
+    ровно к своей первой паре в 12:30, квест не выполнял — при том, что
+    штрафы за опоздание считались по расписанию и опоздания у него не было.
+    """
+    grace_minutes = int(params.get("grace_minutes", 0))
+    tz = timezone.get_current_timezone()
+
+    first_slot = None
+    if user.squad_id:
+        first_slot = (
+            Schedule.objects.filter(
+                squad_id=user.squad_id, day_of_week=target_date.weekday(), is_active=True
+            )
+            .order_by("start_time")
+            .first()
+        )
+
+    if first_slot:
+        base = datetime.combine(target_date, first_slot.start_time)
+    else:
+        # Расписания нет — остаётся общий дедлайн из параметров шаблона.
+        base = datetime.combine(
+            target_date,
+            time(int(params.get("deadline_hour", 10)), int(params.get("deadline_minute", 0))),
+        )
+    return timezone.make_aware(base, tz) + timedelta(minutes=grace_minutes)
+
+
 def verify_hik_on_time(user: User, params: dict, target_date: date) -> VerificationResult:
     events = _hik_events_for_user_on_date(user.pk, target_date)
-    deadline_hour = int(params.get("deadline_hour", 10))
-    deadline_minute = int(params.get("deadline_minute", 0))
-    deadline = timezone.make_aware(datetime.combine(target_date, time(deadline_hour, deadline_minute)))
+    deadline = _checkin_deadline(user, params, target_date)
 
     on_time = []
     late = []
@@ -159,7 +192,40 @@ def verify_hik_no_late(user: User, params: dict, target_date: date) -> Verificat
     )
 
 
+def _attendance_percent(row: dict) -> float | None:
+    """Средний процент посещаемости по дисциплинам из снимка."""
+    by_discipline = row.get("by_discipline")
+    if not isinstance(by_discipline, dict) or not by_discipline:
+        return None
+    visited_total = 0
+    lessons_total = 0
+    percents: list[float] = []
+    for entry in by_discipline.values():
+        if not isinstance(entry, dict):
+            continue
+        visited = entry.get("visited")
+        total = entry.get("total")
+        if isinstance(visited, (int, float)) and isinstance(total, (int, float)) and total > 0:
+            visited_total += int(visited)
+            lessons_total += int(total)
+            continue
+        percent = entry.get("percent")
+        if isinstance(percent, (int, float)):
+            percents.append(float(percent))
+    if lessons_total > 0:
+        return round(100.0 * visited_total / lessons_total, 1)
+    if percents:
+        return round(sum(percents) / len(percents), 1)
+    return None
+
+
 def verify_lxp_attendance(user: User, params: dict, target_date: date) -> VerificationResult:
+    """Посещаемость по проценту занятий, а не по флагу «посещаемость есть».
+
+    `hasAttendance` из searchStudents приходит без привязки к дате: это
+    свойство студента за всё время обучения. Квест на нём выполнялся каждый
+    период автоматически у всех, кто вообще ходит на пары.
+    """
     if not user.lxp_user_id:
         return VerificationResult(
             completed=False,
@@ -167,36 +233,35 @@ def verify_lxp_attendance(user: User, params: dict, target_date: date) -> Verifi
             evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "error": "no_lxp_user_id"},
             message="Нет привязки LXP",
         )
-    snapshot_date = target_date
-    if params.get("use_previous_day", True):
-        snapshot_date = target_date - timedelta(days=1)
-    row = get_student_attendance(str(user.lxp_user_id), prefer_date=snapshot_date)
+
+    min_percent = float(params.get("min_percent", 80))
+    row = get_student_attendance(str(user.lxp_user_id), prefer_date=target_date)
     if not isinstance(row, dict):
         return VerificationResult(
             completed=False,
             progress=0.0,
-            evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "snapshot_date": snapshot_date.isoformat()},
+            evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "snapshot_date": target_date.isoformat()},
             message="Нет данных посещаемости",
         )
-    if row.get("has_attendance") is True:
-        return VerificationResult(
-            completed=True,
-            progress=1.0,
-            evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "has_attendance": True},
-            message="Посещаемость подтверждена",
-        )
-    if row.get("has_attendance") is False:
+
+    percent = _attendance_percent(row)
+    if percent is None:
         return VerificationResult(
             completed=False,
             progress=0.0,
-            evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "has_attendance": False},
-            message="Пропуск зафиксирован",
+            evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "percent": None},
+            message="Посещаемость по дисциплинам не пришла в снимке",
         )
+
     return VerificationResult(
-        completed=False,
-        progress=0.0,
-        evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "has_attendance": None},
-        message="Посещаемость не определена",
+        completed=percent >= min_percent,
+        progress=min(1.0, percent / min_percent) if min_percent else 0.0,
+        evidence={
+            "verifier": QuestVerifierKind.LXP_ATTENDANCE,
+            "percent": percent,
+            "min_percent": min_percent,
+        },
+        message=f"Посещаемость {percent}% при пороге {min_percent}%",
     )
 
 
@@ -213,8 +278,7 @@ def _count_closed_ct(row: dict | None) -> int:
         for topic in topics:
             if not isinstance(topic, dict):
                 continue
-            status = str(topic.get("status") or topic.get("state") or "").lower()
-            if status in CLOSED_CT_STATUSES:
+            if is_topic_closed(topic.get("status") or topic.get("state")):
                 count += 1
     return count
 

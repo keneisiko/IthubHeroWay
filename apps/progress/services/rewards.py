@@ -30,6 +30,9 @@ def apply_rating_delta_with_cap(user: User, delta: int, source: str, reason: str
         RatingChangeSource.QUEST,
         RatingChangeSource.BADGE,
         RatingChangeSource.SOCIAL,
+        # Начисления за «Движ» — тоже награда, а не корректировка: пока висят
+        # просроченные КТ, ими нельзя вытянуть рейтинг выше жёлтой зоны.
+        RatingChangeSource.DRIVE,
     }
     if delta > 0 and source in capped_sources:
         verdict = apply_unclosed_tests_rule(
