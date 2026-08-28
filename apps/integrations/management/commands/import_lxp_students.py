@@ -6,9 +6,9 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.accounts.models import Role
+from apps.integrations.services.account_gate import deactivate_unlinked_agents
 from apps.integrations.services.lxp_graphql_client import LXPAuthError, LXPGraphQLClient, LXPRequestError
 from apps.integrations.services.telegram_alert import send_alert_to_admin
-
 
 SEARCH_STUDENTS_QUERY = """
 query ImportStudents($input: SearchStudentsInput!) {
@@ -56,6 +56,14 @@ class Command(BaseCommand):
             type=str,
             default="nalchik.ithub.ru",
             help="Import only users with this email domain (default: nalchik.ithub.ru)",
+        )
+        parser.add_argument(
+            "--deactivate-unlinked",
+            action="store_true",
+            help=(
+                "Закрыть вход агентам без активной привязки Telegram после импорта. "
+                "Отдельно то же самое делает команда deactivate_unlinked_agents."
+            ),
         )
 
     def handle(self, *args, **options):
@@ -189,7 +197,11 @@ class Command(BaseCommand):
                     first_name=first_name,
                     last_name=last_name,
                     role=Role.AGENT,
-                    is_active=True,
+                    # Импорт только заводит карточку студента. Вход открывается
+                    # после привязки Telegram (activate_telegram_account), иначе
+                    # войти на платформу мог бы любой, у кого есть пароль от LXP,
+                    # даже не зная о существовании бота.
+                    is_active=False,
                     status="imported_lxp",
                     lxp_user_id=lxp_user_id or None,
                 )
@@ -210,11 +222,18 @@ class Command(BaseCommand):
             if not has_more and (not total_pages or page > total_pages):
                 break
 
+        deactivated_total = 0
+        if options["deactivate_unlinked"]:
+            deactivated_total = deactivate_unlinked_agents()
+            self.stdout.write(
+                self.style.WARNING(f"Закрыт вход у {deactivated_total} агентов без привязки Telegram.")
+            )
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"Import completed. Seen={seen_total}, Created={created_total}, Updated={updated_total}, "
-                f"SkippedByDomain={skipped_domain_total}, Domain=@{email_domain}, "
-                f"Pages={page - 1}"
+                f"SkippedByDomain={skipped_domain_total}, Deactivated={deactivated_total}, "
+                f"Domain=@{email_domain}, Pages={page - 1}"
             )
         )
 

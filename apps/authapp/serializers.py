@@ -6,7 +6,6 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from apps.integrations.services.lxp_auth import verify_lxp_credentials
 
-
 User = get_user_model()
 
 
@@ -41,7 +40,12 @@ class LoginSerializer(TokenObtainPairSerializer):
         if not user:
             raise AuthenticationFailed("Invalid credentials.")
         if not user.is_active:
-            raise AuthenticationFailed("User account is disabled.")
+            # Импортированные из LXP карточки неактивны до привязки Telegram:
+            # пароль от LXP знает сам студент, но подтверждением личности он
+            # становится только в боте.
+            raise AuthenticationFailed(
+                "Аккаунт не активирован. Активируйте его в Telegram-боте командой /activate."
+            )
         if not user.email:
             raise AuthenticationFailed("User email is not configured for LXP verification.")
 

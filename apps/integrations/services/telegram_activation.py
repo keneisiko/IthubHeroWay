@@ -113,5 +113,18 @@ def activate_telegram_account(
     except IntegrityError:
         return False, "Не удалось привязать аккаунт: конфликт Telegram-идентификаторов."
 
+    # Привязка Telegram — единственный момент, когда студент подтвердил, что
+    # аккаунт его. До этого импортированная из LXP карточка неактивна и войти
+    # по ней нельзя (см. import_lxp_students).
+    activation_fields: list[str] = []
+    if not user.is_active:
+        user.is_active = True
+        activation_fields.append("is_active")
+    if user.status == "imported_lxp":
+        user.status = "activated_telegram"
+        activation_fields.append("status")
+    if activation_fields:
+        user.save(update_fields=activation_fields)
+
     reset_attempts(telegram_user_id=telegram_user_id, email=email)
     return True, f"Аккаунт активирован для {user.username}."
