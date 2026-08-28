@@ -720,6 +720,7 @@ body {
   height: 100%;
   border: none;
   outline: none;
+  caret-color: var(--purple-500);
   background: transparent;
   font-family: 'Montserrat', sans-serif;
   font-size: 16px;
@@ -4762,6 +4763,13 @@ body {
 :focus-visible {
   outline: 2px solid #9a33f4;
   outline-offset: 2px;
+}
+
+/* У полей входа индикатор фокуса — рамка самого поля, как в макете,
+   поэтому общая обводка внутри поля не нужна: она рисовалась полоской
+   вдоль края. Доступность не страдает — фокус по-прежнему виден. */
+.login-input:focus-visible {
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
