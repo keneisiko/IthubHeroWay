@@ -324,6 +324,8 @@ body {
   --sys-yellow: #ffd900;
   --sys-blue: #5f3ed6;
   --sys-green: #6cd63e;
+  --sys-epic: #ff00ee;
+  --sys-rare: #38dddd;
 
   /* Radius */
   --radius-4: 4px;
@@ -3064,15 +3066,16 @@ body {
 
 .leaderboard-tab {
   height: 48px;
-  border-radius: 48px;
-  border: 4px solid #9a33f4;
-  background: transparent;
-  color: #9a33f4;
-  font-family: 'TT Firs Neue', sans-serif;
+  border-radius: var(--radius-48);
+  border: var(--stroke-4) solid var(--ithub-white);
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
   font-size: 22px;
   font-weight: 700;
   padding: 0 24px;
   cursor: pointer;
+  box-shadow: var(--card-shadow);
   transition: all 0.2s;
 }
 
@@ -3237,16 +3240,18 @@ body {
 }
 
 .rank-badge--second {
-  background: #c0c0c0;
-  color: #121212;
+  background: var(--sys-epic);
+  color: var(--ithub-white);
 }
 
 .rank-badge--third {
-  background: #cd7f32;
+  background: var(--sys-rare);
+  color: var(--ithub-black);
 }
 
 .rank-badge--default {
-  background: #9a33f4;
+  background: var(--grey-text);
+  color: var(--ithub-white);
 }
 
 .rank-badge--bottom {
@@ -3283,10 +3288,33 @@ body {
 }
 
 .tag--title {
-  color: #121212;
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 22px;
-  font-weight: 700;
+  padding: 4px var(--space-16);
+  border-radius: var(--radius-48);
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tag--track {
+  padding: 4px var(--space-16);
+  border-radius: var(--radius-48);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tag--status {
+  padding: 4px var(--space-16);
+  border-radius: var(--radius-48);
+  background: rgba(154, 51, 244, 0.18);
+  color: var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .tag--track {
@@ -5272,3 +5300,127 @@ body {
   cursor: pointer;
   box-shadow: var(--card-shadow);
 }
+
+/* Аватар в строке рейтинга */
+.leaderboard-item__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(154, 51, 244, 0.18);
+  color: var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.leaderboard-item__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Рейтинг справа — чёрная плашка */
+.leaderboard-item__rating {
+  flex-shrink: 0;
+  min-width: 110px;
+  height: 40px;
+  padding: 0 var(--space-16);
+  border: 0;
+  border-radius: var(--radius-12);
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Рамка строки красится по месту, как в макете */
+.leaderboard-item__card--rank-2 { border-color: var(--sys-epic); }
+.leaderboard-item__card--rank-3 { border-color: var(--sys-rare); }
+
+/* Плашка «Моё место» */
+.leaderboard-myplace {
+  width: 100%;
+  height: 63px;
+  border: 0;
+  border-radius: var(--radius-16);
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--card-shadow);
+}
+
+.leaderboard-myplace strong { color: var(--purple-500); }
+
+/* Панель фильтров */
+.leaderboard-filters {
+  position: absolute;
+  top: 60px;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  gap: var(--space-32);
+  padding: var(--space-20);
+  background: var(--ithub-white);
+  border: var(--stroke-4) solid var(--purple-500);
+  border-radius: var(--radius-12);
+  box-shadow: var(--card-shadow);
+  animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.leaderboard-filters__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.leaderboard-filters__title {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ithub-black);
+}
+
+.leaderboard-filters__note {
+  margin: 0;
+  width: 190px;
+  font-family: var(--font-text);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--grey-text);
+}
+
+.leaderboard-filters__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ithub-black);
+  cursor: pointer;
+}
+
+.leaderboard-filters__radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 4px solid var(--ithub-black);
+  background: transparent;
+}
+
+.leaderboard-filters__radio--on { background: var(--purple-500); }
