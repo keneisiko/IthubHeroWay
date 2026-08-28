@@ -190,6 +190,38 @@ export default function Shop() {
           </div>
           <p className="loading-text">Загрузка магазина...</p>
         </div>
+      ) : showPurchases ? (
+      <section className="shop-purchases">
+        <button
+          type="button"
+          className="shop-detail__back btn-press"
+          onClick={() => setShowPurchases(false)}
+        >
+          Назад в магазин
+        </button>
+
+        <div className="shop-purchases__card">
+          <h2 className="shop-purchases__title">Мои покупки</h2>
+          <div className="shop-purchases__list">
+            {purchases.length === 0 ? (
+              <p className="shop-purchases__empty">Покупок пока нет</p>
+            ) : purchases.map((p) => (
+              <article key={p.id} className="shop-purchase">
+                <img src={palmSky} alt="" className="shop-purchase__image" />
+                <span className="shop-purchase__name">{p.title}</span>
+                <span className="shop-purchase__state">Активна</span>
+                <button
+                  type="button"
+                  className="shop-purchase__apply btn-press"
+                  onClick={() => addToast('Применение покупок пока не подключено на бэкенде', 'error')}
+                >
+                  Применить
+                </button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
       ) : selectedDetail ? (
       <section className="shop-detail">
         <button
@@ -327,28 +359,6 @@ export default function Shop() {
       </Modal>
 
 
-      <Modal open={showPurchases} onClose={() => setShowPurchases(false)} title="Мои покупки" width="600px">
-        <div className="shop-modal__purchases">
-          {purchases.length === 0 ? (
-            <p className="loading-text">Покупок пока нет</p>
-          ) : purchases.map(p => (
-            <div key={p.id} className="shop-modal__purchase-item">
-              <img src={palmSky} alt="" className="shop-modal__purchase-img" />
-              <div className="shop-modal__purchase-info">
-                <span className="shop-modal__purchase-name">{p.title}</span>
-                <div className="shop-modal__price-tag shop-modal__price-tag--small">
-                  <span className="shop-wallet__coin" aria-hidden="true" />
-                  <span>{p.price}</span>
-                </div>
-                <span className="shop-modal__history-date">{p.date}</span>
-              </div>
-              <span className="shop-modal__purchase-status shop-modal__purchase-status--applied">
-                {p.status}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Modal>
 
       <Modal open={showHistory} onClose={() => setShowHistory(false)} title="История операций" width="500px">
         <div className="shop-modal__history">

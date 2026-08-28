@@ -127,7 +127,9 @@ export default function Login() {
             </button>
 
             <div className="login-footer">
-              <span className="login-hint">Забыли пароль? Обратитесь к администратору</span>
+              <span className="login-hint">
+                Забыли пароль? Обратитесь к <span className="login-hint__accent">администратору</span>
+              </span>
             </div>
           </div>
         </div>
