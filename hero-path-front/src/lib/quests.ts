@@ -129,6 +129,21 @@ export function mapRewardActivities(data: unknown): UiRewardActivity[] {
   return unwrapList<ApiQuestReward>(data).map(mapRewardHistory)
 }
 
+/**
+ * Награды за последние N дней.
+ * Эндпоинт истории наград не умеет фильтровать по периоду, поэтому
+ * отбираем на клиенте — иначе подпись «за последние 30 дней» врала бы.
+ */
+export function mapRecentRewardActivities(data: unknown, days = 30): UiRewardActivity[] {
+  const since = Date.now() - days * 24 * 60 * 60 * 1000
+  return unwrapList<ApiQuestReward>(data)
+    .filter((row) => {
+      const granted = Date.parse(row.granted_at)
+      return Number.isNaN(granted) || granted >= since
+    })
+    .map(mapRewardHistory)
+}
+
 export function pickSelfReportQuestCode(active: unknown): string | null {
   const quests = unwrapList<ApiQuest>(active)
   const candidate = quests.find((q) => q.quest_type === 'self_report' || q.quest_type === 'mixed')

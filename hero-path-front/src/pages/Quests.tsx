@@ -6,6 +6,7 @@ import seriesIcon from '../assets/other/Group 11.svg'
 import {
   mapCompletedQuests,
   mapRewardActivities,
+  mapRecentRewardActivities,
   mergeActiveQuests,
   pickSelfReportQuestCode,
   type UiQuest,
@@ -55,6 +56,7 @@ export default function Quests() {
   const [quests, setQuests] = useState<UiQuest[]>([])
   const [completedQuests, setCompletedQuests] = useState<UiQuest[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
+  const [recentActivity, setRecentActivity] = useState<Activity[]>([])
   const [selfReportQuestCode, setSelfReportQuestCode] = useState<string | null>(null)
   const [strike, setStrike] = useState<{
     late_strike: number
@@ -94,6 +96,7 @@ export default function Quests() {
       setQuests(mergeActiveQuests(activeRes.data, progressRes.data))
       setCompletedQuests(mapCompletedQuests(completedRes.data))
       setActivity(mapRewardActivities(historyRes.data))
+      setRecentActivity(mapRecentRewardActivities(historyRes.data))
       setSelfReportQuestCode(pickSelfReportQuestCode(activeRes.data))
       setStrike(dashRes.data?.strike ?? null)
     }).catch(() => {
@@ -157,6 +160,9 @@ export default function Quests() {
   }
 
   const currentQuests = activeTab === 0 ? quests : activeTab === 1 ? completedQuests : []
+  // В макете подтверждение и пометка об автопроверке — общие для блока
+  const confirmableQuest = currentQuests.find((q) => !q.completed && q.confirm)
+  const autoQuest = currentQuests.find((q) => !q.completed && q.autoVerify)
 
   if (loading) {
     return (
@@ -239,8 +245,7 @@ export default function Quests() {
           <section className="q1__quests">
             <div className="q1__quests-slot">
               <h2 className="q1__quests-title">
-                {activeTab === 0 ? 'Активные квесты' : 'Выполненные квесты'}
-                <span className="q1__quests-count">{currentQuests.length}</span>
+                {activeTab === 0 ? 'Активный квест' : 'Выполненные квесты'}
               </h2>
               <div className="q1__quests-slot-inner">
                 {currentQuests.map((q, i) => (
@@ -284,11 +289,6 @@ export default function Quests() {
                       <div className="q1__card-reward">
                         Награда:&nbsp;<span className="q1__card-reward-coins">{q.reward}</span>
                       </div>
-                      {!q.completed && q.confirm && (
-                        <button type="button" className="q1__card-confirm btn-press" onClick={() => openConfirm(q.code)}>
-                          Подтвердить
-                        </button>
-                      )}
                       {q.note && <div className="q1__card-note">{q.note}</div>}
                     </div>
                   </article>
@@ -299,6 +299,19 @@ export default function Quests() {
                   </div>
                 )}
               </div>
+
+              {confirmableQuest && (
+                <button
+                  type="button"
+                  className="q1__slot-confirm btn-press"
+                  onClick={() => openConfirm(confirmableQuest.code)}
+                >
+                  Подтвердить
+                </button>
+              )}
+              {autoQuest && (
+                <div className="q1__slot-auto">Выполняется автоматически</div>
+              )}
             </div>
           </section>
         )}
@@ -308,6 +321,13 @@ export default function Quests() {
         <div className="q1__report">
           <button type="button" className="q1__report-btn q1__report-btn--primary btn-press" onClick={reportModal.show} disabled={!selfReportQuestCode}>
             Самоотчёт
+          </button>
+          <button
+            type="button"
+            className="q1__report-btn q1__report-btn--dark btn-press"
+            onClick={() => addToast('Приём жалоб пока не подключён на бэкенде', 'error')}
+          >
+            Пожаловаться
           </button>
         </div>
 
@@ -347,9 +367,9 @@ export default function Quests() {
         </section>
 
         <section className="q1__activity">
-          <h3 className="q1__activity-title">Список выполненных квестов</h3>
+          <h3 className="q1__activity-title">Список выполненных квестов за последние 30 дней</h3>
           <div className="q1__activity-list">
-            {activity.slice(0, 3).map((a) => (
+            {recentActivity.slice(0, 3).map((a) => (
               <article key={a.id} className="q1__acard hover-lift">
                 <div className="q1__acard-body">
                   <div className="q1__acard-name">{a.title}</div>
