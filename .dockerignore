@@ -1,0 +1,24 @@
+# Что не должно попасть в образ бэкенда.
+.git
+.github
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+!.env.prod.example
+hero-path-front
+deploy/certs
+deploy/certbot
+backups
+docs
+media
+static
+staticfiles/**/*.map
+.ruff_cache
+.pytest_cache
+htmlcov
+.coverage

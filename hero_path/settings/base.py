@@ -1,9 +1,9 @@
-from pathlib import Path
 import json
 import os
 from datetime import timedelta
+from pathlib import Path
 
-from .rating_coefficients import QUESTS_REWARDS, RATING_DRIVE, RATING_KP, RATING_LIMITS
+from .rating_coefficients import QUESTS_REWARDS, RATING_DRIVE, RATING_KP, RATING_LIMITS, RATING_YEAR
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -118,7 +118,10 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "hero_path"),
         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
         "PORT": _env_int("POSTGRES_PORT", 5432),
-        "CONN_MAX_AGE": 60,
+        # Держать соединение дольше выгодно, но каждое живое соединение занимает
+        # слот в max_connections Postgres: воркеры gunicorn × реплики × 1 соединение.
+        # За пулером (pgbouncer в transaction mode) ставить 0.
+        "CONN_MAX_AGE": _env_int("DB_CONN_MAX_AGE", 60),
     }
 }
 
@@ -148,7 +151,7 @@ USE_L10N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = Path(os.getenv("STATIC_ROOT") or (BASE_DIR / "static"))
 STATICFILES_DIRS = [BASE_DIR / "staticfiles"] if (BASE_DIR / "staticfiles").exists() else []
 
 # Django 5.1 удалил STATICFILES_STORAGE/DEFAULT_FILE_STORAGE — только STORAGES.
@@ -158,7 +161,9 @@ STORAGES = {
 }
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# В проде каталог смонтирован томом: аватары не должны жить внутри образа,
+# иначе пропадают при первом же обновлении контейнера.
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT") or (BASE_DIR / "media"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -364,6 +369,16 @@ HIK_ARTEMIS_TIME_FORMAT = os.getenv(
     "%Y-%m-%dT%H:%M:%S.000",
 )
 
+RATING_YEAR = {
+    **RATING_YEAR,
+    "CT_YEAR_BUDGET": _env_int("CT_YEAR_BUDGET", RATING_YEAR["CT_YEAR_BUDGET"]),
+    "TOPIC_STALE_DAYS": _env_int("TOPIC_STALE_DAYS", RATING_YEAR["TOPIC_STALE_DAYS"]),
+    "STALE_PENALTY_PER_TOPIC": -_env_int(
+        "STALE_PENALTY_PER_TOPIC", abs(RATING_YEAR["STALE_PENALTY_PER_TOPIC"])
+    ),
+    "STALE_BLOCK_THRESHOLD": _env_int("STALE_BLOCK_THRESHOLD", RATING_YEAR["STALE_BLOCK_THRESHOLD"]),
+}
+
 # Переопределение штрафов/бонусов (положительные числа в .env → отрицательные штрафы в RATING_KP)
 _rating_kp_overrides = {
     "LATE_LIGHT": -_env_int("LATE_PENALTY_LIGHT", abs(RATING_KP.get("LATE_LIGHT", -3))),
@@ -421,6 +436,12 @@ CELERY_BEAT_SCHEDULE = {
     "verify-auto-quests-evening": {
         "task": "apps.quests.tasks.verify_auto_quests",
         "schedule": crontab(hour=20, minute=15),
+    },
+    # Экземпляры квестов на сегодня — до первой проверки, чтобы студент видел
+    # активные задания с утра.
+    "create-period-quests": {
+        "task": "apps.quests.tasks.create_period_quests",
+        "schedule": crontab(hour=0, minute=5),
     },
     "verify-auto-quests-morning": {
         "task": "apps.quests.tasks.verify_auto_quests",
