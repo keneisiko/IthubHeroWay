@@ -5142,17 +5142,60 @@ body {
 }
 
 
-/* Экран товара: слева крупная картинка, справа описание и покупка */
+/* Экран товара: колонка миниатюр и крупная картинка слева,
+   справа название, цена, описание и покупка */
 .shop-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  padding-right: 120px;
+}
+
+.shop-detail__back {
+  align-self: flex-start;
+  height: 48px;
+  padding: 0 var(--space-20);
+  border: var(--stroke-4) solid var(--purple-500);
+  border-radius: var(--radius-48);
+  background: var(--ithub-white);
+  color: var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shop-detail__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-20);
-  align-items: start;
+  align-items: stretch;
+}
+
+.shop-detail__gallery {
+  display: flex;
+  gap: var(--space-12);
+}
+
+.shop-detail__thumbs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  flex-shrink: 0;
+}
+
+.shop-detail__thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius-12);
+  box-shadow: var(--card-shadow);
 }
 
 .shop-detail__image {
-  width: 100%;
-  aspect-ratio: 4 / 3;
+  flex: 1 0 0;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: var(--radius-12);
   box-shadow: var(--card-shadow);
@@ -5161,9 +5204,11 @@ body {
 .shop-detail__info {
   display: flex;
   flex-direction: column;
-  gap: var(--space-20);
-  height: 100%;
+  gap: var(--space-16);
 }
+
+/* описание занимает свободную высоту, кнопка прижата к низу */
+.shop-detail__about { flex: 1 0 auto; }
 
 .shop-detail__title {
   margin: 0;
@@ -5186,17 +5231,22 @@ body {
   background: var(--ithub-black);
 }
 
+/* Описание лежит в отдельной белой карточке */
 .shop-detail__about {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  padding: var(--space-20);
+  background: var(--ithub-white);
+  border-radius: var(--radius-24);
+  box-shadow: var(--card-shadow);
 }
 
 .shop-detail__about-title {
   margin: 0;
   font-family: var(--font-text);
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ithub-black);
 }
 
@@ -5210,7 +5260,6 @@ body {
 }
 
 .shop-detail__buy {
-  margin-top: auto;
   width: 100%;
   height: 63px;
   border-radius: var(--radius-16);

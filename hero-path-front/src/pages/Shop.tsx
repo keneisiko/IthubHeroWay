@@ -162,6 +162,9 @@ export default function Shop() {
 
 
   const selectedProduct = products.find(p => p.id === (showPurchase ?? showDetail))
+  const selectedDetail = showDetail !== null ? products.find(p => p.id === showDetail) : undefined
+  // Бэкенд отдаёт одно изображение на товар, галереи в данных нет
+  const detailImages = [selectedDetail?.image ?? palmSky]
 
   const handleBuy = useCallback(() => {
     if (showPurchase === null) return
@@ -187,6 +190,48 @@ export default function Shop() {
           </div>
           <p className="loading-text">Загрузка магазина...</p>
         </div>
+      ) : selectedDetail ? (
+      <section className="shop-detail">
+        <button
+          type="button"
+          className="shop-detail__back btn-press"
+          onClick={() => setShowDetail(null)}
+        >
+          Назад в магазин
+        </button>
+
+        <div className="shop-detail__body">
+          <div className="shop-detail__gallery">
+            <div className="shop-detail__thumbs">
+              {detailImages.map((src, i) => (
+                <img key={i} src={src} alt="" className="shop-detail__thumb" />
+              ))}
+            </div>
+            <img src={detailImages[0]} alt="" className="shop-detail__image" />
+          </div>
+
+          <div className="shop-detail__info">
+            <h2 className="shop-detail__title">{selectedDetail.title}</h2>
+            <div className="shop-detail__price">
+              <span className="shop-card__coin" aria-hidden="true" />
+              <span className="shop-card__price-value">{selectedDetail.price}</span>
+            </div>
+            <div className="shop-detail__about">
+              <h3 className="shop-detail__about-title">Описание</h3>
+              <p className="shop-detail__desc">
+                {selectedDetail.desc || 'Описание пока не заполнено.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="shop-detail__buy btn-press"
+              onClick={() => setShowPurchase(selectedDetail.id)}
+            >
+              Купить
+            </button>
+          </div>
+        </div>
+      </section>
       ) : (
       <>
       <div className="shop-page__head">
@@ -281,31 +326,6 @@ export default function Shop() {
         </div>
       </Modal>
 
-      <Modal open={showDetail !== null} onClose={() => setShowDetail(null)} width="1180px">
-        <div className="shop-detail">
-          <img src={selectedProduct?.image ?? palmSky} alt="" className="shop-detail__image" />
-          <div className="shop-detail__info">
-            <h3 className="shop-detail__title">{selectedProduct?.title}</h3>
-            <div className="shop-detail__price">
-              <span className="shop-card__coin" aria-hidden="true" />
-              <span className="shop-card__price-value">{selectedProduct?.price}</span>
-            </div>
-            <div className="shop-detail__about">
-              <h4 className="shop-detail__about-title">Описание</h4>
-              <p className="shop-detail__desc">
-                {selectedProduct?.desc || 'Описание пока не заполнено.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="shop-detail__buy btn-press"
-              onClick={() => { setShowDetail(null); setShowPurchase(showDetail) }}
-            >
-              Купить
-            </button>
-          </div>
-        </div>
-      </Modal>
 
       <Modal open={showPurchases} onClose={() => setShowPurchases(false)} title="Мои покупки" width="600px">
         <div className="shop-modal__purchases">
