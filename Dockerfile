@@ -15,9 +15,14 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Непривилегированный пользователь. Каталог браузеров нужен ему на чтение,
 # каталог выгрузок Hik — на запись.
+#
+# Каталоги медиа и статики создаются здесь не просто так: docker переносит
+# владельца каталога из образа в новый именованный том. Без этого том
+# создаётся от root, и collectstatic под uid 10001 падает с
+# PermissionError на /var/lib/hero_path/static — контейнер не стартует вовсе.
 RUN useradd --create-home --uid 10001 app \
-    && mkdir -p /tmp/hik_exports \
-    && chown -R app:app /tmp/hik_exports /app \
+    && mkdir -p /tmp/hik_exports /var/lib/hero_path/media /var/lib/hero_path/static \
+    && chown -R app:app /tmp/hik_exports /var/lib/hero_path /app \
     && chmod -R a+rX /opt/playwright
 
 COPY --chown=app:app . /app/

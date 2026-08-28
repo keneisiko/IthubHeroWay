@@ -157,7 +157,10 @@ STATICFILES_DIRS = [BASE_DIR / "staticfiles"] if (BASE_DIR / "staticfiles").exis
 # Django 5.1 удалил STATICFILES_STORAGE/DEFAULT_FILE_STORAGE — только STORAGES.
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    # Не стандартный CompressedManifestStaticFilesStorage: jazzmin просит
+    # у {% static %} каталог темы, которого в манифесте нет, и админка
+    # отдавала 500. См. hero_path/storages.py.
+    "staticfiles": {"BACKEND": "hero_path.storages.ForgivingManifestStaticFilesStorage"},
 }
 
 MEDIA_URL = "/media/"

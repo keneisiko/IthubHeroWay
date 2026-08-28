@@ -63,6 +63,7 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.prod.example
+!.env.white-ip.example
 
 # Сертификаты и дампы базы рядом с прод-стеком
 deploy/certs/*

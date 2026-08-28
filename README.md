@@ -155,6 +155,20 @@ docker compose exec web python manage.py start_rating_year --dry-run
 docker compose exec web python manage.py start_rating_year
 ```
 
+## Запуск на белом IP (ветка `white_ip`)
+
+Отдельная сборка для случая «сервера нет, есть ПК с белым IP»: фронт, API,
+админка и Swagger на одном порту, без домена и TLS.
+
+```bash
+git checkout white_ip
+cp .env.white-ip.example .env.white-ip   # заполнить SECRET_KEY, ALLOWED_HOSTS, пароли
+docker compose -f docker-compose.white-ip.yml --env-file .env.white-ip up -d --build
+```
+
+Проброс портов на роутере, брандмауэр Windows, проверка и разбор типовых
+отказов: [docs/WHITE_IP.md](docs/WHITE_IP.md).
+
 ## Продакшен
 
 Прод-стек — [docker-compose.prod.yml](docker-compose.prod.yml) (nginx, gunicorn, Celery, beat,
