@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api'
 import LoadError from '../components/LoadError'
+import { useTabIndicator } from '../useTabIndicator'
 import seriesIcon from '../assets/other/Group 11.svg'
 import {
   mapCompletedQuests,
@@ -50,6 +51,7 @@ export default function Quests() {
   const [selfReportQuestCode, setSelfReportQuestCode] = useState<string | null>(null)
   const [lateStrike, setLateStrike] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const tabIndicator = useTabIndicator(activeTab, loading)
   const [loadError, setLoadError] = useState(false)
   const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
 
@@ -181,10 +183,11 @@ export default function Quests() {
 
       <div className="q1__left">
         <div className="q1__tabs-card">
-          <div className="q1__tabs-row">
+          <div className="q1__tabs-row" ref={tabIndicator.containerRef}>
             {TABS.map((t, i) => (
               <button
                 key={t} type="button" role="tab"
+                ref={tabIndicator.registerTab(i)}
                 aria-selected={i === activeTab}
                 className={`q1__tab${i === activeTab ? ' q1__tab--active' : ''} btn-press`}
                 onClick={() => setActiveTab(i)}
@@ -193,7 +196,10 @@ export default function Quests() {
           </div>
           <div className="q1__tabs-track" aria-hidden="true">
             <span className="q1__tabs-line" />
-            <span className="q1__tabs-pill" style={{ left: `calc(${activeTab} * 33.333% + 16.666%)` }} />
+            <span
+              className="q1__tabs-pill"
+              style={{ left: tabIndicator.indicator.left, width: tabIndicator.indicator.width }}
+            />
           </div>
         </div>
 

@@ -15,6 +15,7 @@ import api from '../api'
 import LoadError from '../components/LoadError'
 import { useToasts } from '../useToasts'
 import { RARITY_LABELS, unwrapList } from '../lib/apiData'
+import { useTabIndicator } from '../useTabIndicator'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -149,15 +150,13 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState('Путь')
   const [activeAxis, setActiveAxis] = useState<string | null>(null)
   const [hoveredAxis, setHoveredAxis] = useState<string | null>(null)
-  const tabsRef = useRef<HTMLDivElement | null>(null)
-  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
-  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 65 })
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [characteristics, setCharacteristics] = useState<CharacteristicItem[]>([])
   const [badges, setBadges] = useState<UserBadge[]>([])
   const [allBadges, setAllBadges] = useState<UserBadge['badge'][]>([])
   const [questsCompleted, setQuestsCompleted] = useState(0)
   const [loading, setLoading] = useState(true)
+  const tabIndicator = useTabIndicator(activeTab, loading)
   const [loadError, setLoadError] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [myRating, setMyRating] = useState<number | null>(null)
@@ -329,33 +328,6 @@ export default function Profile() {
   const selectedAxis = activeAxis ?? 'Мощность'
   const activeHistory = getSkill(selectedAxis).history
 
-  // Индикатор под активным табом: меряем сам таб, а не подбираем отступы.
-  // Берём offset-размеры, а не getBoundingClientRect: блок появляется с
-  // анимацией масштаба, и прямоугольник в этот момент отдаёт размеры с
-  // учётом трансформа — индикатор получался уже и левее таба.
-  const updateIndicator = useCallback(() => {
-    const container = tabsRef.current
-    const activeButton = tabButtonRefs.current[activeTab]
-    if (!container || !activeButton) return
-    setIndicatorStyle({
-      left: activeButton.offsetLeft - container.offsetLeft,
-      width: activeButton.offsetWidth,
-    })
-  }, [activeTab])
-
-  useEffect(() => {
-    updateIndicator()
-    const container = tabsRef.current
-    if (!container) return
-    // ширина текста меняется после подгрузки шрифта и при ресайзе,
-    // поэтому следим за самими табами, а не считаем один раз
-    const observer = new ResizeObserver(updateIndicator)
-    observer.observe(container)
-    Object.values(tabButtonRefs.current).forEach((el) => el && observer.observe(el))
-    // Активный таб набран TT Firs Neue: до её загрузки ширина текста другая
-    document.fonts?.ready.then(updateIndicator)
-    return () => observer.disconnect()
-  }, [updateIndicator, loading])
 
   const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? '??'
 
@@ -733,12 +705,12 @@ export default function Profile() {
           ))}
         </div>
 
-        <div className="profile-path__tabs" ref={tabsRef}>
+        <div className="profile-path__tabs" ref={tabIndicator.containerRef}>
           {tabs.map((t) => (
             <button
               key={t}
               type="button"
-              ref={(el) => { tabButtonRefs.current[t] = el }}
+              ref={tabIndicator.registerTab(t)}
               className={`profile-path__tab${t === activeTab ? ' profile-path__tab--active' : ''} btn-press`}
               onClick={() => setActiveTab(t)}
             >
@@ -747,7 +719,7 @@ export default function Profile() {
           ))}
         </div>
         <div className="profile-path__underline" aria-hidden="true">
-          <div className="profile-path__indicator" style={{ width: indicatorStyle.width, left: indicatorStyle.left }} />
+          <div className="profile-path__indicator" style={{ width: tabIndicator.indicator.width, left: tabIndicator.indicator.left }} />
         </div>
 
         <div className="profile-path__grid">

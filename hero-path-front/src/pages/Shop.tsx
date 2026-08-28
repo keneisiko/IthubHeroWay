@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import palmSky from '../assets/shop/palm-sky.png'
 import api from '../api'
 import { useToasts } from '../useToasts'
 import { formatDateRu, SHOP_TAB_TYPES, unwrapList } from '../lib/apiData'
+import { useTabIndicator } from '../useTabIndicator'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
@@ -83,9 +84,7 @@ export default function Shop() {
   const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
-  const tabsRef = useRef<HTMLDivElement>(null)
-  const tabRefs = useRef<Record<number, HTMLButtonElement | null>>({})
-  const [pillStyle, setPillStyle] = useState({ left: 0, width: 50 })
+  const tabIndicator = useTabIndicator(activeTab, loading)
 
   const loadShop = useCallback(() => {
     setLoading(true)
@@ -161,14 +160,6 @@ export default function Shop() {
     loadShop()
   }, [loadShop])
 
-  useEffect(() => {
-    const container = tabsRef.current
-    const activeBtn = tabRefs.current[activeTab]
-    if (!container || !activeBtn) return
-    const containerRect = container.getBoundingClientRect()
-    const btnRect = activeBtn.getBoundingClientRect()
-    setPillStyle({ left: btnRect.left - containerRect.left + (btnRect.width - 50) / 2, width: 50 })
-  }, [activeTab])
 
   const selectedProduct = products.find(p => p.id === (showPurchase ?? showDetail))
 
@@ -200,20 +191,23 @@ export default function Shop() {
       <>
       <div className="shop-page__band shop-page__band--tabs">
         <nav className="shop-tabs" aria-label="Категории магазина">
-          <div className="shop-tabs__labels" role="tablist" ref={tabsRef}>
+          <div className="shop-tabs__labels" role="tablist" ref={tabIndicator.containerRef}>
             {TABS.map((label, index) => (
               <button
                 key={label} type="button" role="tab"
                 aria-selected={activeTab === index}
                 className={`shop-tab ${activeTab === index ? 'shop-tab--active' : ''} btn-press`}
                 onClick={() => setActiveTab(index)}
-                ref={el => { tabRefs.current[index] = el }}
+                ref={tabIndicator.registerTab(index)}
               >{label}</button>
             ))}
           </div>
           <div className="shop-tabs__track" aria-hidden="true">
             <span className="shop-tabs__line" />
-            <div className="shop-tabs__pill" style={{ left: pillStyle.left }} />
+            <div
+              className="shop-tabs__pill"
+              style={{ left: tabIndicator.indicator.left + (tabIndicator.indicator.width - 50) / 2 }}
+            />
           </div>
         </nav>
       </div>

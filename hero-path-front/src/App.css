@@ -2470,13 +2470,11 @@ body {
 .q1__tabs-pill {
   position: absolute;
   top: 0;
-  width: 65px;
   height: 10px;
-  border-radius: 4px;
-  background: #9a33f4;
-  box-shadow: 5px 5px 17px 2px #9a33f4;
-  transition: left 0.3s ease;
-  transform: translateX(-50%);
+  border-radius: var(--radius-4);
+  background: var(--purple-500);
+  box-shadow: 5px 5px 17px 2px var(--purple-500);
+  transition: left 0.3s ease, width 0.3s ease;
 }
 
 .q1__quests {
