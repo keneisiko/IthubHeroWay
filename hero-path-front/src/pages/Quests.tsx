@@ -43,13 +43,25 @@ function useModal(initial = false) {
   return { open, ref, show, hide }
 }
 
+// Склонение дней для подписи серии
+function dayWord(days: number) {
+  if (days === 1) return 'день'
+  if (days >= 2 && days <= 4) return 'дня'
+  return 'дней'
+}
+
 export default function Quests() {
   const [activeTab, setActiveTab] = useState(0)
   const [quests, setQuests] = useState<UiQuest[]>([])
   const [completedQuests, setCompletedQuests] = useState<UiQuest[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
   const [selfReportQuestCode, setSelfReportQuestCode] = useState<string | null>(null)
-  const [lateStrike, setLateStrike] = useState<number | null>(null)
+  const [strike, setStrike] = useState<{
+    late_strike: number
+    bonus_at_7: number
+    bonus_at_21: number
+    overall_progress_percent: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const tabIndicator = useTabIndicator(activeTab, loading)
   const [loadError, setLoadError] = useState(false)
@@ -83,7 +95,7 @@ export default function Quests() {
       setCompletedQuests(mapCompletedQuests(completedRes.data))
       setActivity(mapRewardActivities(historyRes.data))
       setSelfReportQuestCode(pickSelfReportQuestCode(activeRes.data))
-      setLateStrike(dashRes.data?.strike?.late_strike ?? null)
+      setStrike(dashRes.data?.strike ?? null)
     }).catch(() => {
       setQuests([])
       setCompletedQuests([])
@@ -225,11 +237,11 @@ export default function Quests() {
           </section>
         ) : (
           <section className="q1__quests">
-            <h2 className="q1__quests-title">
-              {activeTab === 0 ? 'Активные квесты' : 'Выполненные квесты'}
-              <span className="q1__quests-count">{currentQuests.length}</span>
-            </h2>
             <div className="q1__quests-slot">
+              <h2 className="q1__quests-title">
+                {activeTab === 0 ? 'Активные квесты' : 'Выполненные квесты'}
+                <span className="q1__quests-count">{currentQuests.length}</span>
+              </h2>
               <div className="q1__quests-slot-inner">
                 {currentQuests.map((q, i) => (
                   <article key={q.id} className={`q1__card hover-lift ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
@@ -238,9 +250,14 @@ export default function Quests() {
                         <span className="q1__card-kind">{q.kind}</span>
                         <span className="q1__card-kind-ic" aria-hidden="true" />
                         <span className="q1__card-left">
-                          {q.completed ? 'Завершён' : <>Осталось <span className="q1__card-left-accent">{q.leftDays}</span></>}
+                          {q.completed
+                            ? 'Завершён'
+                            : <>Осталось&nbsp;<span className="q1__card-left-accent">{q.leftDays}</span></>}
                         </span>
-                        <span className="q1__card-pct" style={{ background: q.completed ? '#6cd63e' : '#121212' }}>
+                        <span
+                          className="q1__card-pct"
+                          style={q.completed ? { color: '#6cd63e', opacity: 1 } : undefined}
+                        >
                           {q.progress}%
                         </span>
                       </div>
@@ -265,7 +282,7 @@ export default function Quests() {
                         <span className="q1__step q1__step--green" style={{ opacity: q.progress >= 100 ? 1 : 0.3 }} />
                       </div>
                       <div className="q1__card-reward">
-                        Награда: <span className="q1__card-reward-coins">{q.reward}</span>
+                        Награда:&nbsp;<span className="q1__card-reward-coins">{q.reward}</span>
                       </div>
                       {!q.completed && q.confirm && (
                         <button type="button" className="q1__card-confirm btn-press" onClick={() => openConfirm(q.code)}>
@@ -298,18 +315,39 @@ export default function Quests() {
           <div className="q1__series-head">
             <img className="q1__series-icon-img" src={seriesIcon} alt="" aria-hidden="true" />
             <div className="q1__series-text">
-              <div className="q1__series-label">Серия без опозданий</div>
+              <div className="q1__series-label">Серия:</div>
               <div className="q1__series-sub">
-                {lateStrike != null
-                  ? `${lateStrike} ${lateStrike === 1 ? 'день' : lateStrike >= 2 && lateStrike <= 4 ? 'дня' : 'дней'} подряд`
+                {strike
+                  ? `${strike.late_strike} ${dayWord(strike.late_strike)} без опозданий`
                   : 'Данные обновляются после синхронизации с HikCentral'}
               </div>
             </div>
           </div>
+
+          {strike && (
+            <div className="q1__series-progress">
+              <div className="series__meta series__meta--top">
+                <span>7 дней</span><span>14 дней</span>
+              </div>
+              <div className="series__progress-row">
+                <span className="series__circle series__circle--left" />
+                <div className="series__progress">
+                  <div
+                    className="series__progress-fill"
+                    style={{ width: `${Math.min(100, strike.overall_progress_percent)}%` }}
+                  />
+                </div>
+                <span className="series__circle series__circle--right" />
+              </div>
+              <div className="series__meta series__meta--bottom">
+                <span>+{strike.bonus_at_7} монет</span><span>+{strike.bonus_at_21} монет</span>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="q1__activity">
-          <h3 className="q1__activity-title">Последние награды</h3>
+          <h3 className="q1__activity-title">Список выполненных квестов</h3>
           <div className="q1__activity-list">
             {activity.slice(0, 3).map((a) => (
               <article key={a.id} className="q1__acard hover-lift">

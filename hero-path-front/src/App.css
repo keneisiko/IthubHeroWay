@@ -2484,10 +2484,10 @@ body {
 }
 
 .q1__quests-title {
-  font-family: 'TT Firs Neue', sans-serif;
+  font-family: var(--font-display);
   font-size: 28px;
   font-weight: 700;
-  color: #9a33f4;
+  color: var(--ithub-white);
   margin: 0;
 }
 
@@ -2499,7 +2499,7 @@ body {
   min-width: 36px;
   height: 36px;
   border-radius: 12px;
-  background: #9a33f4;
+  background: var(--ithub-black);
   color: #f5f5f5;
   font-family: 'TT Firs Neue', sans-serif;
   font-size: 20px;
@@ -2508,10 +2508,13 @@ body {
 }
 
 .q1__quests-slot {
-  background: #9a33f4;
-  border-radius: 24px;
-  padding: 16px;
-  box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  background: var(--purple-500);
+  border-radius: var(--radius-24);
+  padding: var(--space-20);
+  box-shadow: var(--card-shadow);
 }
 
 .q1__quests-slot-inner {
@@ -2521,10 +2524,11 @@ body {
 }
 
 .q1__card {
-  background: #f5f5f5;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 10px 10px 20px -10px rgba(0, 0, 0, 0.25);
+  background: var(--ithub-white);
+  border: var(--stroke-4) solid var(--purple-500);
+  border-radius: var(--radius-8);
+  padding: var(--space-20);
+  box-shadow: var(--card-shadow);
 }
 
 .q1__card-body {
@@ -2544,12 +2548,10 @@ body {
 }
 
 .q1__card-kind {
-  background: #9a33f4;
-  color: #f5f5f5;
-  border-radius: 48px;
-  padding: 4px 16px;
-  font-size: 16px;
-  font-weight: 700;
+  font-family: var(--font-text);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--purple-500);
 }
 
 .q1__card-kind-ic {
@@ -2562,21 +2564,29 @@ body {
 
 .q1__card-left {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  height: 27px;
+  padding: 0 var(--space-16);
+  border-radius: var(--radius-48);
+  background: var(--ithub-black);
+  font-family: var(--font-text);
   font-size: 16px;
-  color: #848484;
+  font-weight: 600;
+  color: var(--ithub-white);
+  white-space: nowrap;
 }
 
 .q1__card-left-accent {
-  color: #121212;
-  font-weight: 700;
+  color: var(--purple-500);
 }
 
 .q1__card-pct {
-  background: #121212;
-  color: #f5f5f5;
-  border-radius: 48px;
-  padding: 4px 12px;
-  font-size: 16px;
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 700;
+  color: #5d33f4;
+  opacity: 0.8;
 }
 
 .q1__card-mid {
@@ -2586,17 +2596,17 @@ body {
 }
 
 .q1__card-name {
-  font-family: 'TT Firs Neue', sans-serif;
+  font-family: var(--font-text);
   font-size: 24px;
   font-weight: 700;
-  color: #121212;
+  color: var(--ithub-black);
 }
 
 .q1__card-desc {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: #848484;
+  font-family: var(--font-text);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--grey-2);
 }
 
 .q1__card-team {
@@ -2683,26 +2693,38 @@ body {
 }
 
 .q1__card-reward {
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  color: #121212;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-12);
+  background: var(--ithub-black);
+  font-family: var(--font-text);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ithub-white);
 }
 
-.q1__card-reward-coins { color: #9a33f4; }
+.q1__card-reward-coins { color: var(--sys-yellow); }
 
 .q1__card-confirm {
   width: 100%;
-  height: 48px;
-  border-radius: 16px;
-  border: 4px solid #9a33f4;
-  background: #f5f5f5;
-  color: #9a33f4;
-  font-family: 'TT Firs Neue', sans-serif;
-  font-size: 22px;
+  border-radius: var(--radius-16);
+  border: var(--stroke-4) solid var(--ithub-black);
+  background: var(--ithub-white);
+  color: var(--ithub-black);
+  font-family: var(--font-text);
+  font-size: 24px;
   font-weight: 700;
+  padding: 17px var(--space-16);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, color 0.2s;
+}
+
+.q1__card-confirm:hover {
+  background: var(--ithub-black);
+  color: var(--ithub-white);
 }
 
 .q1__card-confirm:hover {
@@ -4883,4 +4905,23 @@ body {
    чтобы её центр совпадал с центром самой иконки */
 .right-sidebar__icon {
   display: flex;
+}
+
+/* Прогресс серии в правой колонке квестов — те же элементы, что на главной */
+.q1__series-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-16);
+}
+
+.q1__series-progress .series__meta,
+.q1__series-progress .series__progress-row {
+  width: 100%;
+}
+
+.q1__series-progress .series__progress {
+  width: auto;
+  flex: 1 0 0;
+  min-width: 0;
 }
