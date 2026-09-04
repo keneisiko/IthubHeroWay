@@ -51,6 +51,10 @@ def context_kwargs(*, locale: str = "ru-RU", accept_downloads: bool = False, **e
 # Баннеры согласия на cookies. Отклоняем всё необязательное: аналитика порталу
 # нужна, нам — нет, а баннер перекрывает форму входа.
 COOKIE_REJECT_LABELS = (
+    # На hik-connectru кнопки называются «Decline All» / «Accept All»:
+    # без точного совпадения баннер оставался висеть поверх кнопки входа.
+    "Decline All",
+    "Отклонить все",
     "Reject",
     "Отклонить",
     "Decline",

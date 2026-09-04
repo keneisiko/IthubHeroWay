@@ -102,3 +102,38 @@ class NavigationGuardTests(TestCase):
             _navigate_to_records(page, config)
 
         self.assertIn("HIK_WEB_NAV_STEPS", str(ctx.exception))
+
+
+class LoginSelectorTests(TestCase):
+    """Селекторы полей входа.
+
+    На странице портала ровно одна форма, и поля входа в неё не входят —
+    внутри оказывается только поиск по списку регионов. Пока селекторы были
+    привязаны к `form`, логин уезжал именно туда: поле «Account/Email»
+    оставалось пустым, а адрес почты появлялся в выборе региона.
+    """
+
+    def test_selectors_are_not_bound_to_form(self):
+        from apps.integrations.services.hik_browser_export import ACCOUNT_SELECTORS
+
+        for selector in ACCOUNT_SELECTORS:
+            self.assertFalse(selector.startswith("form "), selector)
+
+    def test_fallback_excludes_dropdown_inputs(self):
+        """Запасной селектор не должен цеплять строки выбора региона и языка."""
+        from apps.integrations.services.hik_browser_export import ACCOUNT_SELECTORS
+
+        fallback = ACCOUNT_SELECTORS[-1]
+        self.assertIn(":not([readonly])", fallback)
+        self.assertIn("Select", fallback)
+
+    def test_account_value_reads_visible_field(self):
+        from apps.integrations.services.hik_browser_export import _account_value
+
+        page = MagicMock()
+        field = page.locator.return_value.first
+        field.count.return_value = 1
+        field.is_visible.return_value = True
+        field.input_value.return_value = "  user@nalchik.ithub.ru "
+
+        self.assertEqual(_account_value(page), "user@nalchik.ithub.ru")

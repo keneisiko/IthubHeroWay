@@ -101,19 +101,26 @@ def _click_nav_step(page: Page, step: str) -> bool:
     return False
 
 
-# Поля входа на hik-connectru не имеют name/id — только placeholder, а перед
-# ними на странице лежат четыре input[type=text] от выпадающих списков
-# Element-UI (страна, язык). Поэтому селекторы привязаны к форме и плейсхолдеру,
-# а не к порядку полей: прежний код заполнял логином выбор страны.
+# Поля входа на hik-connectru не имеют name/id — только placeholder, а рядом
+# на странице лежат input[type=text] от выпадающих списков Element-UI
+# (страна, язык) и их поисковые строки.
+#
+# Привязка к <form> не работает: на странице ровно одна форма, и поля входа
+# в неё не входят — внутри оказывается только поиск по списку регионов.
+# Из-за префикса `form ` логин уезжал именно туда: в поле «Account/Email»
+# оставалось пусто, а сверху в выборе региона появлялся адрес почты.
+# Поэтому селекторы идут по плейсхолдеру и явно исключают readonly-поля
+# и строки выбора («Please Select», «Select the ...»).
+_NOT_A_SELECT = ":not([readonly]):not([placeholder*='Select' i])"
+
 ACCOUNT_SELECTORS = (
-    "form input[placeholder*='Account' i]",
-    "form input[placeholder*='Email' i]",
-    "form input[placeholder*='Аккаунт' i]",
-    "form input[placeholder*='Почт' i]",
-    "form input[type='text']:not([readonly])",
+    f"input[placeholder*='Account' i]{_NOT_A_SELECT}",
+    f"input[placeholder*='Email' i]{_NOT_A_SELECT}",
+    f"input[placeholder*='Аккаунт' i]{_NOT_A_SELECT}",
+    f"input[placeholder*='Почт' i]{_NOT_A_SELECT}",
+    f"input[type='text']{_NOT_A_SELECT}",
 )
 PASSWORD_SELECTORS = (
-    "form input[type='password']",
     "input[type='password']",
 )
 LOGIN_BUTTON_SELECTORS = (
@@ -123,6 +130,18 @@ LOGIN_BUTTON_SELECTORS = (
     "button:has-text('Войти')",
     "button:has-text('Sign In')",
 )
+
+
+def _account_value(page: Page) -> str:
+    """Что реально лежит в поле логина после заполнения."""
+    for selector in ACCOUNT_SELECTORS:
+        try:
+            field = page.locator(selector).first
+            if field.count() and field.is_visible():
+                return (field.input_value() or "").strip()
+        except Exception:
+            continue
+    return ""
 
 
 def _login(page: Page, config: HikBrowserExportConfig) -> None:
@@ -154,6 +173,17 @@ def _login(page: Page, config: HikBrowserExportConfig) -> None:
 
     account_ok = filled_account or forced.get("email_len", 0) > 0
     password_ok = filled_password or forced.get("password_len", 0) > 0
+
+    # Читаем поле обратно: если логин ушёл не туда (а он уезжал в выбор
+    # региона), портал ответит «неверные данные» через две минуты ожидания,
+    # и по сообщению будет не понять, что дело в селекторе.
+    if account_ok and _account_value(page) != config.email.strip():
+        raise HikBrowserExportError(
+            "Логин не попал в поле «Account/Email» на странице входа: "
+            "вероятно, вёрстка портала изменилась. Проверьте скриншот "
+            "(--debug) и селекторы ACCOUNT_SELECTORS."
+        )
+
     if not account_ok or not password_ok:
         raise HikBrowserExportError(
             "Форма логина на портале Hik Connect не найдена. "
