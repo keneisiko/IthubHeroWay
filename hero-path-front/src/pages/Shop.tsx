@@ -22,6 +22,7 @@ interface Purchase {
   price: string
   status: string
   date: string
+  isApplied: boolean
 }
 
 interface HistoryItem {
@@ -81,6 +82,9 @@ export default function Shop() {
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [coins, setCoins] = useState('0')
   const [purchasedCodes, setPurchasedCodes] = useState<Set<string>>(new Set())
+  // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
+  // двойной клик не отправил применение и снятие подряд.
+  const [applyingId, setApplyingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
@@ -116,6 +120,7 @@ export default function Shop() {
         id: number
         coins_spent: number
         created_at: string
+        is_applied?: boolean
         item: { title: string; code?: string }
       }>(purchasesRes.data)
 
@@ -129,6 +134,7 @@ export default function Shop() {
         price: String(p.coins_spent),
         status: p.created_at ? `Куплено · ${formatDateRu(p.created_at)}` : 'Куплено',
         date: formatDateRu(p.created_at),
+        isApplied: Boolean(p.is_applied),
       })))
 
       const rewardRows = unwrapList<{
@@ -160,6 +166,22 @@ export default function Shop() {
     loadShop()
   }, [loadShop])
 
+
+  // Одновременно активна одна покупка на тип товара — правило на бэкенде,
+  // поэтому после переключения список перезагружаем целиком.
+  const togglePurchase = useCallback((purchase: Purchase) => {
+    setApplyingId(purchase.id)
+    const request = purchase.isApplied
+      ? api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+      : api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+    request
+      .then(() => {
+        addToast(purchase.isApplied ? 'Покупка снята' : 'Покупка применена', 'success')
+        return loadShop()
+      })
+      .catch(() => addToast('Не удалось изменить покупку', 'error'))
+      .finally(() => setApplyingId(null))
+  }, [addToast, loadShop])
 
   const selectedProduct = products.find(p => p.id === (showPurchase ?? showDetail))
   const selectedDetail = showDetail !== null ? products.find(p => p.id === showDetail) : undefined
@@ -209,13 +231,14 @@ export default function Shop() {
               <article key={p.id} className="shop-purchase">
                 <img src={palmSky} alt="" className="shop-purchase__image" />
                 <span className="shop-purchase__name">{p.title}</span>
-                <span className="shop-purchase__state">Активна</span>
+                <span className="shop-purchase__state">{p.isApplied ? 'Применена' : 'Куплена'}</span>
                 <button
                   type="button"
                   className="shop-purchase__apply btn-press"
-                  onClick={() => addToast('Применение покупок пока не подключено на бэкенде', 'error')}
+                  onClick={() => togglePurchase(p)}
+                  disabled={applyingId === p.id}
                 >
-                  Применить
+                  {p.isApplied ? 'Снять' : 'Применить'}
                 </button>
               </article>
             ))}

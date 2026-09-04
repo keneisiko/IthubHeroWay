@@ -46,6 +46,15 @@ class Purchase(models.Model):
     )
     coins_spent = models.PositiveIntegerField("Потрачено монет")
     created_at = models.DateTimeField("Создана", auto_now_add=True)
+    applied_at = models.DateTimeField(
+        "Применена",
+        null=True,
+        blank=True,
+        help_text=(
+            "Когда покупку сделали активной. Одновременно активна одна покупка "
+            "на тип товара: рамка аватара, свечение значка и так далее."
+        ),
+    )
     meta = models.JSONField("Метаданные", default=dict, blank=True)
 
     class Meta:
@@ -53,7 +62,13 @@ class Purchase(models.Model):
         verbose_name_plural = "Покупки"
         indexes = [
             models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["user", "applied_at"]),
         ]
 
     def __str__(self) -> str:
-        return f"{self.user_id}:{self.item_id} (-{self.coins_spent})"
+        state = " (применена)" if self.applied_at else ""
+        return f"{self.user_id}:{self.item_id} (-{self.coins_spent}){state}"
+
+    @property
+    def is_applied(self) -> bool:
+        return self.applied_at is not None

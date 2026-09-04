@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
+from apps.progress.services.path_map import path_reached
 from apps.progress.services.rating_zones import rating_zone
+from apps.shop.services import applied_purchases
+from apps.social.services.duels import duel_wins
+from apps.social.services.rewards import respects_received_count
 
 from .models import User
 
@@ -8,6 +12,12 @@ from .models import User
 class MeProfileSerializer(serializers.ModelSerializer):
     track = serializers.CharField(source="track.name", read_only=True)
     squad = serializers.CharField(source="squad.name", read_only=True)
+    # Карта пути в профиле: без этого поля фронт подставлял ['entry'] всем.
+    path_reached = serializers.SerializerMethodField()
+    # Активные покупки: какая рамка аватара и какое свечение значка надеты.
+    applied_items = serializers.SerializerMethodField()
+    duel_wins = serializers.SerializerMethodField()
+    respects_received = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -20,7 +30,23 @@ class MeProfileSerializer(serializers.ModelSerializer):
             "level",
             "rating_current",
             "coins_balance",
+            "path_reached",
+            "applied_items",
+            "duel_wins",
+            "respects_received",
         ]
+
+    def get_path_reached(self, obj: User) -> list[str]:
+        return path_reached(obj)
+
+    def get_applied_items(self, obj: User) -> dict:
+        return applied_purchases(obj)
+
+    def get_duel_wins(self, obj: User) -> int:
+        return duel_wins(obj)
+
+    def get_respects_received(self, obj: User) -> int:
+        return respects_received_count(obj)
 
 
 class PublicProfileSerializer(serializers.ModelSerializer):
@@ -28,6 +54,12 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     squad = serializers.CharField(source="squad.name", read_only=True)
     rating_zone = serializers.SerializerMethodField()
     rating_current = serializers.SerializerMethodField()
+    path_reached = serializers.SerializerMethodField()
+    applied_items = serializers.SerializerMethodField()
+    # Профиль показывает «Побед в дуэлях» — раньше поля не существовало,
+    # и в интерфейсе всегда было пусто.
+    duel_wins = serializers.SerializerMethodField()
+    respects_received = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -40,7 +72,23 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "level",
             "rating_zone",
             "rating_current",
+            "path_reached",
+            "applied_items",
+            "duel_wins",
+            "respects_received",
         ]
+
+    def get_duel_wins(self, obj: User) -> int:
+        return duel_wins(obj)
+
+    def get_respects_received(self, obj: User) -> int:
+        return respects_received_count(obj)
+
+    def get_path_reached(self, obj: User) -> list[str]:
+        return path_reached(obj)
+
+    def get_applied_items(self, obj: User) -> dict:
+        return applied_purchases(obj)
 
     def get_rating_zone(self, obj: User) -> str:
         # Пороги живут в одном месте — apps.progress.services.rating_zones.

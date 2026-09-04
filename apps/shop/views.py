@@ -9,6 +9,7 @@ from apps.operations.services.cache import invalidate_profile
 
 from .models import Purchase, ShopItem
 from .serializers import PurchaseCreateSerializer, PurchaseSerializer, ShopItemSerializer
+from .services import PurchaseNotOwned, apply_purchase, unapply_purchase
 
 
 class ShopItemListView(generics.ListAPIView):
@@ -70,3 +71,29 @@ class MyPurchaseListView(generics.ListAPIView):
     def get_queryset(self):
         return Purchase.objects.filter(user=self.request.user).select_related("item").order_by("-created_at")
 
+
+
+class PurchaseApplyView(views.APIView):
+    """Сделать покупку активной или снять её.
+
+    До этого кнопка «Применить» в интерфейсе просто показывала сообщение,
+    что применение не подключено.
+    """
+
+    permission_classes = [IsKnownRole]
+
+    def post(self, request, purchase_id: int, *args, **kwargs):
+        try:
+            purchase = apply_purchase(request.user, purchase_id)
+        except PurchaseNotOwned as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        invalidate_profile(request.user.username)
+        return Response(PurchaseSerializer(purchase).data)
+
+    def delete(self, request, purchase_id: int, *args, **kwargs):
+        try:
+            purchase = unapply_purchase(request.user, purchase_id)
+        except PurchaseNotOwned as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        invalidate_profile(request.user.username)
+        return Response(PurchaseSerializer(purchase).data)
