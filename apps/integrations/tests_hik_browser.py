@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 from django.test import TestCase
 
 from apps.integrations.services.browser_runtime import (
@@ -69,3 +71,34 @@ class BrowserRuntimeTests(TestCase):
         args = launch_kwargs(headless=False, extra_args=["--foo"])["args"]
         self.assertIn("--foo", args)
         self.assertFalse(launch_kwargs(headless=False)["headless"])
+
+
+class NavigationGuardTests(TestCase):
+    """Маршрут к записям прохода обязателен.
+
+    Без него скрипт логинился, оставался на главной портала и падал только
+    через таймаут ожидания загрузки файла — по сообщению было не понять,
+    что дело в пустой настройке.
+    """
+
+    def test_missing_route_fails_fast_with_a_clear_message(self):
+        from apps.integrations.services.hik_browser_export import (
+            HikBrowserExportConfig,
+            HikBrowserExportError,
+            _navigate_to_records,
+        )
+
+        page = MagicMock()
+        page.locator.return_value.first.count.return_value = 0
+        config = HikBrowserExportConfig(
+            login_url="https://example.com",
+            email="a@b.c",
+            password="x",
+            nav_steps=(),
+            records_url="",
+        )
+
+        with self.assertRaises(HikBrowserExportError) as ctx:
+            _navigate_to_records(page, config)
+
+        self.assertIn("HIK_WEB_NAV_STEPS", str(ctx.exception))

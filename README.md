@@ -102,6 +102,9 @@ docker compose exec web python manage.py fetch_hik_browser_export --yesterday
 # Отладка UI (скриншот + HTML при ошибке)
 docker compose exec web python manage.py fetch_hik_browser_export --debug --download-only
 
+# Забрать артефакты отладки на хост
+docker compose cp web:/tmp/hik_exports ./hik_debug
+
 # Сверка кодов карт с агентами
 docker compose exec web python manage.py backfill_hik_card_codes --from-xlsx /tmp/hik_exports/file.xlsx
 ```

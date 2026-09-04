@@ -217,7 +217,65 @@ def _wait_for_login_result(page: Page, *, timeout_s: int = 30) -> bool:
     return not _on_login_page(page)
 
 
+# Портал регулярно показывает поверх страницы модалку — «Request timeout»,
+# просроченный сервис отчётов, предложение сменить пароль. Пока она открыта,
+# клики по меню попадают в затемнение, а не в пункт: экспорт молча оставался
+# на главной и падал по таймауту ожидания загрузки файла.
+DIALOG_CLOSE_SELECTORS = (
+    ".el-message-box__btns button",
+    ".el-dialog__footer button",
+    ".el-message-box__headerbtn",
+    ".el-dialog__headerbtn",
+    "button:has-text('Close')",
+    "button:has-text('Закрыть')",
+    "button:has-text('OK')",
+)
+
+
+def _dismiss_dialogs(page: Page, *, attempts: int = 3) -> int:
+    """Закрыть модальные окна, если они перекрывают страницу."""
+    closed = 0
+    for _ in range(attempts):
+        overlay = page.locator(".el-message-box__wrapper, .el-dialog__wrapper, .v-modal").first
+        try:
+            if not overlay.count() or not overlay.is_visible():
+                break
+        except Exception:
+            break
+        for selector in DIALOG_CLOSE_SELECTORS:
+            try:
+                button = page.locator(selector).first
+                if button.count() and button.is_visible():
+                    button.click(timeout=3_000)
+                    closed += 1
+                    page.wait_for_timeout(500)
+                    break
+            except Exception:
+                continue
+        else:
+            # Кнопку не нашли — пробуем клавишу Escape.
+            try:
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(500)
+            except Exception:
+                break
+    if closed:
+        logger.info("Hik: закрыто модальных окон: %s", closed)
+    return closed
+
+
 def _navigate_to_records(page: Page, config: HikBrowserExportConfig) -> None:
+    _dismiss_dialogs(page)
+
+    if not config.records_url and not config.nav_steps:
+        # Без маршрута скрипт оставался на главной портала и падал только
+        # через таймаут ожидания загрузки — по сообщению было не понять, что
+        # дело в пустой настройке.
+        raise HikBrowserExportError(
+            "Не задан маршрут к записям прохода: укажите HIK_WEB_RECORDS_URL "
+            "или HIK_WEB_NAV_STEPS (например, «Access Control|Search»)."
+        )
+
     if config.records_url:
         page.goto(config.records_url, wait_until="domcontentloaded", timeout=config.timeout_ms)
         try:
@@ -234,6 +292,8 @@ def _navigate_to_records(page: Page, config: HikBrowserExportConfig) -> None:
         if not _click_nav_step(page, step):
             logger.warning("Hik nav step not found: %s (url=%s)", step, page.url)
         page.wait_for_timeout(1_500)
+        # Переход мог снова открыть модалку — закрываем перед следующим шагом.
+        _dismiss_dialogs(page)
 
 
 def _set_date_range(page: Page, start: date, end: date) -> None:
