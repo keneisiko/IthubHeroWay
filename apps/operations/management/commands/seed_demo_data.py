@@ -63,6 +63,15 @@ BADGES = [
         "condition": {"completed_quests_at_least": 3},
         "reward_coins": 25,
     },
+    {
+        "code": "quest-veteran",
+        "title": "Ветеран квестов",
+        "description": "Выполни 10 квестов",
+        "category": BadgeCategory.PROGRESS,
+        "rarity": BadgeRarity.EPIC,
+        "condition": {"completed_quests_at_least": 10},
+        "reward_coins": 50,
+    },
     # Две последние вехи карты пути отмечает куратор: событий «вышел на
     # стажировку» и «выпустился» нет ни в LXP, ни в Hik.
     {

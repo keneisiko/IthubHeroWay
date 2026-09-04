@@ -5691,3 +5691,199 @@ body {
   font-weight: 600;
   color: #848484;
 }
+
+/* ---------- Страница нашивок ---------- */
+.badges-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-20) 0;
+}
+
+.badges-toasts {
+  position: fixed;
+  top: 90px;
+  right: 24px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.badges-head {
+  background: var(--purple-500);
+  border-radius: var(--radius-24);
+  padding: var(--space-20);
+  color: var(--ithub-white);
+  box-shadow: var(--card-shadow);
+}
+
+.badges-head__title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 var(--space-8);
+}
+
+.badges-head__count {
+  font-family: var(--font-text);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 var(--space-12);
+}
+
+.badges-head__bar {
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(18, 18, 18, 0.35);
+  overflow: hidden;
+}
+
+.badges-head__fill {
+  height: 100%;
+  border-radius: 6px;
+  background: #6cd63e;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.badges-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.badges-filters__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.badges-chip {
+  padding: 6px var(--space-16);
+  border: var(--stroke-4) solid var(--ithub-black);
+  border-radius: var(--radius-12);
+  background: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.badges-chip--active {
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-16);
+}
+
+.badge-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-20);
+  background: var(--ithub-white);
+  border: var(--stroke-4) solid var(--purple-500);
+  border-radius: var(--radius-16);
+  box-shadow: var(--card-shadow);
+}
+
+/* Неполученные приглушены, но читаемы: это цель, а не мусор. */
+.badge-card--locked {
+  border-color: #d0d0d0;
+  background: #fafafa;
+}
+
+.badge-card--locked .badge-card__icon {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.badge-card__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--purple-500);
+}
+
+.badge-card__icon--rare { background: #1976d2; }
+.badge-card__icon--epic { background: #9A33F4; }
+.badge-card__icon--legendary { background: linear-gradient(135deg, #ffd900, #ff9f00); }
+
+.badge-card__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.badge-card__desc {
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 500;
+  color: #5c5c5c;
+  margin: 0;
+  flex-grow: 1;
+}
+
+.badge-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.badge-card__rarity,
+.badge-card__coins {
+  padding: 2px var(--space-8);
+  border-radius: var(--radius-8);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 700;
+  background: #f0f0f0;
+}
+
+.badge-card__rarity--rare { background: #d6e9ff; }
+.badge-card__rarity--epic { background: #f3e8ff; }
+.badge-card__rarity--legendary { background: #fff2cc; }
+.badge-card__coins { background: #121212; color: #ffd900; }
+
+.badge-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding-top: var(--space-8);
+  border-top: 2px solid #ececec;
+}
+
+.badge-card__date {
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  color: #5c5c5c;
+}
+
+.badge-card__date--locked { color: #9a9a9a; }
+
+.badge-card__pin {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.badges-empty {
+  padding: 40px;
+  text-align: center;
+  color: #848484;
+  font-family: var(--font-text);
+  font-weight: 600;
+}

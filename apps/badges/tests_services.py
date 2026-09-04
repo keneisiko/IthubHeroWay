@@ -126,3 +126,28 @@ class WeeklyTaskTests(TestCase):
         )
         result = check_badges_weekly()
         self.assertIn("checked=0", result)
+
+
+class ManualBadgeTests(TestCase):
+    """Значки, которые выдаёт куратор, автопроверка не трогает.
+
+    Без явного ключа они попадали в «неизвестное условие» и на каждом
+    еженедельном прогоне писали предупреждение в лог.
+    """
+
+    def test_manual_badge_is_not_awarded_automatically(self):
+        from apps.badges.services import _condition_matches
+
+        badge = Badge.objects.create(
+            code="path-internship", title="Стажировка", condition={"manual": True}
+        )
+
+        self.assertFalse(_condition_matches(badge, completed_quests=100))
+
+    def test_manual_key_does_not_warn(self):
+        from apps.badges.services import _condition_matches
+
+        badge = Badge.objects.create(code="manual-x", title="X", condition={"manual": True})
+
+        with self.assertNoLogs("apps.badges.services", level="WARNING"):
+            _condition_matches(badge, completed_quests=0)

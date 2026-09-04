@@ -14,6 +14,7 @@ const Leaderboard = lazy(() => import('./pages/Leaderboard'))
 const Quests = lazy(() => import('./pages/Quests'))
 const Shop = lazy(() => import('./pages/Shop'))
 const Squads = lazy(() => import('./pages/Squads'))
+const Badges = lazy(() => import('./pages/Badges'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function PageFallback() {
@@ -46,7 +47,7 @@ function App() {
 
 function AppShell() {
   const location = useLocation()
-  const KNOWN_PATHS = ['/dashboard', '/profile', '/leaderboard', '/quests', '/shop', '/squads']
+  const KNOWN_PATHS = ['/dashboard', '/profile', '/leaderboard', '/quests', '/shop', '/squads', '/badges']
   const isKnownRoute = location.pathname === '/' || KNOWN_PATHS.some(p => location.pathname.startsWith(p))
 
   return (
@@ -65,6 +66,7 @@ function AppShell() {
                 <Route path="/quests" element={<Quests />} />
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/squads" element={<Squads />} />
+                <Route path="/badges" element={<Badges />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

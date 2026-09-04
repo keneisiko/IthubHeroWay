@@ -12,7 +12,11 @@ from .models import Badge, UserBadge
 logger = logging.getLogger(__name__)
 
 
-SUPPORTED_CONDITION_KEYS = {"completed_quests_at_least"}
+# `manual` — значок выдаёт человек (куратор), автопроверке тут делать нечего.
+# Без этого ключа такие значки попадали в «неизвестное условие» и на каждом
+# еженедельном прогоне сыпали предупреждениями в лог.
+MANUAL_CONDITION_KEY = "manual"
+SUPPORTED_CONDITION_KEYS = {"completed_quests_at_least", MANUAL_CONDITION_KEY}
 
 
 def _condition_matches(badge: Badge, *, completed_quests: int) -> bool:
@@ -23,6 +27,9 @@ def _condition_matches(badge: Badge, *, completed_quests: int) -> bool:
     """
     condition = badge.condition or {}
     if not isinstance(condition, dict) or not condition:
+        return False
+
+    if condition.get(MANUAL_CONDITION_KEY):
         return False
 
     unknown = set(condition) - SUPPORTED_CONDITION_KEYS
