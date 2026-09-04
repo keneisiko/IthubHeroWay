@@ -6,6 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from django.utils.html import format_html
 
+from apps.notifications.services import events
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_curator, is_hq, is_superadmin, is_tutor
 from apps.quests.services.quest_completion import complete_quest_idempotent
 
@@ -206,6 +207,7 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             proof.reviewed_at = now
             proof.save(update_fields=["status", "reviewed_by", "reviewed_at"])
             _complete_quest_idempotent(proof.user, proof.quest, request.user)
+            events.proof_reviewed(proof, approved=True)
             updated += 1
         self.message_user(request, f"Одобрено: {updated}", level=messages.SUCCESS)
 
@@ -215,7 +217,12 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             self.message_user(request, "Штаб не проверяет подтверждения.", level=messages.ERROR)
             return
         now = timezone.now()
+        rejected = list(
+            queryset.exclude(status=SelfReportProofStatus.REJECTED).select_related("user", "quest")
+        )
         updated = queryset.exclude(status=SelfReportProofStatus.REJECTED).update(
             status=SelfReportProofStatus.REJECTED, reviewed_by=request.user, reviewed_at=now
         )
+        for proof in rejected:
+            events.proof_reviewed(proof, approved=False)
         self.message_user(request, f"Отклонено: {updated}", level=messages.SUCCESS)

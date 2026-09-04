@@ -5,6 +5,7 @@ from rest_framework import generics, status, views
 from rest_framework.response import Response
 
 from apps.accounts.permissions import IsKnownRole
+from apps.notifications.services import events
 from apps.progress.services.rewards import local_day_start
 
 from .models import (
@@ -150,6 +151,7 @@ class QuestCompleteView(views.APIView):
                     update_fields=["comment", "attachment_link", "status", "reviewed_by", "reviewed_at"]
                 )
 
+        events.proof_submitted(proof)
         return Response(
             {
                 "status": proof.status,
@@ -219,6 +221,7 @@ class SelfReportCreateView(views.APIView):
                 proof.save(update_fields=["comment"])
             return Response({"status": proof.status, "proof_id": proof.id}, status=status.HTTP_200_OK)
 
+        events.proof_submitted(proof)
         return Response({"status": "pending", "proof_id": proof.id}, status=status.HTTP_201_CREATED)
 
 class WeeklyFocusView(views.APIView):

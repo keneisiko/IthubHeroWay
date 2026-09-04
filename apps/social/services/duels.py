@@ -20,6 +20,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.notifications.services import events
 from apps.social.models import Duel, DuelStatus
 
 
@@ -159,6 +160,10 @@ def resolve_duel(duel: Duel, *, now=None) -> Duel:
     duel.status = DuelStatus.FINISHED
     duel.resolved_at = now
     duel.save(update_fields=["status", "resolved_at", "winner"])
+
+    # Уведомление после сохранения: если Telegram недоступен, итог всё равно
+    # зафиксирован.
+    transaction.on_commit(lambda: events.duel_resolved(duel))
     return duel
 
 

@@ -260,6 +260,9 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
 ENVIRONMENT_NAME = os.getenv("ENVIRONMENT_NAME", "development")
 TELEGRAM_ALERTS_ENABLED = _env_bool("TELEGRAM_ALERTS_ENABLED", True)
+# Уведомления студентам (дуэли, респект, проверка подтверждений) — отдельный
+# переключатель от админских алертов об ошибках: их выключают по разным поводам.
+TELEGRAM_NOTIFICATIONS_ENABLED = _env_bool("TELEGRAM_NOTIFICATIONS_ENABLED", True)
 TELEGRAM_ALERT_DEDUP_TTL = _env_int("TELEGRAM_ALERT_DEDUP_TTL", 3600)
 LXP_VERIFY_URL = os.getenv("LXP_VERIFY_URL", "")
 YOUGILE_API_URL = os.getenv("YOUGILE_API_URL", "")

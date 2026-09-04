@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
+from apps.notifications.services import events
 
 from .models import Duel, DuelStatus, Mentorship, Respect
 from .serializers import (
@@ -79,6 +80,7 @@ class RespectCreateView(views.APIView):
             # в настройках, но не начислялся нигде.
             granted = grant_respect_reward(respect)
 
+        events.respect_received(respect, granted)
         payload = RespectSerializer(respect).data
         payload["coins_granted_to_recipient"] = granted
         return Response(payload, status=status.HTTP_201_CREATED)
@@ -106,6 +108,7 @@ class DuelCreateView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         duel = Duel.objects.create(challenger=request.user, opponent=opponent, status=DuelStatus.PENDING)
+        events.duel_invited(duel)
         return Response(DuelSerializer(duel).data, status=status.HTTP_201_CREATED)
 
 
@@ -138,6 +141,7 @@ class DuelAcceptView(views.APIView):
             duel = accept_duel(request.user, duel_id)
         except DuelNotAllowed as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        events.duel_answered(duel, accepted=True)
         return Response(DuelSerializer(duel).data, status=status.HTTP_200_OK)
 
 
@@ -149,6 +153,7 @@ class DuelRejectView(views.APIView):
             duel = reject_duel(request.user, duel_id)
         except DuelNotAllowed as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        events.duel_answered(duel, accepted=False)
         return Response(DuelSerializer(duel).data, status=status.HTTP_200_OK)
 
 
@@ -203,6 +208,7 @@ class MentorshipCreateView(views.APIView):
             # Разовый рейтинг за взятого подшефного: коэффициент MENTORING
             # из блока «Движ» не начислялся нигде.
             grant_mentorship_start_bonus(mentorship)
+        events.mentorship_started(mentorship)
         return Response(MentorshipSerializer(mentorship).data, status=status.HTTP_201_CREATED)
 
 

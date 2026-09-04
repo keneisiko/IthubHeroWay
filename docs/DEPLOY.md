@@ -27,7 +27,7 @@ cp .env.prod.example .env.prod
 | `ALLOWED_HOSTS` | приложение не стартует |
 | `POSTGRES_PASSWORD` | не стартует база |
 | `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` | браузерный фронт не сможет ходить в API |
-| `TELEGRAM_BOT_TOKEN` | бот не поднимется, **и никто не сможет активировать аккаунт** |
+| `TELEGRAM_BOT_TOKEN` | бот не поднимется, **и никто не сможет активировать аккаунт**; не будет уведомлений о дуэлях, респектах и проверке подтверждений |
 | `TELEGRAM_ADMIN_CHAT_ID` | не будет алертов об ошибках |
 | `LXP_BOT_EMAIL` / `LXP_BOT_PASSWORD` | не соберётся успеваемость, рейтинг замрёт |
 | `YOUGILE_WEBHOOK_SECRET` | вебхук YouGile будет отклонять все запросы (это безопасное поведение по умолчанию) |
