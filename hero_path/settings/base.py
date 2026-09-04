@@ -260,6 +260,9 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
 ENVIRONMENT_NAME = os.getenv("ENVIRONMENT_NAME", "development")
 TELEGRAM_ALERTS_ENABLED = _env_bool("TELEGRAM_ALERTS_ENABLED", True)
+# Уведомления студентам (дуэли, респект, проверка подтверждений) — отдельный
+# переключатель от админских алертов об ошибках: их выключают по разным поводам.
+TELEGRAM_NOTIFICATIONS_ENABLED = _env_bool("TELEGRAM_NOTIFICATIONS_ENABLED", True)
 TELEGRAM_ALERT_DEDUP_TTL = _env_int("TELEGRAM_ALERT_DEDUP_TTL", 3600)
 LXP_VERIFY_URL = os.getenv("LXP_VERIFY_URL", "")
 YOUGILE_API_URL = os.getenv("YOUGILE_API_URL", "")
@@ -453,6 +456,16 @@ CELERY_BEAT_SCHEDULE = {
     "check_strikes_daily": {
         "task": "apps.progress.tasks.apply_strike_bonuses_daily",
         "schedule": crontab(hour=23, minute=30),
+    },
+    # Дуэли: без подведения итогов принятая дуэль висит вечно и блокирует
+    # участникам новые вызовы.
+    "resolve-duels-daily": {
+        "task": "apps.social.tasks.resolve_duels",
+        "schedule": crontab(hour=23, minute=45),
+    },
+    "pay-mentorship-weekly": {
+        "task": "apps.social.tasks.pay_mentorship_weekly",
+        "schedule": crontab(hour=20, minute=30, day_of_week="fri"),
     },
     "check_badges_weekly": {
         "task": "apps.badges.tasks.check_badges_weekly",

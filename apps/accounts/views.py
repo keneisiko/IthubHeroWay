@@ -1,17 +1,22 @@
 from django.core.cache import cache
+from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, views
 from rest_framework.response import Response
 
+from apps.badges.models import UserBadge
+from apps.badges.serializers import UserBadgeSerializer
 from apps.operations.services.cache import invalidate_profile
-from apps.progress.models import UserStrike
+from apps.progress.models import RatingLog, UserStrike
 from apps.progress.services.late_penalties import late_streak_bonus_for_days
 from apps.progress.services.pillar_labels import skills_percent_by_label
 from apps.progress.services.rating_zones import rating_progress
-from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
+from apps.quests.models import QuestRewardTransaction, UserQuestProgress
+from apps.quests.services.quest_periods import quests_for_date
 
-from .models import User
+from .models import Role, User
 from .permissions import IsKnownRole
-from .serializers import MeProfileSerializer, PublicProfileSerializer
+from .serializers import AgentSearchSerializer, MeProfileSerializer, PublicProfileSerializer
 
 
 class MeProfileView(generics.RetrieveUpdateAPIView):
@@ -81,17 +86,59 @@ def _strike_payload(user: User) -> dict:
 
 
 def _dashboard_feed(user: User, limit: int = 5) -> list[dict]:
+    """Лента активности: награды за квесты, изменения рейтинга и значки.
+
+    Раньше в ленту попадали только награды за квесты, поэтому у студента,
+    которому рейтинг начислялся из LXP или снимался за опоздание, она
+    оставалась пустой — при том, что события были.
+    """
     items: list[dict] = []
-    for tx in QuestRewardTransaction.objects.filter(user=user).select_related("quest").order_by("-granted_at")[:limit]:
+
+    for tx in (
+        QuestRewardTransaction.objects.filter(user=user)
+        .select_related("quest")
+        .order_by("-granted_at")[:limit]
+    ):
         title = tx.quest.title if tx.quest_id else "Квест"
         coins_part = f"+{tx.coins_delta} монет" if tx.coins_delta else ""
         rating_part = f"+{tx.rating_delta} рейтинг" if tx.rating_delta else ""
         reward = ", ".join(p for p in (coins_part, rating_part) if p) or "Награда получена"
         items.append({
+            "kind": "quest",
             "text": f"{title}: {reward}",
             "time": tx.granted_at.isoformat() if tx.granted_at else "",
         })
+
+    # Нулевые дельты — служебные маркеры («все КТ закрыты», фиксация базы),
+    # показывать их студенту незачем.
+    for log in RatingLog.objects.filter(user=user).exclude(delta=0).order_by("-created_at")[:limit]:
+        sign = "+" if log.delta > 0 else ""
+        reason = log.reason or "Изменение рейтинга"
+        items.append({
+            "kind": "rating",
+            "text": f"{sign}{log.delta} рейтинг: {reason}",
+            "time": log.created_at.isoformat() if log.created_at else "",
+        })
+
+    for user_badge in (
+        UserBadge.objects.filter(user=user).select_related("badge").order_by("-acquired_at")[:limit]
+    ):
+        items.append({
+            "kind": "badge",
+            "text": f"Получен значок «{user_badge.badge.title}»",
+            "time": user_badge.acquired_at.isoformat() if user_badge.acquired_at else "",
+        })
+
+    items.sort(key=lambda row: row["time"], reverse=True)
     return items[:limit]
+
+
+def _recent_badges(user: User, limit: int = 5) -> list[dict]:
+    """Последние полученные значки. Раньше поле всегда было пустым списком."""
+    queryset = (
+        UserBadge.objects.filter(user=user).select_related("badge").order_by("-acquired_at")[:limit]
+    )
+    return UserBadgeSerializer(queryset, many=True).data
 
 
 class DashboardView(views.APIView):
@@ -99,7 +146,14 @@ class DashboardView(views.APIView):
 
     def get(self, request, *args, **kwargs) -> Response:
         user = request.user
-        current_quest = Quest.objects.filter(is_active=True).order_by("id").first()
+        # Не "первый активный по id": так на карточке висел вчерашний выпуск
+        # ежедневного квеста, пока сегодняшний лежал в списке квестов.
+        current_quest = (
+            quests_for_date(timezone.localdate())
+            .exclude(user_progress__user=user, user_progress__is_completed=True)
+            .order_by("id")
+            .first()
+        )
         current_quest_payload = None
         if current_quest:
             progress = UserQuestProgress.objects.filter(user=user, quest=current_quest).first()
@@ -129,7 +183,41 @@ class DashboardView(views.APIView):
             "current_quest": current_quest_payload,
             "strike": _strike_payload(user),
             "rating_progress": rating_progress(user.rating_current),
-            "recent_badges": [],
+            "recent_badges": _recent_badges(user),
             "feed": _dashboard_feed(user),
         }
         return Response(data)
+
+
+class AgentSearchView(generics.ListAPIView):
+    """Поиск студентов по позывному, логину или имени.
+
+    Наставничество и дуэли требовали ввести username вручную и точно:
+    ошибка в букве — «не удалось оформить», без подсказки, кого искали.
+    """
+
+    permission_classes = [IsKnownRole]
+    serializer_class = AgentSearchSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        query = (self.request.query_params.get("q") or "").strip()
+        # Только активированные агенты: неактивированный аккаунт не может
+        # ни принять вызов, ни узнать о наставничестве.
+        queryset = (
+            User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
+            .exclude(pk=self.request.user.pk)
+            .select_related("squad", "track")
+        )
+        if query:
+            queryset = queryset.filter(
+                Q(callsign__icontains=query)
+                | Q(username__icontains=query)
+                | Q(first_name__icontains=query)
+                | Q(last_name__icontains=query)
+            )
+        elif self.request.user.squad_id:
+            # Без запроса показываем одногруппников: чаще всего берут в подшефные
+            # и вызывают на дуэль именно их.
+            queryset = queryset.filter(squad_id=self.request.user.squad_id)
+        return queryset.order_by("callsign", "id")[:20]

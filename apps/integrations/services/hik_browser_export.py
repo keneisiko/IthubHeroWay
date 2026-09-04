@@ -101,19 +101,26 @@ def _click_nav_step(page: Page, step: str) -> bool:
     return False
 
 
-# Поля входа на hik-connectru не имеют name/id — только placeholder, а перед
-# ними на странице лежат четыре input[type=text] от выпадающих списков
-# Element-UI (страна, язык). Поэтому селекторы привязаны к форме и плейсхолдеру,
-# а не к порядку полей: прежний код заполнял логином выбор страны.
+# Поля входа на hik-connectru не имеют name/id — только placeholder, а рядом
+# на странице лежат input[type=text] от выпадающих списков Element-UI
+# (страна, язык) и их поисковые строки.
+#
+# Привязка к <form> не работает: на странице ровно одна форма, и поля входа
+# в неё не входят — внутри оказывается только поиск по списку регионов.
+# Из-за префикса `form ` логин уезжал именно туда: в поле «Account/Email»
+# оставалось пусто, а сверху в выборе региона появлялся адрес почты.
+# Поэтому селекторы идут по плейсхолдеру и явно исключают readonly-поля
+# и строки выбора («Please Select», «Select the ...»).
+_NOT_A_SELECT = ":not([readonly]):not([placeholder*='Select' i])"
+
 ACCOUNT_SELECTORS = (
-    "form input[placeholder*='Account' i]",
-    "form input[placeholder*='Email' i]",
-    "form input[placeholder*='Аккаунт' i]",
-    "form input[placeholder*='Почт' i]",
-    "form input[type='text']:not([readonly])",
+    f"input[placeholder*='Account' i]{_NOT_A_SELECT}",
+    f"input[placeholder*='Email' i]{_NOT_A_SELECT}",
+    f"input[placeholder*='Аккаунт' i]{_NOT_A_SELECT}",
+    f"input[placeholder*='Почт' i]{_NOT_A_SELECT}",
+    f"input[type='text']{_NOT_A_SELECT}",
 )
 PASSWORD_SELECTORS = (
-    "form input[type='password']",
     "input[type='password']",
 )
 LOGIN_BUTTON_SELECTORS = (
@@ -123,6 +130,18 @@ LOGIN_BUTTON_SELECTORS = (
     "button:has-text('Войти')",
     "button:has-text('Sign In')",
 )
+
+
+def _account_value(page: Page) -> str:
+    """Что реально лежит в поле логина после заполнения."""
+    for selector in ACCOUNT_SELECTORS:
+        try:
+            field = page.locator(selector).first
+            if field.count() and field.is_visible():
+                return (field.input_value() or "").strip()
+        except Exception:
+            continue
+    return ""
 
 
 def _login(page: Page, config: HikBrowserExportConfig) -> None:
@@ -154,6 +173,17 @@ def _login(page: Page, config: HikBrowserExportConfig) -> None:
 
     account_ok = filled_account or forced.get("email_len", 0) > 0
     password_ok = filled_password or forced.get("password_len", 0) > 0
+
+    # Читаем поле обратно: если логин ушёл не туда (а он уезжал в выбор
+    # региона), портал ответит «неверные данные» через две минуты ожидания,
+    # и по сообщению будет не понять, что дело в селекторе.
+    if account_ok and _account_value(page) != config.email.strip():
+        raise HikBrowserExportError(
+            "Логин не попал в поле «Account/Email» на странице входа: "
+            "вероятно, вёрстка портала изменилась. Проверьте скриншот "
+            "(--debug) и селекторы ACCOUNT_SELECTORS."
+        )
+
     if not account_ok or not password_ok:
         raise HikBrowserExportError(
             "Форма логина на портале Hik Connect не найдена. "
@@ -217,7 +247,69 @@ def _wait_for_login_result(page: Page, *, timeout_s: int = 30) -> bool:
     return not _on_login_page(page)
 
 
+# Портал регулярно показывает поверх страницы модалку — «Request timeout»,
+# просроченный сервис отчётов, предложение сменить пароль. Пока она открыта,
+# клики по меню попадают в затемнение, а не в пункт: экспорт молча оставался
+# на главной и падал по таймауту ожидания загрузки файла.
+DIALOG_CLOSE_SELECTORS = (
+    ".el-message-box__btns button",
+    ".el-popover button",
+    ".el-popover__title + div button",
+    ".el-dialog__footer button",
+    ".el-message-box__headerbtn",
+    ".el-dialog__headerbtn",
+    "button:has-text('Close')",
+    "button:has-text('Закрыть')",
+    "button:has-text('OK')",
+)
+
+
+def _dismiss_dialogs(page: Page, *, attempts: int = 3) -> int:
+    """Закрыть модальные окна, если они перекрывают страницу."""
+    closed = 0
+    for _ in range(attempts):
+        overlay = page.locator(
+            ".el-message-box__wrapper, .el-dialog__wrapper, .v-modal, .el-popover:visible"
+        ).first
+        try:
+            if not overlay.count() or not overlay.is_visible():
+                break
+        except Exception:
+            break
+        for selector in DIALOG_CLOSE_SELECTORS:
+            try:
+                button = page.locator(selector).first
+                if button.count() and button.is_visible():
+                    button.click(timeout=3_000)
+                    closed += 1
+                    page.wait_for_timeout(500)
+                    break
+            except Exception:
+                continue
+        else:
+            # Кнопку не нашли — пробуем клавишу Escape.
+            try:
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(500)
+            except Exception:
+                break
+    if closed:
+        logger.info("Hik: закрыто модальных окон: %s", closed)
+    return closed
+
+
 def _navigate_to_records(page: Page, config: HikBrowserExportConfig) -> None:
+    _dismiss_dialogs(page)
+
+    if not config.records_url and not config.nav_steps:
+        # Без маршрута скрипт оставался на главной портала и падал только
+        # через таймаут ожидания загрузки — по сообщению было не понять, что
+        # дело в пустой настройке.
+        raise HikBrowserExportError(
+            "Не задан маршрут к записям прохода: укажите HIK_WEB_RECORDS_URL "
+            "или HIK_WEB_NAV_STEPS (например, «Access Control|Search»)."
+        )
+
     if config.records_url:
         page.goto(config.records_url, wait_until="domcontentloaded", timeout=config.timeout_ms)
         try:
@@ -234,6 +326,8 @@ def _navigate_to_records(page: Page, config: HikBrowserExportConfig) -> None:
         if not _click_nav_step(page, step):
             logger.warning("Hik nav step not found: %s (url=%s)", step, page.url)
         page.wait_for_timeout(1_500)
+        # Переход мог снова открыть модалку — закрываем перед следующим шагом.
+        _dismiss_dialogs(page)
 
 
 def _set_date_range(page: Page, start: date, end: date) -> None:
@@ -281,6 +375,7 @@ def _set_date_range(page: Page, start: date, end: date) -> None:
 
 
 def _click_search(page: Page) -> None:
+    _dismiss_dialogs(page)
     for label in SEARCH_LABELS:
         if _click_by_text(page, label):
             page.wait_for_timeout(2_000)
@@ -289,6 +384,7 @@ def _click_search(page: Page) -> None:
 
 
 def _click_export_menu(page: Page) -> bool:
+    _dismiss_dialogs(page)
     for label in EXPORT_LABELS:
         if _click_by_text(page, label):
             return True

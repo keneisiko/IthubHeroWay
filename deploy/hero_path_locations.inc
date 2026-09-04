@@ -24,7 +24,17 @@ location ~ ^/metrics/?$ {
     include /etc/nginx/conf.d/hero_path_proxy.inc;
 }
 
-location / {
+# Всё, что обслуживает Django. Перечислены явно, потому что корень отдаёт
+# одностраничное приложение.
+location ~ ^/(api|admin|swagger|schema|health|ready)/ {
     proxy_pass http://hero_path_web;
     include /etc/nginx/conf.d/hero_path_proxy.inc;
+}
+
+# Одностраничное приложение: любой неизвестный путь отдаём index.html, иначе
+# перезагрузка страницы на /profile или /quests даёт 404 — маршрутизация
+# живёт в браузере.
+location / {
+    root /usr/share/nginx/html;
+    try_files $uri $uri/ /index.html;
 }

@@ -12,6 +12,7 @@ import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
 import api from '../api'
 import { useToasts } from '../useToasts'
+import { formatDateTimeRu, progressPercent } from '../lib/apiData'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -220,7 +221,9 @@ export default function Dashboard() {
   const ratingDisplay = useCountUp(rating)
   const level = data?.user.level ?? 0
   const questTitle = data?.current_quest?.title ?? 'На сегодня всё. Отдыхай.'
-  const questProgress = data?.current_quest?.progress_value ?? 0
+  // Прогресс приходит долей (0.15), а не процентами: на дашборде он
+  // выводился как «0.15%», хотя в списке квестов — как 15%.
+  const questProgress = progressPercent(data?.current_quest?.progress_value ?? 0)
   const hasQuest = Boolean(data?.current_quest)
   const isDaily = data?.current_quest?.quest_type === 'daily'
   const questAutoVerify = data?.current_quest?.auto_verify ?? false
@@ -415,7 +418,7 @@ export default function Dashboard() {
                 style={{ animationDelay: `${320 + i * 80}ms` }}
               >
                 <FeedText text={item.text} />
-                <time>{item.time}</time>
+                <time dateTime={item.time}>{formatDateTimeRu(item.time)}</time>
               </article>
             ))}
           </div>

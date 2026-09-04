@@ -14,7 +14,8 @@ import {
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useToasts } from '../useToasts'
-import { RARITY_LABELS, unwrapList } from '../lib/apiData'
+import AgentPicker from '../components/AgentPicker'
+import { RARITY_LABELS, formatDateRu, unwrapList } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -69,9 +70,10 @@ interface ProfileData {
   rating_current: number | null
   coins_balance?: number
   rating_zone?: string
-  duel_wins?: number
-  // коды пройденных вех карты пути; бэкенд пока не отдаёт это поле
+  // Коды пройденных вех карты пути (apps/progress/services/path_map.py).
   path_reached?: string[]
+  duel_wins?: number
+  respects_received?: number
 }
 
 // Вехи карты пути — постоянные точки программы (из макета).
@@ -88,6 +90,23 @@ const PATH_BOTTOM = [
   { code: 'internship', label: 'Стажировка' },
   { code: 'graduation', label: 'Выпуск' },
 ] as const
+
+interface DuelRow {
+  id: number
+  status: string
+  bet_coins: number
+  resolve_after: string | null
+  challenger: { username: string; callsign: string }
+  opponent: { username: string; callsign: string }
+  winner: { username: string; callsign: string } | null
+}
+
+interface MentorshipRow {
+  id: number
+  mentor: { username: string; callsign: string }
+  mentee: { username: string; callsign: string }
+  ended_at: string | null
+}
 
 interface UserBadge {
   id: number
@@ -165,6 +184,15 @@ export default function Profile() {
   const editModal = useModal()
   const avatarModal = useModal()
   const mentorModal = useModal()
+  const duelModal = useModal()
+  const [duels, setDuels] = useState<DuelRow[]>([])
+  const [duelInfo, setDuelInfo] = useState<{ bet: number; days: number; maxDiff: number; myRating: number }>(
+    { bet: 0, days: 0, maxDiff: 0, myRating: 0 },
+  )
+  const [mentees, setMentees] = useState<MentorshipRow[]>([])
+  // Кого вызываем на дуэль — выбирается в том же поиске, что и подшефный.
+  const [duelUsername, setDuelUsername] = useState('')
+  const [mentors, setMentors] = useState<MentorshipRow[]>([])
   const [menteeUsername, setMenteeUsername] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
@@ -195,13 +223,24 @@ export default function Profile() {
           api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
           api.get('/api/v1/profile/me/characteristics/'),
           api.get('/api/v1/badges/'),
-        ]).then(([badgesRes, questsRes, charsRes, allBadgesRes]) => {
+          api.get('/api/v1/social/duels/my/'),
+          api.get('/api/v1/social/mentorships/my/'),
+        ]).then(([badgesRes, questsRes, charsRes, allBadgesRes, duelsRes, mentorRes]) => {
           const badgeRows = unwrapList<UserBadge>(badgesRes.data)
           badgeRows.sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned))
           setBadges(badgeRows)
           setQuestsCompleted(unwrapList(questsRes.data).length)
           setCharacteristics(unwrapList<CharacteristicItem>(charsRes.data))
           setAllBadges(unwrapList<UserBadge['badge']>(allBadgesRes.data))
+          setDuels(duelsRes.data?.results ?? [])
+          setDuelInfo({
+            bet: duelsRes.data?.bet_coins ?? 0,
+            days: duelsRes.data?.duration_days ?? 0,
+            maxDiff: duelsRes.data?.max_rating_diff ?? 0,
+            myRating: duelsRes.data?.my_rating ?? 0,
+          })
+          setMentees(mentorRes.data?.mentees ?? [])
+          setMentors(mentorRes.data?.mentors ?? [])
         })
       }),
     ]
@@ -269,9 +308,10 @@ export default function Profile() {
     ],
   }
 
-  // Карта пути: пройденные вехи приходят с бэка; пока поля нет — пройден только вход.
+  // Карта пути: пройденные вехи считает бэкенд по реальным событиям.
+  // Пустой список — профиль ещё не загрузился.
   const pathPoints = [...PATH_TOP, ...PATH_BOTTOM]
-  const reachedCodes = profile?.path_reached ?? ['entry']
+  const reachedCodes = profile?.path_reached ?? []
   const lastReachedIndex = pathPoints.reduce(
     (last, point, i) => (reachedCodes.includes(point.code) ? i : last),
     -1,
@@ -401,13 +441,51 @@ export default function Profile() {
     )
   }, [allBadges, badges, activeTab])
 
-  const handlePinBadge = (code: string) => {
-    api.post(`/api/v1/badges/${encodeURIComponent(code)}/pin/`)
+  const handlePinBadge = (code: string, isPinned = false) => {
+    // Повторное нажатие снимает закрепление: раньше открепить было нельзя
+    // ни из интерфейса, ни через API.
+    const request = isPinned
+      ? api.delete(`/api/v1/badges/${encodeURIComponent(code)}/pin/`)
+      : api.post(`/api/v1/badges/${encodeURIComponent(code)}/pin/`)
+    request
       .then(() => {
-        addToast('Нашивка закреплена!', 'success')
+        addToast(isPinned ? 'Нашивка откреплена' : 'Нашивка закреплена!', 'success')
         loadProfile()
       })
-      .catch(() => addToast('Не удалось закрепить нашивку', 'error'))
+      .catch(() => addToast('Не удалось изменить нашивку', 'error'))
+  }
+
+  const duelAction = (id: number, action: 'accept' | 'reject' | 'cancel', message: string) => {
+    api.post(`/api/v1/social/duels/${id}/${action}/`)
+      .then(() => { addToast(message, 'success'); loadProfile() })
+      .catch((err) => {
+        const detail = err.response?.data?.detail
+        addToast(typeof detail === 'string' ? detail : 'Не удалось выполнить действие', 'error')
+      })
+  }
+
+  const challengeAgent = () => {
+    if (!duelUsername) {
+      addToast('Выберите соперника из списка', 'error')
+      return
+    }
+    api.post('/api/v1/social/duels/', { opponent_username: duelUsername })
+      .then(() => {
+        addToast('Вызов отправлен!', 'success')
+        duelModal.hide()
+        setDuelUsername('')
+        loadProfile()
+      })
+      .catch((err) => {
+        const detail = err.response?.data?.detail
+        addToast(typeof detail === 'string' ? detail : 'Не удалось вызвать на дуэль', 'error')
+      })
+  }
+
+  const endMentorship = (id: number) => {
+    api.post(`/api/v1/social/mentorships/${id}/end/`)
+      .then(() => { addToast('Наставничество завершено', 'success'); loadProfile() })
+      .catch(() => addToast('Не удалось завершить наставничество', 'error'))
   }
 
   const handleRespect = () => {
@@ -571,10 +649,111 @@ export default function Profile() {
             {profile?.duel_wins != null && (
               <span className="profile-aside__pill">Побед в дуэлях: <strong>{profile.duel_wins}</strong></span>
             )}
+            {profile?.respects_received != null && (
+              <span className="profile-aside__pill">
+                Респектов за месяц: <strong>{profile.respects_received}</strong>
+              </span>
+            )}
           </div>
           <h3 className="profile-aside__title profile-aside__title--sp">Шефство:</h3>
+          {mentees.length > 0 && (
+            <ul className="profile-social__list">
+              {mentees.map((row) => (
+                <li key={row.id} className="profile-social__row">
+                  <span>{row.mentee.callsign || row.mentee.username}</span>
+                  {row.ended_at ? (
+                    <span className="profile-social__muted">завершено</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="profile-social__link"
+                      onClick={() => endMentorship(row.id)}
+                    >
+                      завершить
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {mentors.length > 0 && (
+            <p className="profile-social__muted">
+              Наставник: {mentors.map((row) => row.mentor.callsign || row.mentor.username).join(', ')}
+            </p>
+          )}
           <div className="profile-aside__mentor-row">
             <button className="profile-aside__mentor-btn btn-press" onClick={mentorModal.show}>Стать наставником</button>
+          </div>
+
+          <h3 className="profile-aside__title profile-aside__title--sp">Дуэли:</h3>
+          {duels.length === 0 ? (
+            <p className="profile-social__muted">Дуэлей пока нет</p>
+          ) : (
+            <ul className="profile-social__list">
+              {duels.slice(0, 5).map((duel) => {
+                const iAmOpponent = duel.opponent.username === profile?.username
+                const rival = iAmOpponent ? duel.challenger : duel.opponent
+                return (
+                  <li key={duel.id} className="profile-social__row">
+                    <span>{rival.callsign || rival.username}</span>
+                    {duel.status === 'pending' && iAmOpponent && (
+                      <span className="profile-social__actions">
+                        <button
+                          type="button"
+                          className="profile-social__link"
+                          onClick={() => duelAction(duel.id, 'accept', 'Вызов принят')}
+                        >
+                          принять
+                        </button>
+                        <button
+                          type="button"
+                          className="profile-social__link profile-social__link--muted"
+                          onClick={() => duelAction(duel.id, 'reject', 'Вызов отклонён')}
+                        >
+                          отклонить
+                        </button>
+                      </span>
+                    )}
+                    {duel.status === 'pending' && !iAmOpponent && (
+                      <button
+                        type="button"
+                        className="profile-social__link profile-social__link--muted"
+                        onClick={() => duelAction(duel.id, 'cancel', 'Вызов отозван')}
+                      >
+                        отозвать
+                      </button>
+                    )}
+                    {duel.status === 'accepted' && (
+                      <span className="profile-social__muted">
+                        идёт, итог {duel.resolve_after ? formatDateRu(duel.resolve_after) : ''}
+                      </span>
+                    )}
+                    {duel.status === 'finished' && (
+                      <span className="profile-social__muted">
+                        {duel.winner
+                          ? duel.winner.username === profile?.username ? 'победа' : 'поражение'
+                          : 'ничья'}
+                      </span>
+                    )}
+                    {duel.status === 'rejected' && <span className="profile-social__muted">отменена</span>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {duelInfo.bet > 0 && (
+            <p className="profile-social__muted">
+              Ставка {duelInfo.bet} монет, итог через {duelInfo.days} дн. по приросту рейтинга
+            </p>
+          )}
+          <div className="profile-aside__mentor-row">
+            <button
+              type="button"
+              className="profile-aside__mentor-btn btn-press"
+              onClick={duelModal.show}
+            >
+              Вызвать на дуэль
+            </button>
           </div>
         </section>
         )}
@@ -732,18 +911,16 @@ export default function Profile() {
               <span className={`path-card__chip path-card__chip--${card.badge.rarity}`}>
                 {RARITY_LABELS[card.badge.rarity] ?? card.badge.rarity}
               </span>
-              {!card.is_pinned && (
-                <span
-                  className="path-card__chip path-card__chip--common"
-                  style={{ marginTop: 4, cursor: 'pointer' }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handlePinBadge(card.badge.code)
-                  }}
-                >
-                  Закрепить
-                </span>
-              )}
+              <span
+                className="path-card__chip path-card__chip--common"
+                style={{ marginTop: 4, cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handlePinBadge(card.badge.code, Boolean(card.is_pinned))
+                }}
+              >
+                {card.is_pinned ? 'Открепить' : 'Закрепить'}
+              </span>
             </button>
           ))}
           {lockedBadges.map((badge) => (
@@ -785,19 +962,53 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Модалка вызова на дуэль: соперника ищем, а не ищем его профиль вручную */}
+      {duelModal.open && (
+        <div className="modal-fixed">
+          <div className="modal-fixed__content" ref={duelModal.ref}>
+            <h3 className="popup__title">Вызвать на дуэль</h3>
+            <label className="popup__label">
+              Ставка {duelInfo.bet} монет. Побеждает тот, кто за {duelInfo.days} дн. прибавит
+              больше рейтинга
+            </label>
+            <AgentPicker
+              picked={duelUsername}
+              onPick={(agent) => setDuelUsername(agent.username)}
+              disabledReason={(agent) =>
+                duelInfo.maxDiff && Math.abs(agent.rating_current - duelInfo.myRating) > duelInfo.maxDiff
+                  ? `рейтинг ${agent.rating_current}: разница больше ${duelInfo.maxDiff}`
+                  : ''
+              }
+              placeholder="кого вызываем"
+              autoFocus
+            />
+            <div className="shop-modal__buttons">
+              <button
+                type="button"
+                className="shop-modal__btn shop-modal__btn--secondary btn-press"
+                onClick={duelModal.hide}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="shop-modal__btn shop-modal__btn--primary btn-press"
+                onClick={challengeAgent}
+              >
+                Вызвать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Модалка стать наставником */}
       {mentorModal.open && (
         <div className="modal-fixed">
           <div className="modal-fixed__content" ref={mentorModal.ref}>
             <h3 className="popup__title">Стать наставником</h3>
-            <label className="popup__label">Username подшефного</label>
-            <input
-              type="text"
-              value={menteeUsername}
-              onChange={(e) => setMenteeUsername(e.target.value)}
-              placeholder="username агента"
-              className="popup__input"
-            />
+            <label className="popup__label">Найдите студента по позывному или имени</label>
+            <AgentPicker picked={menteeUsername} onPick={(agent) => setMenteeUsername(agent.username)} autoFocus />
             <div className="shop-modal__buttons">
               <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={mentorModal.hide}>
                 Отмена
@@ -805,11 +1016,16 @@ export default function Profile() {
               <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => {
                 const username = menteeUsername.trim()
                 if (!username) {
-                  addToast('Укажите username подшефного', 'error')
+                  addToast('Выберите студента из списка', 'error')
                   return
                 }
                 api.post('/api/v1/social/mentorships/', { mentee_username: username })
-                  .then(() => { addToast('Наставничество оформлено!', 'success'); mentorModal.hide(); setMenteeUsername('') })
+                  .then(() => {
+                    addToast('Наставничество оформлено!', 'success')
+                    mentorModal.hide()
+                    setMenteeUsername('')
+                    loadProfile()
+                  })
                   .catch(() => { addToast('Не удалось оформить наставничество', 'error') })
               }}>
                 Подтвердить

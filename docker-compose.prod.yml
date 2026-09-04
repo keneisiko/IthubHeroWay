@@ -4,10 +4,9 @@
 #   * исходники не монтируются — код только из образа, как его собрал CI;
 #   * порты db/redis наружу не публикуются, доступ только по внутренней сети;
 #   * медиа и статика живут в томах, а не внутри контейнера;
-#   * nginx терминирует HTTP(S), отдаёт статику и закрывает /metrics/ снаружи;
+#   * nginx собран вместе со статикой фронта: интерфейс, API и админка живут
+#     на одном origin, поэтому CORS не участвует вообще;
 #   * Telegram-бот — обычный сервис с автоперезапуском, а не ручной запуск в шелле.
-#
-# Фронтенд сюда намеренно не входит: прод-сборка hero-path-front пока не готова.
 
 x-django-env: &django-env
   env_file:
@@ -132,7 +131,13 @@ services:
         condition: service_healthy
 
   nginx:
-    image: nginx:1.27-alpine
+    # Образ собирает фронт (npm run build) и кладёт статику внутрь nginx.
+    # Обычный Dockerfile в hero-path-front запускает dev-сервер Vite —
+    # для внешнего доступа он не годится.
+    build:
+      context: ./hero-path-front
+      dockerfile: Dockerfile.prod
+    image: hero-path-front:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       web:

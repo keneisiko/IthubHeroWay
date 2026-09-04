@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import {
   IconHome, IconProfile, IconQuests,
-  IconShop, IconLeaders, IconSquads
+  IconShop, IconLeaders, IconSquads, IconBadges
 } from './icons'
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { path: '/shop',        Icon: IconShop,    label: 'Магазин'  },
   { path: '/leaderboard', Icon: IconLeaders, label: 'Лидеры'   },
   { path: '/squads',      Icon: IconSquads,  label: 'Отряды'   },
+  { path: '/badges',      Icon: IconBadges,  label: 'Нашивки'  },
 ]
 
 export default function Sidebar() {

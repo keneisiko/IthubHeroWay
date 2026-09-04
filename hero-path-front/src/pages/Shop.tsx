@@ -22,6 +22,7 @@ interface Purchase {
   price: string
   status: string
   date: string
+  isApplied: boolean
 }
 
 interface HistoryItem {
@@ -81,6 +82,9 @@ export default function Shop() {
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [coins, setCoins] = useState('0')
   const [purchasedCodes, setPurchasedCodes] = useState<Set<string>>(new Set())
+  // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
+  // двойной клик не отправил применение и снятие подряд.
+  const [applyingId, setApplyingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
@@ -116,6 +120,7 @@ export default function Shop() {
         id: number
         coins_spent: number
         created_at: string
+        is_applied?: boolean
         item: { title: string; code?: string }
       }>(purchasesRes.data)
 
@@ -129,6 +134,7 @@ export default function Shop() {
         price: String(p.coins_spent),
         status: p.created_at ? `Куплено · ${formatDateRu(p.created_at)}` : 'Куплено',
         date: formatDateRu(p.created_at),
+        isApplied: Boolean(p.is_applied),
       })))
 
       const rewardRows = unwrapList<{
@@ -161,7 +167,26 @@ export default function Shop() {
   }, [loadShop])
 
 
+  // Одновременно активна одна покупка на тип товара — правило на бэкенде,
+  // поэтому после переключения список перезагружаем целиком.
+  const togglePurchase = useCallback((purchase: Purchase) => {
+    setApplyingId(purchase.id)
+    const request = purchase.isApplied
+      ? api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+      : api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+    request
+      .then(() => {
+        addToast(purchase.isApplied ? 'Покупка снята' : 'Покупка применена', 'success')
+        return loadShop()
+      })
+      .catch(() => addToast('Не удалось изменить покупку', 'error'))
+      .finally(() => setApplyingId(null))
+  }, [addToast, loadShop])
+
   const selectedProduct = products.find(p => p.id === (showPurchase ?? showDetail))
+  const selectedDetail = showDetail !== null ? products.find(p => p.id === showDetail) : undefined
+  // Бэкенд отдаёт одно изображение на товар, галереи в данных нет
+  const detailImages = [selectedDetail?.image ?? palmSky]
 
   const handleBuy = useCallback(() => {
     if (showPurchase === null) return
@@ -187,6 +212,81 @@ export default function Shop() {
           </div>
           <p className="loading-text">Загрузка магазина...</p>
         </div>
+      ) : showPurchases ? (
+      <section className="shop-purchases">
+        <button
+          type="button"
+          className="shop-detail__back btn-press"
+          onClick={() => setShowPurchases(false)}
+        >
+          Назад в магазин
+        </button>
+
+        <div className="shop-purchases__card">
+          <h2 className="shop-purchases__title">Мои покупки</h2>
+          <div className="shop-purchases__list">
+            {purchases.length === 0 ? (
+              <p className="shop-purchases__empty">Покупок пока нет</p>
+            ) : purchases.map((p) => (
+              <article key={p.id} className="shop-purchase">
+                <img src={palmSky} alt="" className="shop-purchase__image" />
+                <span className="shop-purchase__name">{p.title}</span>
+                <span className="shop-purchase__state">{p.isApplied ? 'Применена' : 'Куплена'}</span>
+                <button
+                  type="button"
+                  className="shop-purchase__apply btn-press"
+                  onClick={() => togglePurchase(p)}
+                  disabled={applyingId === p.id}
+                >
+                  {p.isApplied ? 'Снять' : 'Применить'}
+                </button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+      ) : selectedDetail ? (
+      <section className="shop-detail">
+        <button
+          type="button"
+          className="shop-detail__back btn-press"
+          onClick={() => setShowDetail(null)}
+        >
+          Назад в магазин
+        </button>
+
+        <div className="shop-detail__body">
+          <div className="shop-detail__gallery">
+            <div className="shop-detail__thumbs">
+              {detailImages.map((src, i) => (
+                <img key={i} src={src} alt="" className="shop-detail__thumb" />
+              ))}
+            </div>
+            <img src={detailImages[0]} alt="" className="shop-detail__image" />
+          </div>
+
+          <div className="shop-detail__info">
+            <h2 className="shop-detail__title">{selectedDetail.title}</h2>
+            <div className="shop-detail__price">
+              <span className="shop-card__coin" aria-hidden="true" />
+              <span className="shop-card__price-value">{selectedDetail.price}</span>
+            </div>
+            <div className="shop-detail__about">
+              <h3 className="shop-detail__about-title">Описание</h3>
+              <p className="shop-detail__desc">
+                {selectedDetail.desc || 'Описание пока не заполнено.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="shop-detail__buy btn-press"
+              onClick={() => setShowPurchase(selectedDetail.id)}
+            >
+              Купить
+            </button>
+          </div>
+        </div>
+      </section>
       ) : (
       <>
       <div className="shop-page__head">
@@ -281,44 +381,7 @@ export default function Shop() {
         </div>
       </Modal>
 
-      <Modal open={showDetail !== null} onClose={() => setShowDetail(null)} title={selectedProduct?.title} width="600px">
-        <div className="shop-modal__detail">
-          <img src={selectedProduct?.image ?? palmSky} alt="" className="shop-modal__detail-img" />
-          <div className="shop-modal__detail-info">
-            <div className="shop-modal__price-tag">
-              <span className="shop-wallet__coin" aria-hidden="true" />
-              <span>{selectedProduct?.price}</span>
-            </div>
-            <p className="shop-modal__detail-desc">{selectedProduct?.desc}</p>
-            <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => { setShowDetail(null); setShowPurchase(showDetail) }}>
-              Купить
-            </button>
-          </div>
-        </div>
-      </Modal>
 
-      <Modal open={showPurchases} onClose={() => setShowPurchases(false)} title="Мои покупки" width="600px">
-        <div className="shop-modal__purchases">
-          {purchases.length === 0 ? (
-            <p className="loading-text">Покупок пока нет</p>
-          ) : purchases.map(p => (
-            <div key={p.id} className="shop-modal__purchase-item">
-              <img src={palmSky} alt="" className="shop-modal__purchase-img" />
-              <div className="shop-modal__purchase-info">
-                <span className="shop-modal__purchase-name">{p.title}</span>
-                <div className="shop-modal__price-tag shop-modal__price-tag--small">
-                  <span className="shop-wallet__coin" aria-hidden="true" />
-                  <span>{p.price}</span>
-                </div>
-                <span className="shop-modal__history-date">{p.date}</span>
-              </div>
-              <span className="shop-modal__purchase-status shop-modal__purchase-status--applied">
-                {p.status}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Modal>
 
       <Modal open={showHistory} onClose={() => setShowHistory(false)} title="История операций" width="500px">
         <div className="shop-modal__history">

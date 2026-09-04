@@ -21,10 +21,13 @@ class ShopItemSerializer(serializers.ModelSerializer):
 
 class PurchaseSerializer(serializers.ModelSerializer):
     item = ShopItemSerializer(read_only=True)
+    # Интерфейсу нужно знать, надета ли покупка: кнопка переключается между
+    # «Применить» и «Снять».
+    is_applied = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Purchase
-        fields = ["id", "item", "coins_spent", "created_at", "meta"]
+        fields = ["id", "item", "coins_spent", "created_at", "applied_at", "is_applied", "meta"]
 
 
 class PurchaseCreateSerializer(serializers.Serializer):

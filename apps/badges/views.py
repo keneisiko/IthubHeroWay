@@ -23,13 +23,29 @@ class MyBadgeListView(generics.ListAPIView):
 
 
 class BadgePinView(views.APIView):
+    """Закрепить значок в профиле или снять закрепление.
+
+    Раньше был только POST, который выставлял `is_pinned = True`: открепить
+    значок было нельзя ни через API, ни из интерфейса — закрепив три,
+    студент оставался с ними навсегда.
+    """
+
     permission_classes = [IsKnownRole]
 
-    def post(self, request, code: str) -> Response:
-        user_badge = generics.get_object_or_404(
+    def _get_badge(self, request, code: str) -> UserBadge:
+        return generics.get_object_or_404(
             UserBadge.objects.select_related("badge"), user=request.user, badge__code=code
         )
+
+    def post(self, request, code: str) -> Response:
+        user_badge = self._get_badge(request, code)
         user_badge.is_pinned = True
+        user_badge.save(update_fields=["is_pinned"])
+        return Response(UserBadgeSerializer(user_badge).data, status=status.HTTP_200_OK)
+
+    def delete(self, request, code: str) -> Response:
+        user_badge = self._get_badge(request, code)
+        user_badge.is_pinned = False
         user_badge.save(update_fields=["is_pinned"])
         return Response(UserBadgeSerializer(user_badge).data, status=status.HTTP_200_OK)
 

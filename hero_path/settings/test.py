@@ -46,6 +46,7 @@ CELERY_TASK_EAGER_PROPAGATES = True
 
 # Внешние интеграции в тестах выключены: сеть недоступна и не нужна.
 TELEGRAM_ALERTS_ENABLED = False
+TELEGRAM_NOTIFICATIONS_ENABLED = False
 HIK_DATA_MODE = "snapshot"
 HIK_PROCESS_ENABLED = True
 HIK_FETCH_ENABLED = False

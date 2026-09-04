@@ -47,3 +47,10 @@ export const IconSquads = ({ active }: { active?: boolean }) => (
     <circle cx="32" cy="16" r="7" fill={active ? 'white' : '#9A33F4'}/>
   </svg>
 )
+
+export const IconBadges = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="24" cy="19" r="11" fill={active ? 'white' : '#9A33F4'} />
+    <path d="M17 28L13 41L24 36L35 41L31 28" stroke={active ? 'white' : '#9A33F4'} strokeWidth="4" strokeLinejoin="round" fill="none" />
+  </svg>
+)

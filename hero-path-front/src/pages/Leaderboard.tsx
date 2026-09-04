@@ -14,15 +14,11 @@ interface LeaderItem {
   delta: string
   badgeClass: string
   track?: string
+  status?: string
+  avatar?: string | null
 }
 
-const FILTER_OPTIONS = ['Все треки', 'Backend-разработка', 'Frontend-разработка']
-
-const trackParam = (filter: string): string | undefined => {
-  if (filter === 'Backend-разработка') return 'dev-backend'
-  if (filter === 'Frontend-разработка') return 'dev-frontend'
-  return undefined
-}
+const COURSE_OPTIONS = [1, 2, 3, 4]
 
 const getBadgeClass = (rank: number) => {
   if (rank === 1) return 'rank-badge rank-badge--first'
@@ -31,12 +27,11 @@ const getBadgeClass = (rank: number) => {
   return 'rank-badge rank-badge--default'
 }
 
-function FilterDropdown({
-  options, selected, onSelect, onClose
+function FilterPanel({
+  course, onCourse, onClose,
 }: {
-  options: string[]
-  selected: string
-  onSelect: (v: string) => void
+  course: number | null
+  onCourse: (v: number | null) => void
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -50,26 +45,30 @@ function FilterDropdown({
   }, [onClose])
 
   return (
-    <div ref={ref} className="popup filter-dropdown" style={{
-      position: 'absolute', top: '56px', right: 0,
-      background: '#f5f5f5', borderRadius: '12px', border: '4px solid #9a33f4',
-      boxShadow: '25px 25px 20px -20px rgba(0,0,0,0.45)', padding: '12px 0',
-      minWidth: '180px', zIndex: 60,
-      animation: 'popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
-    }}>
-      {options.map(opt => (
-        <button
-          key={opt} type="button"
-          onClick={() => { onSelect(opt); onClose() }}
-          style={{
-            display: 'block', width: '100%', padding: '8px 20px', border: 'none',
-            background: selected === opt ? '#9a33f4' : 'transparent',
-            color: selected === opt ? '#f5f5f5' : '#121212',
-            fontFamily: 'Montserrat, sans-serif', fontWeight: 600, fontSize: '16px',
-            textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s',
-          }}
-        >{opt}</button>
-      ))}
+    <div ref={ref} className="leaderboard-filters">
+      <div className="leaderboard-filters__group">
+        <h4 className="leaderboard-filters__title">Трек:</h4>
+        <p className="leaderboard-filters__note">
+          Список треков API пока не отдаёт
+        </p>
+      </div>
+      <div className="leaderboard-filters__group">
+        <h4 className="leaderboard-filters__title">Курс:</h4>
+        {COURSE_OPTIONS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="leaderboard-filters__option"
+            onClick={() => onCourse(course === option ? null : option)}
+          >
+            <span
+              className={`leaderboard-filters__radio${course === option ? ' leaderboard-filters__radio--on' : ''}`}
+              aria-hidden="true"
+            />
+            {option}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -78,7 +77,8 @@ export default function Leaderboard() {
   const [activeTab, setActiveTab] = useState<LeaderTab>('agents')
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [selectedFilter, setSelectedFilter] = useState('Все треки')
+  const [selectedCourse, setSelectedCourse] = useState<number | null>(null)
+  const [totalAgents, setTotalAgents] = useState(0)
   const [agents, setAgents] = useState<LeaderItem[]>([])
   const [squads, setSquads] = useState<LeaderItem[]>([])
   const [myRank, setMyRank] = useState({ rank: 0, delta: '0' })
@@ -107,9 +107,8 @@ export default function Leaderboard() {
   const loadLeaderboard = useCallback(() => {
     setLoading(true)
     setLoadError(false)
-    const track = trackParam(selectedFilter)
     const agentsParams: Record<string, string | number> = { page: 1, page_size: 20 }
-    if (track) agentsParams.track = track
+    if (selectedCourse) agentsParams.course = selectedCourse
     if (debouncedSearch) agentsParams.search = debouncedSearch
 
     Promise.all([
@@ -124,7 +123,10 @@ export default function Leaderboard() {
         callsign: string
         rating_current: number
         level: number
+        track?: string
+        avatar?: string | null
       }>(agentsRes.data)
+      setTotalAgents(agentsRes.data?.count ?? agentsData.length)
 
       const squadsData = unwrapList<{
         code: string
@@ -140,6 +142,9 @@ export default function Leaderboard() {
         title: item.callsign || item.username,
         delta: String(item.rating_current ?? 0),
         badgeClass: getBadgeClass((page - 1) * pageSize + i + 1),
+        track: item.track,
+        status: item.level ? `${item.level} ур.` : undefined,
+        avatar: item.avatar ?? null,
       })))
 
       setSquads(squadsData.map((item, i) => ({
@@ -159,15 +164,11 @@ export default function Leaderboard() {
       setSquads([])
       setLoadError(true)
     }).finally(() => setLoading(false))
-  }, [selectedFilter, debouncedSearch])
+  }, [selectedCourse, debouncedSearch])
 
   useEffect(() => {
     loadLeaderboard()
   }, [loadLeaderboard])
-
-  const handleFilterSelect = useCallback((filter: string) => {
-    setSelectedFilter(filter)
-  }, [])
 
   const items = activeTab === 'agents' ? agents : squads
   const filteredItems = activeTab === 'agents'
@@ -219,12 +220,11 @@ export default function Leaderboard() {
             type="button"
             className="leaderboard-filter-button btn-press"
             onClick={() => setShowFilters(v => !v)}
-          >{selectedFilter}</button>
+          >Фильтры</button>
           {showFilters && (
-            <FilterDropdown
-              options={FILTER_OPTIONS}
-              selected={selectedFilter}
-              onSelect={handleFilterSelect}
+            <FilterPanel
+              course={selectedCourse}
+              onCourse={setSelectedCourse}
               onClose={() => setShowFilters(false)}
             />
           )}
@@ -233,11 +233,7 @@ export default function Leaderboard() {
 
       <section className="leaderboard-card">
         <div className="leaderboard-card__header">
-          <h2>{activeTab === 'agents' ? 'Топ агентов' : 'Топ отрядов'}</h2>
-          <span className="leaderboard-count">
-            <span className="leaderboard-count__number">{filteredItems.length}</span>
-            <span>{activeTab === 'agents' ? 'агентов' : 'отрядов'}</span>
-          </span>
+          <h2>{activeTab === 'agents' ? 'Топ 20 агентов' : 'Топ 10 отрядов'}</h2>
         </div>
 
         <div className="leaderboard-search">
@@ -266,17 +262,26 @@ export default function Leaderboard() {
                 style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
               >
                 <div className={item.badgeClass}>{item.rank}</div>
-                <div className="leaderboard-item__card">
+                <div className={`leaderboard-item__card leaderboard-item__card--rank-${Math.min(item.rank, 4)}`}>
                   <div className="leaderboard-item__tags">
+                    {activeTab === 'agents' && (
+                      <span className="leaderboard-item__avatar" aria-hidden="true">
+                        {item.avatar
+                          ? <img src={item.avatar} alt="" />
+                          : item.title.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
                     <span className="tag tag--title">{item.title}</span>
-                    <span className="tag tag--delta">{activeTab === 'agents' ? 'Рейтинг:' : 'Ср. рейтинг:'}</span>
-                    <span className="tag tag--gain">{item.delta}</span>
+                    {item.track && <span className="tag tag--track">{item.track}</span>}
+                    {item.status && <span className="tag tag--status">{item.status}</span>}
                   </div>
-                  {activeTab === 'agents' ? (
-                    <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate(`/profile/${item.username}`)}>Профиль</button>
-                  ) : (
-                    <button type="button" className="leaderboard-item__button btn-press" disabled>Отряд</button>
-                  )}
+                  <button
+                    type="button"
+                    className="leaderboard-item__rating btn-press"
+                    onClick={() => activeTab === 'agents' && navigate(`/profile/${item.username}`)}
+                  >
+                    {item.delta}
+                  </button>
                 </div>
               </div>
             ))}
@@ -292,17 +297,14 @@ export default function Leaderboard() {
 
           <div className="leaderboard-divider" />
 
-          <div className="leaderboard-item leaderboard-item--my-squad">
-            <div className="rank-badge rank-badge--bottom">{animMyRank}</div>
-            <div className="leaderboard-item__card leaderboard-item__card--bottom">
-              <div className="leaderboard-item__tags">
-                <span className="tag tag--title">{activeTab === 'agents' ? 'Моя позиция' : 'Мой отряд'}</span>
-                <span className="tag tag--delta">{activeTab === 'agents' ? 'Рейтинг:' : 'Ср. рейтинг:'}</span>
-                <span className="tag tag--gain">{myRank.delta}</span>
-              </div>
-              <button type="button" className="leaderboard-item__button btn-press" onClick={() => navigate('/profile')}>Мой профиль</button>
-            </div>
-          </div>
+          <button
+            type="button"
+            className="leaderboard-myplace btn-press"
+            onClick={() => navigate('/profile')}
+          >
+            Моё место: <strong>{animMyRank}</strong>
+            {totalAgents ? <> из {totalAgents}</> : null}
+          </button>
         </div>
       </section>
     </div>

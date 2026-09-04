@@ -10,9 +10,10 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
+from apps.operations.services.review_queue import pending_proofs
 from apps.progress.models import RatingLog
 from apps.progress.services.rating_zones import zone_bounds
-from apps.quests.models import SeasonalEvent, SelfReportProof, SelfReportProofStatus
+from apps.quests.models import SeasonalEvent
 
 
 def _zone_counts(users_qs):
@@ -62,13 +63,7 @@ def curator_dashboard(request):
         if request.user.squad_id
         else User.objects.none()
     )
-    pending_qs = (
-        SelfReportProof.objects.filter(
-            status=SelfReportProofStatus.PENDING, user__squad_id=request.user.squad_id
-        )
-        .select_related("user", "quest")
-        .order_by("-created_at")
-    )
+    pending_qs = pending_proofs(request.user)
     context = {
         "zone_counts": _zone_counts(users_qs),
         "red_zone_users": users_qs.filter(rating_current__lt=100).order_by("rating_current")[:20],
@@ -90,13 +85,7 @@ def tutor_dashboard(request):
         role=Role.AGENT,
         telegram_link__is_active=True,
     )
-    pending_qs = (
-        SelfReportProof.objects.filter(
-            status=SelfReportProofStatus.PENDING, user__squad__course__gte=2, user__squad__course__lte=4
-        )
-        .select_related("user", "quest")
-        .order_by("-created_at")
-    )
+    pending_qs = pending_proofs(request.user)
     context = {
         "zone_counts": _zone_counts(users_qs),
         "risk_users": users_qs.filter(rating_current__lt=200).order_by("rating_current")[:30],
