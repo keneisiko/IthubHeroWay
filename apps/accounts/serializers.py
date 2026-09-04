@@ -109,3 +109,17 @@ class PublicProfileSerializer(serializers.ModelSerializer):
         # Public mode: no exact rating.
         return None
 
+
+class AgentSearchSerializer(serializers.ModelSerializer):
+    """Краткая карточка студента для подсказок поиска."""
+
+    squad = serializers.CharField(source="squad.name", read_only=True, default="")
+    track = serializers.CharField(source="track.name", read_only=True, default="")
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["username", "callsign", "full_name", "avatar", "squad", "track", "rating_current"]
+
+    def get_full_name(self, obj: User) -> str:
+        return f"{obj.last_name} {obj.first_name}".strip()

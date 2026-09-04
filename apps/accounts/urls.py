@@ -11,7 +11,7 @@ from .squads_views import (
     SquadMembersView,
     SquadMeView,
 )
-from .views import DashboardView, MeProfileView, PublicProfileView
+from .views import AgentSearchView, DashboardView, MeProfileView, PublicProfileView
 
 urlpatterns = [
     # `auth/jwt/create/` удалён намеренно: он проверял локальный пароль Django
@@ -23,6 +23,7 @@ urlpatterns = [
     path("profile/me/characteristics/", MeCharacteristicsView.as_view(), name="profile-me-characteristics"),
     path("profile/<str:username>/", PublicProfileView.as_view(), name="profile-public"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
+    path("agents/search/", AgentSearchView.as_view(), name="agents-search"),
     path("squads/", SquadListCreateView.as_view(), name="squads-list"),
     path("squads/join/", SquadJoinView.as_view(), name="squads-join"),
     path("squads/leave/", SquadLeaveView.as_view(), name="squads-leave"),

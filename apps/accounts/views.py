@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from django.db.models import Q
 from rest_framework import generics, views
 from rest_framework.response import Response
 
@@ -11,9 +12,9 @@ from apps.progress.services.pillar_labels import skills_percent_by_label
 from apps.progress.services.rating_zones import rating_progress
 from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
 
-from .models import User
+from .models import Role, User
 from .permissions import IsKnownRole
-from .serializers import MeProfileSerializer, PublicProfileSerializer
+from .serializers import AgentSearchSerializer, MeProfileSerializer, PublicProfileSerializer
 
 
 class MeProfileView(generics.RetrieveUpdateAPIView):
@@ -177,3 +178,37 @@ class DashboardView(views.APIView):
             "feed": _dashboard_feed(user),
         }
         return Response(data)
+
+
+class AgentSearchView(generics.ListAPIView):
+    """Поиск студентов по позывному, логину или имени.
+
+    Наставничество и дуэли требовали ввести username вручную и точно:
+    ошибка в букве — «не удалось оформить», без подсказки, кого искали.
+    """
+
+    permission_classes = [IsKnownRole]
+    serializer_class = AgentSearchSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        query = (self.request.query_params.get("q") or "").strip()
+        # Только активированные агенты: неактивированный аккаунт не может
+        # ни принять вызов, ни узнать о наставничестве.
+        queryset = (
+            User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
+            .exclude(pk=self.request.user.pk)
+            .select_related("squad", "track")
+        )
+        if query:
+            queryset = queryset.filter(
+                Q(callsign__icontains=query)
+                | Q(username__icontains=query)
+                | Q(first_name__icontains=query)
+                | Q(last_name__icontains=query)
+            )
+        elif self.request.user.squad_id:
+            # Без запроса показываем одногруппников: чаще всего берут в подшефные
+            # и вызывают на дуэль именно их.
+            queryset = queryset.filter(squad_id=self.request.user.squad_id)
+        return queryset.order_by("callsign", "id")[:20]

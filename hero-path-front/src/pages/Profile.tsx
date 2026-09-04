@@ -100,6 +100,14 @@ interface DuelRow {
   winner: { username: string; callsign: string } | null
 }
 
+interface AgentSuggestion {
+  username: string
+  callsign: string
+  full_name: string
+  squad: string
+  rating_current: number
+}
+
 interface MentorshipRow {
   id: number
   mentor: { username: string; callsign: string }
@@ -186,6 +194,11 @@ export default function Profile() {
   const [duels, setDuels] = useState<DuelRow[]>([])
   const [duelInfo, setDuelInfo] = useState<{ bet: number; days: number }>({ bet: 0, days: 0 })
   const [mentees, setMentees] = useState<MentorshipRow[]>([])
+  // Подсказки поиска: раньше подшефного вводили по username вслепую,
+  // и опечатка давала «не удалось оформить» без объяснения.
+  const [agentQuery, setAgentQuery] = useState('')
+  const [agentOptions, setAgentOptions] = useState<AgentSuggestion[]>([])
+  const [agentSearching, setAgentSearching] = useState(false)
   const [mentors, setMentors] = useState<MentorshipRow[]>([])
   const [menteeUsername, setMenteeUsername] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -446,6 +459,19 @@ export default function Profile() {
       })
       .catch(() => addToast('Не удалось изменить нашивку', 'error'))
   }
+
+  // Запрос уходит не на каждую букву: 300 мс тишины после ввода.
+  useEffect(() => {
+    if (!mentorModal.open) return
+    const timer = setTimeout(() => {
+      setAgentSearching(true)
+      api.get('/api/v1/agents/search/', { params: agentQuery.trim() ? { q: agentQuery.trim() } : {} })
+        .then((res) => setAgentOptions(Array.isArray(res.data) ? res.data : []))
+        .catch(() => setAgentOptions([]))
+        .finally(() => setAgentSearching(false))
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [agentQuery, mentorModal.open])
 
   const duelAction = (id: number, action: 'accept' | 'reject' | 'cancel', message: string) => {
     api.post(`/api/v1/social/duels/${id}/${action}/`)
@@ -932,14 +958,36 @@ export default function Profile() {
         <div className="modal-fixed">
           <div className="modal-fixed__content" ref={mentorModal.ref}>
             <h3 className="popup__title">Стать наставником</h3>
-            <label className="popup__label">Username подшефного</label>
+            <label className="popup__label">Найдите студента по позывному или имени</label>
             <input
               type="text"
-              value={menteeUsername}
-              onChange={(e) => setMenteeUsername(e.target.value)}
-              placeholder="username агента"
+              value={agentQuery}
+              onChange={(e) => setAgentQuery(e.target.value)}
+              placeholder="начните вводить позывной"
               className="popup__input"
+              autoFocus
             />
+            <div className="agent-picker">
+              {agentSearching && <p className="agent-picker__hint">Ищем…</p>}
+              {!agentSearching && agentOptions.length === 0 && (
+                <p className="agent-picker__hint">Никого не нашли</p>
+              )}
+              {agentOptions.map((agent) => (
+                <button
+                  key={agent.username}
+                  type="button"
+                  className={`agent-picker__row${
+                    agent.username === menteeUsername ? ' agent-picker__row--picked' : ''
+                  }`}
+                  onClick={() => setMenteeUsername(agent.username)}
+                >
+                  <span className="agent-picker__name">{agent.callsign || agent.username}</span>
+                  <span className="agent-picker__meta">
+                    {[agent.full_name, agent.squad].filter(Boolean).join(' · ')}
+                  </span>
+                </button>
+              ))}
+            </div>
             <div className="shop-modal__buttons">
               <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={mentorModal.hide}>
                 Отмена
@@ -947,11 +995,17 @@ export default function Profile() {
               <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={() => {
                 const username = menteeUsername.trim()
                 if (!username) {
-                  addToast('Укажите username подшефного', 'error')
+                  addToast('Выберите студента из списка', 'error')
                   return
                 }
                 api.post('/api/v1/social/mentorships/', { mentee_username: username })
-                  .then(() => { addToast('Наставничество оформлено!', 'success'); mentorModal.hide(); setMenteeUsername('') })
+                  .then(() => {
+                    addToast('Наставничество оформлено!', 'success')
+                    mentorModal.hide()
+                    setMenteeUsername('')
+                    setAgentQuery('')
+                    loadProfile()
+                  })
                   .catch(() => { addToast('Не удалось оформить наставничество', 'error') })
               }}>
                 Подтвердить
