@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, views
 from rest_framework.response import Response
 
@@ -10,7 +11,8 @@ from apps.progress.models import RatingLog, UserStrike
 from apps.progress.services.late_penalties import late_streak_bonus_for_days
 from apps.progress.services.pillar_labels import skills_percent_by_label
 from apps.progress.services.rating_zones import rating_progress
-from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
+from apps.quests.models import QuestRewardTransaction, UserQuestProgress
+from apps.quests.services.quest_periods import quests_for_date
 
 from .models import Role, User
 from .permissions import IsKnownRole
@@ -144,7 +146,14 @@ class DashboardView(views.APIView):
 
     def get(self, request, *args, **kwargs) -> Response:
         user = request.user
-        current_quest = Quest.objects.filter(is_active=True).order_by("id").first()
+        # Не "первый активный по id": так на карточке висел вчерашний выпуск
+        # ежедневного квеста, пока сегодняшний лежал в списке квестов.
+        current_quest = (
+            quests_for_date(timezone.localdate())
+            .exclude(user_progress__user=user, user_progress__is_completed=True)
+            .order_by("id")
+            .first()
+        )
         current_quest_payload = None
         if current_quest:
             progress = UserQuestProgress.objects.filter(user=user, quest=current_quest).first()
