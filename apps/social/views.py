@@ -19,6 +19,18 @@ from .serializers import (
     RespectCreateSerializer,
     RespectSerializer,
 )
+from .services.duels import (
+    DuelNotAllowed,
+    accept_duel,
+    active_duels_q,
+    cancel_duel,
+    duel_bet,
+    duel_duration_days,
+    duel_wins,
+    duels_for,
+    reject_duel,
+)
+from .services.rewards import grant_mentorship_start_bonus, grant_respect_reward
 
 
 class RespectCreateView(views.APIView):
@@ -63,7 +75,13 @@ class RespectCreateView(views.APIView):
                 to_user=to_user,
                 message=serializer.validated_data.get("message", ""),
             )
-        return Response(RespectSerializer(respect).data, status=status.HTTP_201_CREATED)
+            # Монеты получателю: коэффициент RESPECT_REWARD существовал
+            # в настройках, но не начислялся нигде.
+            granted = grant_respect_reward(respect)
+
+        payload = RespectSerializer(respect).data
+        payload["coins_granted_to_recipient"] = granted
+        return Response(payload, status=status.HTTP_201_CREATED)
 
 
 class DuelCreateView(views.APIView):
@@ -76,7 +94,7 @@ class DuelCreateView(views.APIView):
         if opponent.pk == request.user.pk:
             return Response({"detail": "Cannot duel yourself."}, status=status.HTTP_400_BAD_REQUEST)
         # One active duel at a time.
-        active_q = Q(status=DuelStatus.PENDING) | (Q(status=DuelStatus.ACCEPTED) & Q(resolved_at__isnull=True))
+        active_q = active_duels_q()
         if Duel.objects.filter(active_q).filter(Q(challenger=request.user) | Q(opponent=request.user)).exists():
             return Response({"detail": "You already have an active duel."}, status=status.HTTP_400_BAD_REQUEST)
         if Duel.objects.filter(active_q).filter(Q(challenger=opponent) | Q(opponent=opponent)).exists():
@@ -91,24 +109,35 @@ class DuelCreateView(views.APIView):
         return Response(DuelSerializer(duel).data, status=status.HTTP_201_CREATED)
 
 
+class DuelListView(views.APIView):
+    """Мои дуэли: входящие вызовы, идущие поединки и история.
+
+    Без этого списка принять вызов из интерфейса было невозможно —
+    эндпоинты приёма существовали, но узнать id дуэли было неоткуда.
+    """
+
+    permission_classes = [IsKnownRole]
+
+    def get(self, request, *args, **kwargs):
+        rows = duels_for(request.user)
+        return Response(
+            {
+                "results": DuelSerializer(rows, many=True, context={"request": request}).data,
+                "wins": duel_wins(request.user),
+                "bet_coins": duel_bet(),
+                "duration_days": duel_duration_days(),
+            }
+        )
+
+
 class DuelAcceptView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def post(self, request, duel_id: int, *args, **kwargs):
-        duel = generics.get_object_or_404(Duel, id=duel_id, opponent=request.user)
-        # Принять можно только приглашение, которое ещё ждёт ответа: раньше
-        # статус не проверялся, и отклонённую дуэль можно было «принять»,
-        # а принятую — принимать сколько угодно раз.
-        if duel.status != DuelStatus.PENDING:
-            return Response(
-                {"detail": "Duel is not pending."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        # resolved_at здесь не проставляется: принятая дуэль как раз и есть
-        # активная. Раньше её ставили сразу, из-за чего проверка «одна активная
-        # дуэль» не срабатывала никогда — дуэль переставала быть активной
-        # в тот же момент, когда её приняли.
-        duel.status = DuelStatus.ACCEPTED
-        duel.save(update_fields=["status"])
+        try:
+            duel = accept_duel(request.user, duel_id)
+        except DuelNotAllowed as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(DuelSerializer(duel).data, status=status.HTTP_200_OK)
 
 
@@ -116,14 +145,23 @@ class DuelRejectView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def post(self, request, duel_id: int, *args, **kwargs):
-        duel = generics.get_object_or_404(Duel, id=duel_id, opponent=request.user)
-        if duel.status != DuelStatus.PENDING:
-            return Response(
-                {"detail": "Duel is not pending."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        duel.status = DuelStatus.REJECTED
-        duel.resolved_at = timezone.now()
-        duel.save(update_fields=["status", "resolved_at"])
+        try:
+            duel = reject_duel(request.user, duel_id)
+        except DuelNotAllowed as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(DuelSerializer(duel).data, status=status.HTTP_200_OK)
+
+
+class DuelCancelView(views.APIView):
+    """Отозвать собственный вызов, пока на него не ответили."""
+
+    permission_classes = [IsKnownRole]
+
+    def post(self, request, duel_id: int, *args, **kwargs):
+        try:
+            duel = cancel_duel(request.user, duel_id)
+        except DuelNotAllowed as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(DuelSerializer(duel).data, status=status.HTTP_200_OK)
 
 
@@ -162,5 +200,43 @@ class MentorshipCreateView(views.APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             mentorship = Mentorship.objects.create(mentor=request.user, mentee=mentee)
+            # Разовый рейтинг за взятого подшефного: коэффициент MENTORING
+            # из блока «Движ» не начислялся нигде.
+            grant_mentorship_start_bonus(mentorship)
         return Response(MentorshipSerializer(mentorship).data, status=status.HTTP_201_CREATED)
 
+
+class MentorshipListView(views.APIView):
+    """Мои подшефные и мои наставники.
+
+    Раньше оформленное наставничество нигде не показывалось: студент нажимал
+    «Стать наставником» и больше никогда не видел результата.
+    """
+
+    permission_classes = [IsKnownRole]
+
+    def get(self, request, *args, **kwargs):
+        rewards = getattr(settings, "QUESTS_REWARDS", {})
+        mentees = Mentorship.objects.filter(mentor=request.user).select_related("mentee")
+        mentors = Mentorship.objects.filter(mentee=request.user).select_related("mentor")
+        return Response(
+            {
+                "mentees": MentorshipSerializer(mentees, many=True).data,
+                "mentors": MentorshipSerializer(mentors, many=True).data,
+                "weekly_coins_per_mentee": int(rewards.get("MENTEE_WEEKLY_COINS", 2)),
+            }
+        )
+
+
+class MentorshipEndView(views.APIView):
+    """Завершить наставничество: подшефный перестаёт числиться активным."""
+
+    permission_classes = [IsKnownRole]
+
+    def post(self, request, mentorship_id: int, *args, **kwargs):
+        mentorship = generics.get_object_or_404(
+            Mentorship, pk=mentorship_id, mentor=request.user, ended_at__isnull=True
+        )
+        mentorship.ended_at = timezone.now()
+        mentorship.save(update_fields=["ended_at"])
+        return Response(MentorshipSerializer(mentorship).data, status=status.HTTP_200_OK)

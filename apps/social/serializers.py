@@ -39,10 +39,22 @@ class DuelCreateSerializer(serializers.Serializer):
 class DuelSerializer(serializers.ModelSerializer):
     challenger = UserBriefSerializer(read_only=True)
     opponent = UserBriefSerializer(read_only=True)
+    winner = UserBriefSerializer(read_only=True)
 
     class Meta:
         model = Duel
-        fields = ["id", "challenger", "opponent", "status", "created_at", "resolved_at"]
+        fields = [
+            "id",
+            "challenger",
+            "opponent",
+            "winner",
+            "status",
+            "bet_coins",
+            "created_at",
+            "accepted_at",
+            "resolve_after",
+            "resolved_at",
+        ]
 
 
 class MentorshipCreateSerializer(serializers.Serializer):

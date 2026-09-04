@@ -33,6 +33,7 @@ class DuelStatus(models.TextChoices):
     PENDING = "pending", "Ожидает"
     ACCEPTED = "accepted", "Принят"
     REJECTED = "rejected", "Отклонён"
+    FINISHED = "finished", "Завершён"
 
 
 class Duel(models.Model):
@@ -52,13 +53,29 @@ class Duel(models.Model):
         "Статус", max_length=16, choices=DuelStatus.choices, default=DuelStatus.PENDING
     )
     created_at = models.DateTimeField("Создан", auto_now_add=True)
+    accepted_at = models.DateTimeField("Принят", null=True, blank=True)
     resolved_at = models.DateTimeField("Завершён", null=True, blank=True)
+    # Итог считается по приросту рейтинга за время дуэли, поэтому стартовые
+    # значения фиксируются в момент принятия вызова.
+    challenger_rating_start = models.IntegerField("Рейтинг инициатора на старте", null=True, blank=True)
+    opponent_rating_start = models.IntegerField("Рейтинг соперника на старте", null=True, blank=True)
+    resolve_after = models.DateTimeField("Подводить итог после", null=True, blank=True)
+    winner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Победитель",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="duels_won",
+    )
+    bet_coins = models.PositiveIntegerField("Ставка (монеты)", default=0)
 
     class Meta:
         verbose_name = "Дуэль"
         verbose_name_plural = "Дуэли"
         indexes = [
             models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["status", "resolve_after"]),
         ]
 
     def __str__(self) -> str:

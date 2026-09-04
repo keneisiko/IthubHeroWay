@@ -454,6 +454,16 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.progress.tasks.apply_strike_bonuses_daily",
         "schedule": crontab(hour=23, minute=30),
     },
+    # Дуэли: без подведения итогов принятая дуэль висит вечно и блокирует
+    # участникам новые вызовы.
+    "resolve-duels-daily": {
+        "task": "apps.social.tasks.resolve_duels",
+        "schedule": crontab(hour=23, minute=45),
+    },
+    "pay-mentorship-weekly": {
+        "task": "apps.social.tasks.pay_mentorship_weekly",
+        "schedule": crontab(hour=20, minute=30, day_of_week="fri"),
+    },
     "check_badges_weekly": {
         "task": "apps.badges.tasks.check_badges_weekly",
         "schedule": crontab(hour=21, minute=0, day_of_week="sun"),

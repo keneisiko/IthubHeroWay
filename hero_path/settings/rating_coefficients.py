@@ -57,6 +57,10 @@ QUESTS_REWARDS = {
     "STREAK_21D_COINS": 30,
     "RESPECT_REWARD": 3,
     "MENTEE_WEEKLY_COINS": 2,
+    # Надбавка за квест, выбранный целью недели. Небольшая намеренно: цель
+    # недели — это акцент, а не способ удвоить награду.
+    "WEEKLY_FOCUS_BONUS_COINS": 5,
+    "WEEKLY_FOCUS_BONUS_RATING": 3,
 }
 
 # --- Годовая модель рейтинга ---
@@ -97,7 +101,17 @@ RATING_LIMITS = {
     "DUEL_MAX_RATING_DIFF": 150,
     "DUEL_ACTIVE_LIMIT": 1,
     "DUEL_BET": 5,
+    # Сколько дней идёт принятая дуэль: победителя определяет прирост рейтинга
+    # за этот срок, а не мгновенное сравнение.
+    "DUEL_DURATION_DAYS": 7,
+    # Сколько дней ждёт неотвеченный вызов, прежде чем истечёт сам.
+    "DUEL_INVITE_TTL_DAYS": 3,
     "RESPECT_WEEKLY_LIMIT": 1,
+    # Командный бонус отряда: доля агентов, закрывших недельный квест, и награда.
+    # Раньше 80% и 5 монет были записаны числами в трёх местах вьюхи отрядов
+    # и ещё раз текстом в интерфейсе.
+    "SQUAD_WEEKLY_BONUS_PERCENT": 80,
+    "SQUAD_WEEKLY_BONUS_COINS": 5,
     "RESPECT_SAME_USER_COOLDOWN": 14,
     # Лимиты на одну итерацию пересчёта из снимка LXP (защита от выбросов)
     "LXP_SNAPSHOT_CT_POSITIVE_CAP": 40,
