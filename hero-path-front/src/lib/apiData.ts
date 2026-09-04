@@ -33,7 +33,9 @@ export function progressPercent(value: number): number {
 }
 
 export function daysLeft(endAt: string | null | undefined): string {
-  if (!endAt) return '—'
+  // Пустая строка, а не прочерк: у квеста без срока «Осталось —» читается
+  // как поломка. Подпись «Без срока» подставляет вызывающий код.
+  if (!endAt) return ''
   const diff = new Date(endAt).getTime() - Date.now()
   if (diff <= 0) return '0 дн.'
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24))

@@ -21,6 +21,7 @@ export interface ApiQuest {
 }
 
 export interface ApiQuestProgress {
+  review_status?: string
   id: number
   progress_value: number
   is_completed: boolean
@@ -46,6 +47,8 @@ export interface UiQuest {
   reward: string
   note: string
   confirm: boolean
+  // Статус заявки на подтверждение: пусто — не отправлял, pending — ждёт куратора.
+  reviewStatus: string
   teamNote: string
   completed: boolean
   autoVerify: boolean
@@ -75,6 +78,7 @@ export function mapActiveQuest(
     reward: formatReward(quest.reward_coins, quest.reward_rating_delta),
     note: autoVerify ? 'Проверяется автоматически' : '',
     confirm: !completed && !autoVerify && (quest.manual_complete_allowed !== false),
+    reviewStatus: progress?.review_status ?? '',
     teamNote: '',
     completed,
     autoVerify,
@@ -94,6 +98,7 @@ export function mapCompletedProgress(row: ApiQuestProgress): UiQuest {
     reward: formatReward(quest.reward_coins, quest.reward_rating_delta),
     note: '',
     confirm: false,
+    reviewStatus: row.review_status ?? '',
     teamNote: '',
     completed: true,
     autoVerify: Boolean(quest.auto_verify),
@@ -112,12 +117,20 @@ export function mapRewardHistory(row: ApiQuestReward): UiRewardActivity {
 export function mergeActiveQuests(
   active: unknown,
   progressRows: unknown,
+  completedRows?: unknown,
 ): UiQuest[] {
   const quests = unwrapList<ApiQuest>(active)
   const progress = unwrapList<ApiQuestProgress>(progressRows)
   const byCode = new Map(progress.map((p) => [p.quest.code, p]))
+  // Список прогресса приходит уже отфильтрованным по completed=false,
+  // поэтому выполненные квесты в нём отсутствуют — и проверка is_completed
+  // по нему никогда не срабатывала: выполненный квест оставался в активных
+  // с нулевым прогрессом. Коды выполненных берём из отдельного запроса.
+  const completedCodes = new Set(
+    unwrapList<ApiQuestProgress>(completedRows ?? []).map((p) => p.quest.code),
+  )
   return quests
-    .filter((q) => !byCode.get(q.code)?.is_completed)
+    .filter((q) => !completedCodes.has(q.code) && !byCode.get(q.code)?.is_completed)
     .map((q) => mapActiveQuest(q, byCode.get(q.code)))
 }
 

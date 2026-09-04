@@ -9,6 +9,7 @@ from apps.operations.services.cache import invalidate_rating_views
 from apps.progress.models import RatingChangeSource
 from apps.progress.services.rewards import apply_rating_delta_with_cap, remaining_daily_coin_budget
 from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
+from apps.quests.services.weekly_focus import focus_bonus
 
 
 @transaction.atomic
@@ -35,17 +36,22 @@ def complete_quest_idempotent(
             update_fields=["is_completed", "progress_value", "completed_at", "proof_payload", "updated_at"]
         )
 
+    # Надбавка за цель недели: квест, который студент сам выбрал приоритетным.
+    bonus_coins, bonus_rating = focus_bonus(user, quest)
+
     reward_budget = remaining_daily_coin_budget(user)
-    allowed_coins = min(int(quest.reward_coins), reward_budget)
+    allowed_coins = min(int(quest.reward_coins) + bonus_coins, reward_budget)
     reward_tx, created = QuestRewardTransaction.objects.get_or_create(
         user=user,
         quest=quest,
         defaults={
             "progress": progress,
             "coins_delta": allowed_coins,
-            "rating_delta": quest.reward_rating_delta,
+            "rating_delta": quest.reward_rating_delta + bonus_rating,
         },
     )
+    if created and (bonus_coins or bonus_rating):
+        reason = f"{reason} (цель недели: +{bonus_coins} монет, +{bonus_rating} рейтинга)"
     if created:
         if allowed_coins:
             user.coins_balance += allowed_coins

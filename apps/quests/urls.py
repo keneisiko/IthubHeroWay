@@ -7,9 +7,11 @@ from .views import (
     QuestProgressUpdateView,
     QuestRewardHistoryView,
     SelfReportCreateView,
+    WeeklyFocusView,
 )
 
 urlpatterns = [
+    path("quests/weekly-focus/", WeeklyFocusView.as_view(), name="quests-weekly-focus"),
     path("quests/active/", ActiveQuestListView.as_view(), name="quests-active"),
     path("quests/my-progress/", MyQuestProgressListView.as_view(), name="quests-my-progress"),
     path("quests/rewards/history/", QuestRewardHistoryView.as_view(), name="quests-reward-history"),

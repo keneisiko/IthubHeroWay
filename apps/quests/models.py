@@ -233,6 +233,12 @@ class SelfReportProof(models.Model):
         related_name="self_report_proof",
     )
     comment = models.TextField("Комментарий")
+    attachment_link = models.URLField(
+        "Ссылка на подтверждение",
+        max_length=500,
+        blank=True,
+        help_text="Ссылка на работу, репозиторий или фото — то, что проверяет куратор.",
+    )
     status = models.CharField(
         "Статус",
         max_length=16,
@@ -252,8 +258,10 @@ class SelfReportProof(models.Model):
     created_at = models.DateTimeField("Создан", auto_now_add=True)
 
     class Meta:
-        verbose_name = "Самоотчёт"
-        verbose_name_plural = "Самоотчёты"
+        # Модель обслуживает и самоотчёты, и ручное подтверждение квестов:
+        # и то, и другое — заявка студента, которую смотрит куратор.
+        verbose_name = "Подтверждение выполнения"
+        verbose_name_plural = "Подтверждения выполнения"
         indexes = [
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["user", "-created_at"]),
@@ -261,3 +269,42 @@ class SelfReportProof(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id}:{self.quest_id}:{self.status}"
+
+class WeeklyFocus(models.Model):
+    """Цель недели: квест, который студент выбрал приоритетным.
+
+    Блок «Еженедельный выбор» в интерфейсе хранил выбор только в состоянии
+    React: на сервер он не уходил, при перезагрузке сбрасывался и ни на что
+    не влиял. Здесь выбор живёт по-настоящему — один на студента и неделю.
+
+    Выбор ничего не отключает: остальные еженедельные квесты остаются
+    доступными и вознаграждаются как обычно. Цель недели только поднимает
+    квест в списке и добавляет небольшой бонус за его выполнение.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Пользователь",
+        on_delete=models.CASCADE,
+        related_name="weekly_focuses",
+    )
+    quest = models.ForeignKey(
+        Quest, verbose_name="Квест", on_delete=models.CASCADE, related_name="focused_by"
+    )
+    period_key = models.CharField("Неделя", max_length=32, db_index=True)
+    created_at = models.DateTimeField("Выбрана", auto_now_add=True)
+    updated_at = models.DateTimeField("Изменена", auto_now=True)
+
+    class Meta:
+        verbose_name = "Цель недели"
+        verbose_name_plural = "Цели недели"
+        constraints = [
+            # Одна цель на неделю: иначе «выбор» перестаёт быть выбором.
+            models.UniqueConstraint(fields=["user", "period_key"], name="uniq_weekly_focus_per_user"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "period_key"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id}:{self.quest_id} ({self.period_key})"

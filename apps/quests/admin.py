@@ -25,7 +25,7 @@ def _complete_quest_idempotent(user, quest, reviewer):
     progress, created = complete_quest_idempotent(
         user,
         quest,
-        reason=f"Quest approved (self-report): {quest.code}",
+        reason=f"Квест подтверждён куратором: {quest.code}",
     )
     LogEntry.objects.log_action(
         user_id=reviewer.pk,
@@ -149,11 +149,24 @@ class SquadLeaderboardSnapshotAdmin(ManagedRoleAdminMixin):
 
 @admin.register(SelfReportProof)
 class SelfReportProofAdmin(ManagedRoleAdminMixin):
-    list_display = ("user", "quest", "status_badge", "created_at", "reviewed_at")
+    list_display = ("user", "quest", "status_badge", "proof_link", "created_at", "reviewed_at")
     list_filter = ("status", "created_at", "quest__quest_type")
-    search_fields = ("user__username", "user__email", "comment")
-    readonly_fields = ("created_at", "reviewed_at", "reviewed_by")
+    search_fields = ("user__username", "user__email", "comment", "attachment_link")
+    readonly_fields = ("created_at", "reviewed_at", "reviewed_by", "proof_link")
     actions = ("approve_proofs", "reject_proofs")
+
+    @admin.display(description="Доказательство")
+    def proof_link(self, obj: SelfReportProof):
+        """Ссылка кликабельна прямо из списка.
+
+        Куратор одобряет пачками; если ради проверки ссылки нужно открывать
+        каждую заявку, проверять перестанут вовсе.
+        """
+        if not obj.attachment_link:
+            return "—"
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener noreferrer">открыть</a>', obj.attachment_link
+        )
 
     @admin.display(description="Статус")
     def status_badge(self, obj: SelfReportProof):
@@ -177,10 +190,10 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             return qs.filter(user__squad__course__gte=2, user__squad__course__lte=4)
         return qs.none()
 
-    @admin.action(description="Одобрить выбранные самоотчёты")
+    @admin.action(description="Одобрить: начислить награду за квест")
     def approve_proofs(self, request, queryset):
         if is_hq(request.user):
-            self.message_user(request, "Штаб не проверяет самоотчёты.", level=messages.ERROR)
+            self.message_user(request, "Штаб не проверяет подтверждения.", level=messages.ERROR)
             return
         now = timezone.now()
         updated = 0
@@ -196,10 +209,10 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             updated += 1
         self.message_user(request, f"Одобрено: {updated}", level=messages.SUCCESS)
 
-    @admin.action(description="Отклонить выбранные самоотчёты")
+    @admin.action(description="Отклонить: награда не начисляется")
     def reject_proofs(self, request, queryset):
         if is_hq(request.user):
-            self.message_user(request, "Штаб не проверяет самоотчёты.", level=messages.ERROR)
+            self.message_user(request, "Штаб не проверяет подтверждения.", level=messages.ERROR)
             return
         now = timezone.now()
         updated = queryset.exclude(status=SelfReportProofStatus.REJECTED).update(

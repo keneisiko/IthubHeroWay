@@ -58,7 +58,12 @@ export default function Quests() {
   const [activity, setActivity] = useState<Activity[]>([])
   const [recentActivity, setRecentActivity] = useState<Activity[]>([])
   const [selfReportQuestCode, setSelfReportQuestCode] = useState<string | null>(null)
+  // Цель недели хранится на сервере: раньше выбор жил только здесь,
+  // сбрасывался при перезагрузке и ни на что не влиял.
   const [weeklyChoice, setWeeklyChoice] = useState<string | null>(null)
+  const [focusBonus, setFocusBonus] = useState<{ coins: number; rating: number }>({ coins: 0, rating: 0 })
+  // Подсветка карточки до нажатия «Выбрать»: сам выбор отправляется явно.
+  const [focusPreview, setFocusPreview] = useState<string | null>(null)
   const [strike, setStrike] = useState<{
     late_strike: number
     bonus_at_7: number
@@ -74,15 +79,18 @@ export default function Quests() {
   const confirmModal = useModal()
   const [reportText, setReportText] = useState('')
   const [confirmQuestCode, setConfirmQuestCode] = useState<string | null>(null)
+  const [confirmQuestTitle, setConfirmQuestTitle] = useState('')
   const [confirmLink, setConfirmLink] = useState('')
 
-  const addToast = (message: string, type: 'success' | 'error' = 'success') => {
+  // useCallback: функция попадает в зависимости других колбэков, и без
+  // мемоизации они пересоздавались на каждый рендер.
+  const addToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now()
     setToasts(prev => [...prev, { id, message, type }])
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id))
     }, 3000)
-  }
+  }, [])
 
   const loadQuests = useCallback(() => {
     setLoading(true)
@@ -93,13 +101,19 @@ export default function Quests() {
       api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
       api.get('/api/v1/quests/rewards/history/'),
       api.get('/api/v1/dashboard/'),
-    ]).then(([activeRes, progressRes, completedRes, historyRes, dashRes]) => {
-      setQuests(mergeActiveQuests(activeRes.data, progressRes.data))
+      api.get('/api/v1/quests/weekly-focus/'),
+    ]).then(([activeRes, progressRes, completedRes, historyRes, dashRes, focusRes]) => {
+      setQuests(mergeActiveQuests(activeRes.data, progressRes.data, completedRes.data))
       setCompletedQuests(mapCompletedQuests(completedRes.data))
       setActivity(mapRewardActivities(historyRes.data))
       setRecentActivity(mapRecentRewardActivities(historyRes.data))
       setSelfReportQuestCode(pickSelfReportQuestCode(activeRes.data))
       setStrike(dashRes.data?.strike ?? null)
+      setWeeklyChoice(focusRes.data?.quest_code || null)
+      setFocusBonus({
+        coins: focusRes.data?.bonus_coins ?? 0,
+        rating: focusRes.data?.bonus_rating ?? 0,
+      })
     }).catch(() => {
       setQuests([])
       setCompletedQuests([])
@@ -139,7 +153,7 @@ export default function Quests() {
       : {}
     api.post(`/api/v1/quests/${confirmQuestCode}/complete/`, { proof_payload: proof })
       .then(() => {
-        addToast('Квест подтверждён!', 'success')
+        addToast('Отправлено куратору на проверку', 'success')
         confirmModal.hide()
         setConfirmQuestCode(null)
         setConfirmLink('')
@@ -148,30 +162,31 @@ export default function Quests() {
       .catch(() => addToast('Ошибка подтверждения', 'error'))
   }, [confirmQuestCode, confirmLink, loadQuests])
 
-  const openConfirm = (code: string) => {
+  const openConfirm = (code: string, title: string) => {
     setConfirmQuestCode(code)
+    setConfirmQuestTitle(title)
     confirmModal.show()
   }
 
-  const getProgressColor = (progress: number) => {
-    if (progress >= 80) return '#6cd63e'
-    if (progress >= 50) return '#ffd900'
-    if (progress >= 30) return '#ff9f00'
-    return '#fd4e4e'
-  }
+  const pickWeeklyFocus = useCallback((code: string, title: string) => {
+    api.post('/api/v1/quests/weekly-focus/', { quest_code: code })
+      .then(() => {
+        addToast(`Цель недели: ${title}`)
+        return loadQuests()
+      })
+      .catch(() => addToast('Не удалось выбрать цель недели', 'error'))
+  }, [addToast, loadQuests])
 
-  const currentQuests = activeTab === 0 ? quests : activeTab === 1 ? completedQuests : []
-  // Еженедельный выбор: бэкенд не группирует квесты в пары, поэтому
-  // вариантами показываем активные еженедельные квесты — выбранный
-  // становится тем, что подтверждает кнопка внизу блока.
-  const weeklyOptions = quests.filter((q) => !q.completed && q.kind === 'Еженедельный').slice(0, 2)
-  const focusedWeekly = weeklyChoice ?? weeklyOptions[0]?.code ?? null
-
-  // В макете подтверждение и пометка об автопроверке — общие для блока
-  const confirmableQuest =
-    currentQuests.find((q) => q.code === weeklyChoice && !q.completed && q.confirm)
-    ?? currentQuests.find((q) => !q.completed && q.confirm)
-  const autoQuest = currentQuests.find((q) => !q.completed && q.autoVerify)
+  const rawQuests = activeTab === 0 ? quests : activeTab === 1 ? completedQuests : []
+  // Цель недели — первой в списке: студент сам назначил её приоритетом.
+  const currentQuests = weeklyChoice
+    ? [...rawQuests].sort((a, b) => Number(b.code === weeklyChoice) - Number(a.code === weeklyChoice))
+    : rawQuests
+  // Целью недели может стать любой активный еженедельный квест. Раньше
+  // в блок попадали первые два по порядку — произвольная пара, а выбранный
+  // третий квест не показывался вовсе.
+  const weeklyOptions = quests.filter((q) => !q.completed && q.kind === 'Еженедельный')
+  const focusedWeekly = focusPreview ?? weeklyChoice ?? weeklyOptions[0]?.code ?? null
 
   if (loading) {
     return (
@@ -262,11 +277,18 @@ export default function Quests() {
                     <div className="q1__card-body">
                       <div className="q1__card-top">
                         <span className="q1__card-kind">{q.kind}</span>
+                        {q.code === weeklyChoice && (
+                          <span className="q1__card-focus" title="Выбрана целью недели">
+                            Цель недели
+                          </span>
+                        )}
                         <span className="q1__card-kind-ic" aria-hidden="true" />
                         <span className="q1__card-left">
                           {q.completed
                             ? 'Завершён'
-                            : <>Осталось&nbsp;<span className="q1__card-left-accent">{q.leftDays}</span></>}
+                            : q.leftDays
+                              ? <>Осталось&nbsp;<span className="q1__card-left-accent">{q.leftDays}</span></>
+                              : 'Без срока'}
                         </span>
                         <span
                           className="q1__card-pct"
@@ -280,24 +302,27 @@ export default function Quests() {
                         <div className="q1__card-desc">{q.desc}</div>
                         {q.note && <div className="q1__card-team">{q.note}</div>}
                       </div>
-                      <div className="q1__card-steps" aria-hidden="true">
-                        <span className="q1__step q1__step--red" />
-                        <span className="q1__step-seg q1__step-seg--red">
-                          <span className="q1__step-fill" style={{ width: `${Math.min(100, q.progress / 25 * 100)}%`, background: getProgressColor(q.progress) }} />
-                        </span>
-                        <span className="q1__step q1__step--yellow" />
-                        <span className="q1__step-seg q1__step-seg--yellow">
-                          <span className="q1__step-fill" style={{ width: `${Math.min(100, (q.progress - 25) / 25 * 100)}%`, background: getProgressColor(q.progress) }} />
-                        </span>
-                        <span className="q1__step q1__step--violet" />
-                        <div className="q1__step-rail">
-                          <div className="q1__step-fill" style={{ width: `${q.progress}%`, background: getProgressColor(q.progress), transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' }} />
-                        </div>
-                        <span className="q1__step q1__step--green" />
-                      </div>
                       <div className="q1__card-reward">
                         Награда:&nbsp;<span className="q1__card-reward-coins">{q.reward}</span>
                       </div>
+                      {q.reviewStatus === 'pending' ? (
+                        <div className="q1__card-review q1__card-review--pending">
+                          Отправлено куратору, ждёт проверки
+                        </div>
+                      ) : q.confirm && (
+                        <button
+                          type="button"
+                          className="q1__card-confirm btn-press"
+                          onClick={() => openConfirm(q.code, q.title)}
+                        >
+                          {q.reviewStatus === 'rejected' ? 'Отправить заново' : 'Подтвердить'}
+                        </button>
+                      )}
+                      {q.reviewStatus === 'rejected' && (
+                        <div className="q1__card-review q1__card-review--rejected">
+                          Куратор отклонил подтверждение
+                        </div>
+                      )}
                       {q.note && <div className="q1__card-note">{q.note}</div>}
                     </div>
                   </article>
@@ -309,49 +334,40 @@ export default function Quests() {
                 )}
               </div>
 
-              {confirmableQuest && (
-                <button
-                  type="button"
-                  className="q1__slot-confirm btn-press"
-                  onClick={() => openConfirm(confirmableQuest.code)}
-                >
-                  Подтвердить
-                </button>
-              )}
-              {autoQuest && (
-                <div className="q1__slot-auto">Выполняется автоматически</div>
-              )}
+
             </div>
 
             {weeklyOptions.length > 1 && (
               <section className="q1__choice">
                 <h3 className="q1__choice-title">Еженедельный выбор</h3>
                 <div className="q1__choice-box">
-                  <p className="q1__choice-lead">Выбери одно из двух заданий</p>
+                  <p className="q1__choice-lead">
+                    Выбери цель недели{focusBonus.coins || focusBonus.rating
+                      ? `: +${focusBonus.coins} монет и +${focusBonus.rating} рейтинга сверху за неё`
+                      : ''}
+                  </p>
                   <div className="q1__choice-options">
-                    {weeklyOptions.map((option, i) => {
+                    {weeklyOptions.map((option) => {
                       const isFocused = option.code === focusedWeekly
                       return (
                         <article
                           key={option.code}
                           className={`q1__option${isFocused ? ' q1__option--focused' : ''}`}
-                          onClick={() => setWeeklyChoice(option.code)}
+                          onClick={() => setFocusPreview(option.code)}
                         >
-                          <h4 className="q1__option-title">Вариант {String.fromCharCode(65 + i)}</h4>
-                          <p className="q1__option-task">{option.title}</p>
+                          <h4 className="q1__option-title">{option.title}</h4>
+                          <p className="q1__option-task">{option.desc}</p>
                           <div className="q1__option-reward">{option.reward}</div>
-                          {isFocused && (
-                            <button
-                              type="button"
-                              className="q1__option-pick btn-press"
-                              onClick={() => {
-                                setWeeklyChoice(option.code)
-                                addToast(`Выбрано: ${option.title}`)
-                              }}
-                            >
-                              Выбрать
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className={`q1__option-pick btn-press${
+                              option.code === weeklyChoice ? ' q1__option-pick--current' : ''
+                            }`}
+                            onClick={() => pickWeeklyFocus(option.code, option.title)}
+                            disabled={option.code === weeklyChoice}
+                          >
+                            {option.code === weeklyChoice ? 'Цель недели' : 'Выбрать'}
+                          </button>
                         </article>
                       )
                     })}
@@ -452,15 +468,17 @@ export default function Quests() {
       {confirmModal.open && (
         <div className="modal-fixed">
           <div className="modal-fixed__content" ref={confirmModal.ref}>
-            <h3 className="popup__title">Подтверждение квеста</h3>
-            <label className="popup__label">Прикрепите подтверждение выполнения</label>
+            <h3 className="popup__title">{confirmQuestTitle || 'Подтверждение квеста'}</h3>
+            <label className="popup__label">
+              Прикрепите ссылку на работу — её проверит куратор, награда придёт после одобрения
+            </label>
             <input
               type="url" value={confirmLink} onChange={e => setConfirmLink(e.target.value)}
               placeholder="Ссылка на доказательство"
               className="popup__input"
             />
             <button type="button" className="popup__submit btn-press" onClick={handleConfirmSubmit}>
-              Отправить
+              Отправить на проверку
             </button>
           </div>
         </div>

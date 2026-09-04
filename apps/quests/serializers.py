@@ -40,6 +40,9 @@ class UserQuestProgressSerializer(serializers.ModelSerializer):
     quest = QuestSerializer(read_only=True)
     auto_verify = serializers.SerializerMethodField()
     verification_message = serializers.SerializerMethodField()
+    # Статус заявки на подтверждение: без него интерфейс не отличал бы
+    # «ещё не отправлял» от «отправлено и ждёт куратора».
+    review_status = serializers.SerializerMethodField()
 
     class Meta:
         model = UserQuestProgress
@@ -53,7 +56,12 @@ class UserQuestProgressSerializer(serializers.ModelSerializer):
             "updated_at",
             "auto_verify",
             "verification_message",
+            "review_status",
         ]
+
+    def get_review_status(self, obj: UserQuestProgress) -> str:
+        proof = getattr(obj, "self_report_proof", None)
+        return proof.status if proof else ""
 
     def get_auto_verify(self, obj: UserQuestProgress) -> bool:
         from .services.quest_conditions import is_auto_verified
