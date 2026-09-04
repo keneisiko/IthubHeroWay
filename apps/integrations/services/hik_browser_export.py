@@ -223,6 +223,8 @@ def _wait_for_login_result(page: Page, *, timeout_s: int = 30) -> bool:
 # на главной и падал по таймауту ожидания загрузки файла.
 DIALOG_CLOSE_SELECTORS = (
     ".el-message-box__btns button",
+    ".el-popover button",
+    ".el-popover__title + div button",
     ".el-dialog__footer button",
     ".el-message-box__headerbtn",
     ".el-dialog__headerbtn",
@@ -236,7 +238,9 @@ def _dismiss_dialogs(page: Page, *, attempts: int = 3) -> int:
     """Закрыть модальные окна, если они перекрывают страницу."""
     closed = 0
     for _ in range(attempts):
-        overlay = page.locator(".el-message-box__wrapper, .el-dialog__wrapper, .v-modal").first
+        overlay = page.locator(
+            ".el-message-box__wrapper, .el-dialog__wrapper, .v-modal, .el-popover:visible"
+        ).first
         try:
             if not overlay.count() or not overlay.is_visible():
                 break
@@ -341,6 +345,7 @@ def _set_date_range(page: Page, start: date, end: date) -> None:
 
 
 def _click_search(page: Page) -> None:
+    _dismiss_dialogs(page)
     for label in SEARCH_LABELS:
         if _click_by_text(page, label):
             page.wait_for_timeout(2_000)
@@ -349,6 +354,7 @@ def _click_search(page: Page) -> None:
 
 
 def _click_export_menu(page: Page) -> bool:
+    _dismiss_dialogs(page)
     for label in EXPORT_LABELS:
         if _click_by_text(page, label):
             return True
