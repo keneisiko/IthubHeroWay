@@ -129,6 +129,12 @@ class DuelListView(views.APIView):
                 "wins": duel_wins(request.user),
                 "bet_coins": duel_bet(),
                 "duration_days": duel_duration_days(),
+                # Порог разницы рейтинга: интерфейс подсвечивает по нему,
+                # кого можно вызвать, вместо отказа уже после нажатия.
+                "max_rating_diff": int(
+                    getattr(settings, "RATING_LIMITS", {}).get("DUEL_MAX_RATING_DIFF", 150)
+                ),
+                "my_rating": request.user.rating_current,
             }
         )
 

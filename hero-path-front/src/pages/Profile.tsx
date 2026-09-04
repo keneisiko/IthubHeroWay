@@ -14,6 +14,7 @@ import {
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useToasts } from '../useToasts'
+import AgentPicker from '../components/AgentPicker'
 import { RARITY_LABELS, formatDateRu, unwrapList } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
 
@@ -100,14 +101,6 @@ interface DuelRow {
   winner: { username: string; callsign: string } | null
 }
 
-interface AgentSuggestion {
-  username: string
-  callsign: string
-  full_name: string
-  squad: string
-  rating_current: number
-}
-
 interface MentorshipRow {
   id: number
   mentor: { username: string; callsign: string }
@@ -191,14 +184,14 @@ export default function Profile() {
   const editModal = useModal()
   const avatarModal = useModal()
   const mentorModal = useModal()
+  const duelModal = useModal()
   const [duels, setDuels] = useState<DuelRow[]>([])
-  const [duelInfo, setDuelInfo] = useState<{ bet: number; days: number }>({ bet: 0, days: 0 })
+  const [duelInfo, setDuelInfo] = useState<{ bet: number; days: number; maxDiff: number; myRating: number }>(
+    { bet: 0, days: 0, maxDiff: 0, myRating: 0 },
+  )
   const [mentees, setMentees] = useState<MentorshipRow[]>([])
-  // Подсказки поиска: раньше подшефного вводили по username вслепую,
-  // и опечатка давала «не удалось оформить» без объяснения.
-  const [agentQuery, setAgentQuery] = useState('')
-  const [agentOptions, setAgentOptions] = useState<AgentSuggestion[]>([])
-  const [agentSearching, setAgentSearching] = useState(false)
+  // Кого вызываем на дуэль — выбирается в том же поиске, что и подшефный.
+  const [duelUsername, setDuelUsername] = useState('')
   const [mentors, setMentors] = useState<MentorshipRow[]>([])
   const [menteeUsername, setMenteeUsername] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -243,6 +236,8 @@ export default function Profile() {
           setDuelInfo({
             bet: duelsRes.data?.bet_coins ?? 0,
             days: duelsRes.data?.duration_days ?? 0,
+            maxDiff: duelsRes.data?.max_rating_diff ?? 0,
+            myRating: duelsRes.data?.my_rating ?? 0,
           })
           setMentees(mentorRes.data?.mentees ?? [])
           setMentors(mentorRes.data?.mentors ?? [])
@@ -460,25 +455,30 @@ export default function Profile() {
       .catch(() => addToast('Не удалось изменить нашивку', 'error'))
   }
 
-  // Запрос уходит не на каждую букву: 300 мс тишины после ввода.
-  useEffect(() => {
-    if (!mentorModal.open) return
-    const timer = setTimeout(() => {
-      setAgentSearching(true)
-      api.get('/api/v1/agents/search/', { params: agentQuery.trim() ? { q: agentQuery.trim() } : {} })
-        .then((res) => setAgentOptions(Array.isArray(res.data) ? res.data : []))
-        .catch(() => setAgentOptions([]))
-        .finally(() => setAgentSearching(false))
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [agentQuery, mentorModal.open])
-
   const duelAction = (id: number, action: 'accept' | 'reject' | 'cancel', message: string) => {
     api.post(`/api/v1/social/duels/${id}/${action}/`)
       .then(() => { addToast(message, 'success'); loadProfile() })
       .catch((err) => {
         const detail = err.response?.data?.detail
         addToast(typeof detail === 'string' ? detail : 'Не удалось выполнить действие', 'error')
+      })
+  }
+
+  const challengeAgent = () => {
+    if (!duelUsername) {
+      addToast('Выберите соперника из списка', 'error')
+      return
+    }
+    api.post('/api/v1/social/duels/', { opponent_username: duelUsername })
+      .then(() => {
+        addToast('Вызов отправлен!', 'success')
+        duelModal.hide()
+        setDuelUsername('')
+        loadProfile()
+      })
+      .catch((err) => {
+        const detail = err.response?.data?.detail
+        addToast(typeof detail === 'string' ? detail : 'Не удалось вызвать на дуэль', 'error')
       })
   }
 
@@ -746,6 +746,15 @@ export default function Profile() {
               Ставка {duelInfo.bet} монет, итог через {duelInfo.days} дн. по приросту рейтинга
             </p>
           )}
+          <div className="profile-aside__mentor-row">
+            <button
+              type="button"
+              className="profile-aside__mentor-btn btn-press"
+              onClick={duelModal.show}
+            >
+              Вызвать на дуэль
+            </button>
+          </div>
         </section>
         )}
 
@@ -953,41 +962,53 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Модалка вызова на дуэль: соперника ищем, а не ищем его профиль вручную */}
+      {duelModal.open && (
+        <div className="modal-fixed">
+          <div className="modal-fixed__content" ref={duelModal.ref}>
+            <h3 className="popup__title">Вызвать на дуэль</h3>
+            <label className="popup__label">
+              Ставка {duelInfo.bet} монет. Побеждает тот, кто за {duelInfo.days} дн. прибавит
+              больше рейтинга
+            </label>
+            <AgentPicker
+              picked={duelUsername}
+              onPick={(agent) => setDuelUsername(agent.username)}
+              disabledReason={(agent) =>
+                duelInfo.maxDiff && Math.abs(agent.rating_current - duelInfo.myRating) > duelInfo.maxDiff
+                  ? `рейтинг ${agent.rating_current}: разница больше ${duelInfo.maxDiff}`
+                  : ''
+              }
+              placeholder="кого вызываем"
+              autoFocus
+            />
+            <div className="shop-modal__buttons">
+              <button
+                type="button"
+                className="shop-modal__btn shop-modal__btn--secondary btn-press"
+                onClick={duelModal.hide}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="shop-modal__btn shop-modal__btn--primary btn-press"
+                onClick={challengeAgent}
+              >
+                Вызвать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Модалка стать наставником */}
       {mentorModal.open && (
         <div className="modal-fixed">
           <div className="modal-fixed__content" ref={mentorModal.ref}>
             <h3 className="popup__title">Стать наставником</h3>
             <label className="popup__label">Найдите студента по позывному или имени</label>
-            <input
-              type="text"
-              value={agentQuery}
-              onChange={(e) => setAgentQuery(e.target.value)}
-              placeholder="начните вводить позывной"
-              className="popup__input"
-              autoFocus
-            />
-            <div className="agent-picker">
-              {agentSearching && <p className="agent-picker__hint">Ищем…</p>}
-              {!agentSearching && agentOptions.length === 0 && (
-                <p className="agent-picker__hint">Никого не нашли</p>
-              )}
-              {agentOptions.map((agent) => (
-                <button
-                  key={agent.username}
-                  type="button"
-                  className={`agent-picker__row${
-                    agent.username === menteeUsername ? ' agent-picker__row--picked' : ''
-                  }`}
-                  onClick={() => setMenteeUsername(agent.username)}
-                >
-                  <span className="agent-picker__name">{agent.callsign || agent.username}</span>
-                  <span className="agent-picker__meta">
-                    {[agent.full_name, agent.squad].filter(Boolean).join(' · ')}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <AgentPicker picked={menteeUsername} onPick={(agent) => setMenteeUsername(agent.username)} autoFocus />
             <div className="shop-modal__buttons">
               <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={mentorModal.hide}>
                 Отмена
@@ -1003,7 +1024,6 @@ export default function Profile() {
                     addToast('Наставничество оформлено!', 'success')
                     mentorModal.hide()
                     setMenteeUsername('')
-                    setAgentQuery('')
                     loadProfile()
                   })
                   .catch(() => { addToast('Не удалось оформить наставничество', 'error') })

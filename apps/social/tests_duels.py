@@ -228,3 +228,23 @@ class DuelApiTests(APITestCase):
         response = self.client.post(reverse("social-duels-cancel", args=[duel.pk]))
 
         self.assertEqual(response.status_code, 400)
+
+
+@override_settings(RATING_LIMITS=LIMITS)
+class DuelListLimitsTests(APITestCase):
+    """Интерфейс подсвечивает доступных соперников до нажатия.
+
+    Раньше порог разницы рейтинга знал только бэкенд: студент выбирал
+    соперника, жал «вызвать» и получал отказ.
+    """
+
+    def setUp(self):
+        self.user = make_agent("limits_user", rating=500)
+        self.client.force_authenticate(self.user)
+
+    def test_list_exposes_limit_and_my_rating(self):
+        response = self.client.get(reverse("social-duels-my"))
+
+        body = response.json()
+        self.assertEqual(body["max_rating_diff"], 150)
+        self.assertEqual(body["my_rating"], 500)

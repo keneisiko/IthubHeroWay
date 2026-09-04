@@ -5887,3 +5887,13 @@ body {
   font-family: var(--font-text);
   font-weight: 600;
 }
+
+/* Недоступный для выбора студент: причина видна прямо в строке. */
+.agent-picker__row--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.agent-picker__row--disabled:hover {
+  background: #f5f5f5;
+}
