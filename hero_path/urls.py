@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from django_prometheus import exports
@@ -30,4 +32,11 @@ urlpatterns = [
     path("api/v1/", include("apps.social.urls")),
     path("api/v1/", include("apps.integrations.urls")),
 ]
+
+# Загруженные аватары в разработке раздаёт сам Django: whitenoise обслуживает
+# только статику, поэтому без этого файл успешно загружался и никогда
+# не открывался — в интерфейсе оставалась заглушка. В продакшене /media/
+# отдаёт nginx (см. deploy/nginx.conf).
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

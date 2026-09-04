@@ -2,8 +2,10 @@ from django.core.cache import cache
 from rest_framework import generics, views
 from rest_framework.response import Response
 
+from apps.badges.models import UserBadge
+from apps.badges.serializers import UserBadgeSerializer
 from apps.operations.services.cache import invalidate_profile
-from apps.progress.models import UserStrike
+from apps.progress.models import RatingLog, UserStrike
 from apps.progress.services.late_penalties import late_streak_bonus_for_days
 from apps.progress.services.pillar_labels import skills_percent_by_label
 from apps.progress.services.rating_zones import rating_progress
@@ -81,17 +83,59 @@ def _strike_payload(user: User) -> dict:
 
 
 def _dashboard_feed(user: User, limit: int = 5) -> list[dict]:
+    """Лента активности: награды за квесты, изменения рейтинга и значки.
+
+    Раньше в ленту попадали только награды за квесты, поэтому у студента,
+    которому рейтинг начислялся из LXP или снимался за опоздание, она
+    оставалась пустой — при том, что события были.
+    """
     items: list[dict] = []
-    for tx in QuestRewardTransaction.objects.filter(user=user).select_related("quest").order_by("-granted_at")[:limit]:
+
+    for tx in (
+        QuestRewardTransaction.objects.filter(user=user)
+        .select_related("quest")
+        .order_by("-granted_at")[:limit]
+    ):
         title = tx.quest.title if tx.quest_id else "Квест"
         coins_part = f"+{tx.coins_delta} монет" if tx.coins_delta else ""
         rating_part = f"+{tx.rating_delta} рейтинг" if tx.rating_delta else ""
         reward = ", ".join(p for p in (coins_part, rating_part) if p) or "Награда получена"
         items.append({
+            "kind": "quest",
             "text": f"{title}: {reward}",
             "time": tx.granted_at.isoformat() if tx.granted_at else "",
         })
+
+    # Нулевые дельты — служебные маркеры («все КТ закрыты», фиксация базы),
+    # показывать их студенту незачем.
+    for log in RatingLog.objects.filter(user=user).exclude(delta=0).order_by("-created_at")[:limit]:
+        sign = "+" if log.delta > 0 else ""
+        reason = log.reason or "Изменение рейтинга"
+        items.append({
+            "kind": "rating",
+            "text": f"{sign}{log.delta} рейтинг: {reason}",
+            "time": log.created_at.isoformat() if log.created_at else "",
+        })
+
+    for user_badge in (
+        UserBadge.objects.filter(user=user).select_related("badge").order_by("-acquired_at")[:limit]
+    ):
+        items.append({
+            "kind": "badge",
+            "text": f"Получен значок «{user_badge.badge.title}»",
+            "time": user_badge.acquired_at.isoformat() if user_badge.acquired_at else "",
+        })
+
+    items.sort(key=lambda row: row["time"], reverse=True)
     return items[:limit]
+
+
+def _recent_badges(user: User, limit: int = 5) -> list[dict]:
+    """Последние полученные значки. Раньше поле всегда было пустым списком."""
+    queryset = (
+        UserBadge.objects.filter(user=user).select_related("badge").order_by("-acquired_at")[:limit]
+    )
+    return UserBadgeSerializer(queryset, many=True).data
 
 
 class DashboardView(views.APIView):
@@ -129,7 +173,7 @@ class DashboardView(views.APIView):
             "current_quest": current_quest_payload,
             "strike": _strike_payload(user),
             "rating_progress": rating_progress(user.rating_current),
-            "recent_badges": [],
+            "recent_badges": _recent_badges(user),
             "feed": _dashboard_feed(user),
         }
         return Response(data)

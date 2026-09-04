@@ -13,10 +13,13 @@ export default defineConfig({
       usePolling: true,
     },
     proxy: {
-      '/api': {
-        target: apiProxyTarget,
-        changeOrigin: true,
-      },
+      // changeOrigin: false — Django строит абсолютные ссылки (аватары)
+      // из заголовка Host. С подменой хоста он отдавал внутренний адрес
+      // контейнера http://web:8000/media/..., который браузер не открывает.
+      '/api': { target: apiProxyTarget, changeOrigin: false },
+      // Медиа и статика: без проксирования загруженный аватар не открывался.
+      '/media': { target: apiProxyTarget, changeOrigin: false },
+      '/static': { target: apiProxyTarget, changeOrigin: false },
     },
   },
 })

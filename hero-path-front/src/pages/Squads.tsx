@@ -28,6 +28,10 @@ interface SquadData {
   bonus_progress: number
   bonus_completed: number
   bonus_total: number
+  // Порог и награда приходят с бэка: раньше они были записаны текстом
+  // в разметке и расходились бы с расчётом при любой правке регламента.
+  bonus_threshold: number
+  bonus_coins: number
   coins_month: number
   share_url: string
 }
@@ -182,6 +186,8 @@ export default function Squads() {
           bonus_progress: bonus.percent ?? 0,
           bonus_completed: bonus.completed ?? 0,
           bonus_total: bonus.total ?? 0,
+          bonus_threshold: bonus.bonus_threshold_percent ?? 80,
+          bonus_coins: bonus.bonus_reward_coins ?? 5,
           coins_month: actions.month_coins ?? 0,
           share_url: actions.share_url ?? `/squads/${my.code}`,
         })
@@ -421,13 +427,18 @@ export default function Squads() {
         <div className="squad-page__right">
           <section className="squad-bonus" aria-label="Прогресс командного бонуса">
             <p className="squad-bonus__lead">{squad.bonus_progress}% отряда выполнили еженедельный квест</p>
-            <div className="squad-bonus__chip squad-bonus__chip--purple">При 80% — +5 монет в пятницу</div>
+            <div className="squad-bonus__chip squad-bonus__chip--purple">
+              При {squad.bonus_threshold}% — +{squad.bonus_coins} монет в пятницу
+            </div>
             <div className="squad-bonus__chip squad-bonus__chip--dark">
               <span className="squad-bonus__chip-num">{squad.bonus_completed}</span>
               <span> из {squad.bonus_total} агентов</span>
             </div>
             <div className="squad-bonus__progress-block">
-              <p className="squad-bonus__hint">До бонуса осталось {Math.max(0, squad.bonus_total - squad.bonus_completed)} человек</p>
+              <p className="squad-bonus__hint">
+              До бонуса осталось{' '}
+              {Math.max(0, Math.ceil(squad.bonus_total * squad.bonus_threshold / 100) - squad.bonus_completed)} человек
+            </p>
               <div className="squad-bonus__progress">
                 <span className="squad-bonus__dot squad-bonus__dot--start" aria-hidden="true" />
                 <div className="squad-bonus__track">

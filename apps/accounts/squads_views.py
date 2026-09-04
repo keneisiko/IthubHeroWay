@@ -1,4 +1,5 @@
 from datetime import timedelta
+from math import ceil
 
 from django.conf import settings
 from django.core.cache import cache
@@ -233,9 +234,16 @@ class SquadMeView(views.APIView):
             weekly_completed = UserQuestProgress.objects.filter(
                 quest=weekly_quest, is_completed=True, user__in=agents_qs
             ).count()
+        limits = getattr(settings, "RATING_LIMITS", {})
+        bonus_percent = int(limits.get("SQUAD_WEEKLY_BONUS_PERCENT", 80))
+        bonus_coins = int(limits.get("SQUAD_WEEKLY_BONUS_COINS", 5))
+        bonus_share = bonus_percent / 100
+
         weekly_percent = (weekly_completed / agents_count) if agents_count else 0
-        weekly_bonus_active = weekly_percent >= 0.8
-        weekly_remaining = max(0, int(0.8 * agents_count + 0.999) - weekly_completed) if agents_count else 0
+        weekly_bonus_active = weekly_percent >= bonus_share
+        weekly_remaining = (
+            max(0, ceil(bonus_share * agents_count) - weekly_completed) if agents_count else 0
+        )
 
         month_ago = timezone.now() - timedelta(days=30)
         month_coins = (
@@ -264,8 +272,8 @@ class SquadMeView(views.APIView):
                 "completed": weekly_completed,
                 "total": agents_count,
                 "percent": round(weekly_percent * 100, 2),
-                "bonus_threshold_percent": 80,
-                "bonus_reward_coins": 5,
+                "bonus_threshold_percent": bonus_percent,
+                "bonus_reward_coins": bonus_coins,
                 "status": "active" if weekly_bonus_active else "not_ready",
                 "remaining_to_threshold": weekly_remaining,
             },

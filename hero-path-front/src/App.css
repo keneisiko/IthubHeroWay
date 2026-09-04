@@ -2535,6 +2535,33 @@ body {
   gap: 12px;
   /* в макете карточки уже слота на 8 с каждой стороны */
   padding: 0 var(--space-8);
+  /* Список прокручивается внутри слота: с экземплярами квестов на каждый
+     период карточек становится много, и без ограничения высоты страница
+     уезжала вниз без конца, унося кнопку подтверждения за край экрана. */
+  max-height: min(58vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(18, 18, 18, 0.35) transparent;
+  /* Место под полосу прокрутки, чтобы карточки не дёргались при её появлении. */
+  padding-right: var(--space-12);
+}
+
+.q1__quests-slot-inner::-webkit-scrollbar {
+  width: 8px;
+}
+
+.q1__quests-slot-inner::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.q1__quests-slot-inner::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: rgba(18, 18, 18, 0.35);
+}
+
+.q1__quests-slot-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(18, 18, 18, 0.55);
 }
 
 .q1__card {
@@ -2628,82 +2655,6 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: #9a33f4;
-}
-
-.q1__card-steps {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  height: 30px;
-}
-
-.q1__step {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 7px solid #121212;
-  flex-shrink: 0;
-  z-index: 1;
-}
-
-.q1__step--red { background: #fd4e4e; }
-.q1__step--yellow { background: #ffd900; }
-.q1__step--violet { background: #5f3ed6; }
-.q1__step--green { background: transparent; border-color: #6cd63e; }
-
-.q1__step-seg {
-  height: 12px;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.q1__step-seg--red {
-  width: 100px;
-  background: #121212;
-  position: relative;
-}
-
-.q1__step-seg--red::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 94px;
-  height: 6px;
-  border-radius: 3px;
-  background: #fd4e4e;
-}
-
-.q1__step-seg--yellow {
-  width: 90px;
-  background: #121212;
-  position: relative;
-}
-
-.q1__step-seg--yellow::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 84px;
-  height: 6px;
-  border-radius: 3px;
-  background: #ffd900;
-}
-
-.q1__step-rail {
-  width: 70px;
-  height: 12px;
-  border-radius: 6px;
-  background: #121212;
-  padding: 3px;
-  flex-shrink: 0;
-}
-
-.q1__step-fill {
-  height: 6px;
-  border-radius: 3px;
-  background: #5f3ed6;
 }
 
 .q1__card-reward {
@@ -5584,4 +5535,113 @@ body {
   font-weight: 600;
   color: var(--sys-red);
   text-align: center;
+}
+
+/* Подтверждение выполнения — в самой карточке квеста.
+   Общая кнопка внизу блока целилась в первый попавшийся подтверждаемый
+   квест, а их может быть несколько: студент не понимал, что именно
+   отправляет на проверку. */
+.q1__card-confirm {
+  width: 100%;
+  padding: var(--space-8) var(--space-16);
+  border: var(--stroke-4) solid var(--ithub-black);
+  border-radius: var(--radius-12);
+  background: var(--ithub-white);
+  color: var(--ithub-black);
+  font-family: var(--font-text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.q1__card-confirm:hover {
+  background: var(--purple-500);
+  color: var(--ithub-white);
+}
+
+.q1__card-review {
+  width: 100%;
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-12);
+  text-align: center;
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.q1__card-review--pending {
+  background: #fff4cc;
+  color: #7a5c00;
+}
+
+.q1__card-review--rejected {
+  background: #ffe0e0;
+  color: #a11212;
+}
+
+/* Метка цели недели на карточке квеста. */
+.q1__card-focus {
+  padding: 2px var(--space-8);
+  border-radius: var(--radius-8);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Кнопка выбора цели недели: у текущей цели она неактивна и подписана иначе. */
+.q1__option-pick--current {
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  cursor: default;
+}
+
+/* Списки дуэлей и подшефных в боковой карточке профиля. */
+.profile-social__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0 0 var(--space-12);
+  padding: 0;
+  list-style: none;
+}
+
+.profile-social__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.profile-social__actions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.profile-social__link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.profile-social__link--muted {
+  color: #848484;
+}
+
+.profile-social__muted {
+  color: #848484;
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 600;
 }
