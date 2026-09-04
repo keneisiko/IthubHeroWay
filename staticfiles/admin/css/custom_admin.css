@@ -39,3 +39,39 @@
   padding: 8px;
   text-align: left;
 }
+
+/* Очередь подтверждений на главной странице админки. */
+.review-queue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #2b2b2b;
+  color: #d0d0d0;
+  font-weight: 600;
+}
+
+.review-queue--has-work {
+  background: #7a2ecc;
+  color: #fff;
+}
+
+.review-queue__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: #ffd900;
+  color: #121212;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.review-queue .role-link {
+  margin-left: auto;
+}

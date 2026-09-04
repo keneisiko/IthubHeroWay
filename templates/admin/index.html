@@ -1,9 +1,30 @@
 {% extends "admin/index.html" %}
+{% load review_queue %}
 
 {% block content %}
+  {% pending_proofs_for request.user as pending_count %}
+
+  {% if pending_count %}
+    {# Число прямо на главной: иначе в раздел проверок заходят наугад. #}
+    <div class="review-queue review-queue--has-work">
+      <span class="review-queue__count">{{ pending_count }}</span>
+      {% comment %}
+        Формулировка без согласования по числу: фильтр pluralize знает только
+        две формы, а русскому нужно три — «подтверждение / -я / -й».
+        Многострочный {# ... #} комментарием не считается и печатается как текст.
+      {% endcomment %}
+      <span class="review-queue__text">Подтверждений на проверке</span>
+      <a class="role-link" href="/admin/quests/selfreportproof/?status__exact=pending">Проверить</a>
+    </div>
+  {% else %}
+    <div class="review-queue">
+      <span class="review-queue__text">Подтверждений на проверке нет</span>
+    </div>
+  {% endif %}
+
   <div class="dashboard-role-nav">
     {% if request.user.is_superuser or request.user.role == "admin" %}
-      <a class="role-link" href="/admin/quests/selfreportproof/?status__exact=pending">Все ожидающие самоотчёты</a>
+      <a class="role-link" href="/admin/quests/selfreportproof/?status__exact=pending">Все ожидающие подтверждения</a>
     {% endif %}
     {% if request.user.is_superuser or request.user.role == "curator" %}
       <a class="role-link" href="/admin/curator/">Дашборд куратора</a>

@@ -8,10 +8,10 @@
       {% for p in pending_self_reports %}
         <li><strong>{{ p.user.callsign }}</strong> → {{ p.quest.title }} ({{ p.created_at }})</li>
       {% empty %}
-        <li>Нет самоотчётов на проверку</li>
+        <li>Нет подтверждений на проверку</li>
       {% endfor %}
     </ul>
-    <a class="role-link" href="/admin/quests/selfreportproof/?status__exact=pending">Перейти к самоотчётам</a>
+    <a class="role-link" href="/admin/quests/selfreportproof/?status__exact=pending">Перейти к подтверждениям</a>
   </div>
   <div class="dash-card">
     <h3>Распределение по зонам</h3>

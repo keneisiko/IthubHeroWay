@@ -182,14 +182,17 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
         return super().has_module_permission(request) and not is_hq(request.user)
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).select_related("user", "user__squad", "quest", "quest_progress")
-        if request.user.is_superuser or request.user.role == "admin":
-            return qs
-        if is_curator(request.user) and request.user.squad_id:
-            return qs.filter(user__squad_id=request.user.squad_id)
-        if is_tutor(request.user):
-            return qs.filter(user__squad__course__gte=2, user__squad__course__lte=4)
-        return qs.none()
+        # Правило видимости живёт в одном месте: счётчик на главной и список
+        # в админке обязаны показывать одно и то же.
+        from apps.operations.services.review_queue import reviewable_proofs
+
+        allowed = reviewable_proofs(request.user).values("pk")
+        return (
+            super()
+            .get_queryset(request)
+            .filter(pk__in=allowed)
+            .select_related("user", "user__squad", "quest", "quest_progress")
+        )
 
     @admin.action(description="Одобрить: начислить награду за квест")
     def approve_proofs(self, request, queryset):
