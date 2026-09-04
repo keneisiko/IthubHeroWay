@@ -165,7 +165,8 @@ cp .env.prod.example .env.prod   # заполнить секреты
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
-Фронтенд в прод-стек не входит: у `hero-path-front` пока только dev-сервер Vite.
+Интерфейс, API и админка отдаются одним nginx на одном порту: фронт собирается
+внутри образа (`hero-path-front/Dockerfile.prod`).
 
 ### Активация аккаунтов
 
