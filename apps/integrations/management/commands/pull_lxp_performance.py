@@ -75,6 +75,12 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--no-cache",
+            action="store_true",
+            dest="no_cache",
+            help="Не брать ответы LXP из кеша: пустой ответ живёт в нём 6 часов.",
+        )
+        parser.add_argument(
             "--quiet-meta",
             action="store_true",
             help="Меньше вывода (без дампа полного meta JSON).",
@@ -107,6 +113,7 @@ class Command(BaseCommand):
         try:
             refresh_lxp_token_sync()
             client = LXPGraphQLClient()
+            client.bypass_cache = bool(opts.get("no_cache"))
             client.get_token()
             only_groups = {str(g).strip() for g in (opts.get("learning_group_ids") or []) if str(g).strip()}
             if only_groups:
@@ -125,7 +132,8 @@ class Command(BaseCommand):
                 meta_errors = (data.get("meta") or {}).get("errors") or []
                 raise CommandError(
                     f"По группам {', '.join(sorted(only_groups))} не пришло ни одного студента — "
-                    f"снимок не сохранён, чтобы не затереть прежний. Ошибки: {meta_errors or 'нет'}"
+                    f"снимок не сохранён, чтобы не затереть прежний. Ошибки: {meta_errors or 'нет'}. "
+                    "Если ошибок нет, ответ мог прийти из кеша — повторите с --no-cache."
                 )
 
         _, stored = save_snapshot(target_date, data, force=opts.get("force_rating", False))

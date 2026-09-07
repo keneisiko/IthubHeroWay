@@ -128,6 +128,8 @@ class LXPGraphQLClient:
         self.browser_graphql_host = getattr(settings, "LXP_BROWSER_GRAPHQL_HOST", "api.newlxp.ru").strip()
         self.browser_headless = bool(getattr(settings, "LXP_BROWSER_HEADLESS", True))
         self.browser_timeout_ms = int(getattr(settings, "LXP_BROWSER_TIMEOUT_MS", 60000))
+        # Ставится вызывающим кодом, когда нужен свежий ответ, а не кеш.
+        self.bypass_cache = False
 
     def _post(self, query: str, variables: dict | None = None, token: str | None = None, timeout: int = 20) -> GraphQLResponse:
         if not self.endpoint:
@@ -327,7 +329,9 @@ class LXPGraphQLClient:
             ensure_ascii=False,
         ).encode("utf-8")
         key = "lxp:gql:" + hashlib.sha256(key_seed).hexdigest()
-        cached = cache.get(key)
+        # Пустой ответ кешируется на общих основаниях и живёт часами: один
+        # неудачный обход прятал данные группы до истечения TTL.
+        cached = None if self.bypass_cache else cache.get(key)
         if cached is not None:
             return cached
         res = self._post(query, variables, token=token, timeout=timeout)
