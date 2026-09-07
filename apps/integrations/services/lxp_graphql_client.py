@@ -670,6 +670,10 @@ query SnapshotGroupStudentsMinimal($input: SearchStudentsInLearningGroupInput!) 
                 if dg.get("ok"):
                     d_raw = (dg.get("data") or {}).get("disciplinesByGroups")
                     disciplines = self._normalize_graphql_list(d_raw)
+                else:
+                    # Молчаливый пропуск прятал обрыв соединения: снимок выходил
+                    # пустым, meta.errors пустым, и причина была не видна.
+                    errors.append(f"disciplinesByGroups:{gid}:{dg.get('error')}")
                 disc_ids = [str(d.get("id")) for d in disciplines if d.get("id")]
 
                 if not disc_ids:

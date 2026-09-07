@@ -117,6 +117,17 @@ class Command(BaseCommand):
         except LXPRequestError as e:
             raise CommandError(f"LXP GraphQL: {e}") from e
 
+        # Пустой снимок с --force-rating затирал полный: обход по группе
+        # молча возвращал ноль студентов при обрыве соединения.
+        if only_groups:
+            collected = len(((data.get("control_points") or {}).get("data") or {}))
+            if not collected:
+                meta_errors = (data.get("meta") or {}).get("errors") or []
+                raise CommandError(
+                    f"По группам {', '.join(sorted(only_groups))} не пришло ни одного студента — "
+                    f"снимок не сохранён, чтобы не затереть прежний. Ошибки: {meta_errors or 'нет'}"
+                )
+
         _, stored = save_snapshot(target_date, data, force=opts.get("force_rating", False))
         if not stored:
             self.stdout.write(

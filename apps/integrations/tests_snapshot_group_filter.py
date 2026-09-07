@@ -58,3 +58,24 @@ class SnapshotGroupFilterTests(TestCase):
         result = self.run_walk({"g-ours"})
 
         self.assertEqual(result["groups_processed"], 1)
+
+
+class SnapshotFailureVisibilityTests(TestCase):
+    """Обрыв на запросе дисциплин прятался: снимок выходил пустым без ошибок."""
+
+    def test_failed_discipline_query_is_recorded(self):
+        def fake_query(name, query, variables, token, **kwargs):
+            if "get_me" in name:
+                return {"ok": True, "data": ME}
+            if "_lg_" in name:
+                return {"ok": True, "data": GROUPS}
+            if "_disc_" in name:
+                return {"ok": False, "error": "SSL EOF"}
+            return {"ok": True, "data": {}}
+
+        with mock.patch.object(LXPGraphQLClient, "_safe_cached_query", side_effect=fake_query):
+            result = LXPGraphQLClient()._fetch_learning_groups_performance(
+                "token", cache_prefix="2026-09-07", only_group_ids={"g-ours"}
+            )
+
+        self.assertTrue(any("disciplinesByGroups" in e for e in result["errors"]))
