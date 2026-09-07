@@ -10,9 +10,8 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.integrations.models import ExternalEvent
-from apps.integrations.services.lxp_snapshot_reader import get_student_attendance, get_student_ct
-from apps.progress.models import UserStrike
-from apps.progress.services.ct_status import is_topic_closed
+from apps.integrations.services.lxp_snapshot_reader import get_student_attendance
+from apps.progress.models import LXPTopicState, UserStrike
 from apps.quests.models import QuestVerifierKind
 from apps.schedule.models import Schedule
 
@@ -209,6 +208,11 @@ def _attendance_percent(row: dict) -> float | None:
             visited_total += int(visited)
             lessons_total += int(total)
             continue
+        # Дисциплина, по которой занятий ещё не было, приходит из LXP как
+        # percent=100 при total=0. В начале семестра такие записи давали
+        # «посещаемость 100%» тому, кто не был ни на одной паре.
+        if isinstance(total, (int, float)) and total <= 0:
+            continue
         percent = entry.get("percent")
         if isinstance(percent, (int, float)):
             percents.append(float(percent))
@@ -265,21 +269,30 @@ def verify_lxp_attendance(user: User, params: dict, target_date: date) -> Verifi
     )
 
 
-def _count_closed_ct(row: dict | None) -> int:
-    if not isinstance(row, dict):
+def _count_ct_closed_since(user: User, since: date) -> int:
+    """Сколько КТ студент закрыл начиная с даты.
+
+    Снимок LXP отдаёт только текущий статус тем, без дат: по нему «сдай
+    хотя бы одну КТ за неделю» выполнялось у всех и каждую неделю — у
+    третьекурсника там под две сотни тем, закрытых за прошлые курсы.
+    Даты перехода хранит LXPTopicState, его и спрашиваем.
+    """
+    state = LXPTopicState.objects.filter(user=user).first()
+    if state is None or not isinstance(state.topics, dict):
         return 0
     count = 0
-    for _disc_id, disc in row.items():
-        if not isinstance(disc, dict):
+    for entry in state.topics.values():
+        if not isinstance(entry, dict) or not entry.get("closed"):
             continue
-        topics = disc.get("topics") or []
-        if isinstance(topics, dict):
-            topics = topics.values()
-        for topic in topics:
-            if not isinstance(topic, dict):
-                continue
-            if is_topic_closed(topic.get("status") or topic.get("state")):
-                count += 1
+        # Темы, зафиксированные первым снимком, закрыты до подключения системы.
+        if entry.get("baseline"):
+            continue
+        try:
+            closed_at = date.fromisoformat(str(entry.get("since")))
+        except (TypeError, ValueError):
+            continue
+        if closed_at >= since:
+            count += 1
     return count
 
 
@@ -292,15 +305,21 @@ def verify_lxp_ct_closed(user: User, params: dict, target_date: date) -> Verific
             message="Нет привязки LXP",
         )
     min_closed = int(params.get("min_closed", 1))
-    row = get_student_ct(str(user.lxp_user_id), prefer_date=target_date)
-    closed = _count_closed_ct(row)
+    days = int(params.get("days", 7))
+    since = target_date - timedelta(days=days - 1)
+    closed = _count_ct_closed_since(user, since)
     progress = min(1.0, closed / min_closed) if min_closed else 0.0
     completed = closed >= min_closed
     return VerificationResult(
         completed=completed,
         progress=progress,
-        evidence={"verifier": QuestVerifierKind.LXP_CT_CLOSED, "closed_count": closed, "min_closed": min_closed},
-        message=f"Закрыто КТ: {closed}/{min_closed}",
+        evidence={
+            "verifier": QuestVerifierKind.LXP_CT_CLOSED,
+            "closed_count": closed,
+            "min_closed": min_closed,
+            "since": since.isoformat(),
+        },
+        message=f"Закрыто КТ за период: {closed}/{min_closed}",
     )
 
 

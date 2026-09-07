@@ -102,7 +102,14 @@ def _apply_topic_transitions(
             if was_open:
                 outcome.closed_now += 1
                 outcome.delta_positive += per_topic_points
-            updated[key] = {"closed": True, "since": snapshot_date.isoformat(), "penalized": False}
+            # `since` для закрытой темы — дата, когда её увидели закрытой;
+            # по ней недельный квест отличает свежую сдачу от давней.
+            since_closed = (
+                previous.get("since")
+                if previous is not None and previous.get("closed") and previous.get("since")
+                else snapshot_date.isoformat()
+            )
+            updated[key] = {"closed": True, "since": since_closed, "penalized": False}
             continue
 
         outcome.open_total += 1
@@ -141,8 +148,15 @@ def _seed_baseline(user, state: LXPTopicState, current: dict[str, bool], snapsho
     Начислять за темы, закрытые до подключения системы, значило бы выдать
     рейтинг задним числом — причём тем больше, чем старше курс.
     """
+    # Отметка baseline нужна не только рейтингу: без неё недельный квест
+    # на сдачу КТ засчитал бы разом всё, закрытое за прошлые курсы.
     state.topics = {
-        key: {"closed": bool(closed), "since": snapshot_date.isoformat(), "penalized": False}
+        key: {
+            "closed": bool(closed),
+            "since": snapshot_date.isoformat(),
+            "penalized": False,
+            "baseline": True,
+        }
         for key, closed in current.items()
     }
     state.last_snapshot_date = snapshot_date
