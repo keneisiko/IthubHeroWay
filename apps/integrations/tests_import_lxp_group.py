@@ -72,3 +72,34 @@ class ImportGroupTests(TestCase):
 
         self.assertFalse(Squad.objects.filter(code="pi-31").exists())
         self.assertFalse(User.objects.filter(lxp_user_id="u1").exists())
+
+
+class RetryTests(TestCase):
+    """Сеть колледжа рвёт часть TLS-соединений: без повторов импорт падал на середине."""
+
+    def test_request_is_retried_after_a_broken_connection(self):
+        from apps.integrations.services import lxp_groups
+        from apps.integrations.services.lxp_graphql_client import LXPRequestError
+
+        client = mock.Mock()
+        client._post.side_effect = [LXPRequestError("SSL EOF"), "ответ"]
+
+        with mock.patch.object(lxp_groups, "RETRY_PAUSE_SECONDS", 0):
+            result = lxp_groups._post_with_retry(client, "query", {}, "token", timeout=10)
+
+        self.assertEqual(result, "ответ")
+        self.assertEqual(client._post.call_count, 2)
+
+    def test_giving_up_names_the_number_of_attempts(self):
+        from apps.integrations.services import lxp_groups
+        from apps.integrations.services.lxp_graphql_client import LXPRequestError
+
+        client = mock.Mock()
+        client._post.side_effect = LXPRequestError("SSL EOF")
+
+        with mock.patch.object(lxp_groups, "RETRY_PAUSE_SECONDS", 0):
+            with self.assertRaises(LXPRequestError) as caught:
+                lxp_groups._post_with_retry(client, "query", {}, "token", timeout=10)
+
+        self.assertIn("попыток", str(caught.exception))
+        self.assertEqual(client._post.call_count, lxp_groups.ATTEMPTS)

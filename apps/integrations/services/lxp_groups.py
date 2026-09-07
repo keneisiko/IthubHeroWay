@@ -7,7 +7,31 @@
 
 from __future__ import annotations
 
-from apps.integrations.services.lxp_graphql_client import LXPGraphQLClient, LXPRequestError
+import time
+
+from apps.integrations.services.lxp_graphql_client import (
+    LXPAuthError,
+    LXPGraphQLClient,
+    LXPRequestError,
+)
+
+# Сеть колледжа рвёт часть TLS-соединений к api.newlxp.ru (SSL EOF): один
+# запрос проходит, следующий обрывается. Импорт группы из-за этого падал
+# на середине, и его приходилось запускать заново вручную.
+ATTEMPTS = 4
+RETRY_PAUSE_SECONDS = 3
+
+
+def _post_with_retry(client: LXPGraphQLClient, query: str, variables: dict, token: str, timeout: int):
+    last_error: Exception | None = None
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            return client._post(query, variables, token=token, timeout=timeout)
+        except (LXPRequestError, LXPAuthError) as e:
+            last_error = e
+            if attempt < ATTEMPTS:
+                time.sleep(RETRY_PAUSE_SECONDS)
+    raise LXPRequestError(f"{last_error} (после {ATTEMPTS} попыток)")
 
 GROUP_STUDENTS_QUERY = """
 query GroupStudents($input: SearchStudentsInLearningGroupInput!) {
@@ -26,7 +50,7 @@ def list_groups(client: LXPGraphQLClient | None = None) -> list[dict]:
     client = client or LXPGraphQLClient()
     token = client.get_token()
 
-    me = client._post(client.GET_ME_SNAPSHOT_QUERY, {}, token=token, timeout=40)
+    me = _post_with_retry(client, client.GET_ME_SNAPSHOT_QUERY, {}, token, timeout=40)
     if me.errors:
         raise LXPRequestError(f"getMe: {me.errors}")
     assigned = ((me.data or {}).get("getMe") or {}).get("assignedSuborganizations") or []
@@ -39,10 +63,11 @@ def list_groups(client: LXPGraphQLClient | None = None) -> list[dict]:
         suborg_id = slot.get("suborganizationId") or sub.get("id")
         if not org_id or not suborg_id:
             continue
-        response = client._post(
+        response = _post_with_retry(
+            client,
             client.GET_LEARNING_GROUPS_QUERY,
             {"input": {"organizationId": org_id, "suborganizationId": suborg_id, "isArchived": False}},
-            token=token,
+            token,
             timeout=60,
         )
         if response.errors:
@@ -60,10 +85,11 @@ def group_students(group_id: str, client: LXPGraphQLClient | None = None) -> lis
     """Состав группы: отчисленные не в счёт — пилот на них не рассчитан."""
     client = client or LXPGraphQLClient()
     token = client.get_token()
-    response = client._post(
+    response = _post_with_retry(
+        client,
         GROUP_STUDENTS_QUERY,
         {"input": {"filters": {"learningGroupId": group_id, "isExpelled": False}}},
-        token=token,
+        token,
         timeout=60,
     )
     if response.errors:
