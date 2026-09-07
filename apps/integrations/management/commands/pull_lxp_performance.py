@@ -64,6 +64,17 @@ class Command(BaseCommand):
             "lxp_user_id без привязки, чтобы они попали в пересчёт рейтинга.",
         )
         parser.add_argument(
+            "--learning-group-id",
+            action="append",
+            default=[],
+            dest="learning_group_ids",
+            help=(
+                "Обойти только эту учебную группу LXP (можно повторять). "
+                "Снимок по всему колледжу — это 48 групп и около четверти часа. "
+                "Снимок получится частичным, поэтому нужен и --force-rating."
+            ),
+        )
+        parser.add_argument(
             "--quiet-meta",
             action="store_true",
             help="Меньше вывода (без дампа полного meta JSON).",
@@ -97,7 +108,10 @@ class Command(BaseCommand):
             refresh_lxp_token_sync()
             client = LXPGraphQLClient()
             client.get_token()
-            data = client.fetch_all_data(date=target_date)
+            only_groups = {str(g).strip() for g in (opts.get("learning_group_ids") or []) if str(g).strip()}
+            if only_groups:
+                self.stdout.write(self.style.WARNING(f"Обход ограничен группами: {', '.join(sorted(only_groups))}"))
+            data = client.fetch_all_data(date=target_date, only_group_ids=only_groups or None)
         except LXPAuthError as e:
             raise CommandError(f"LXP auth: {e}") from e
         except LXPRequestError as e:

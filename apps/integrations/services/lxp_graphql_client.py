@@ -573,10 +573,16 @@ query SnapshotGroupStudentsMinimal($input: SearchStudentsInLearningGroupInput!) 
                 capped = topics[:80] if isinstance(topics, list) else []
                 control_points_by_user.setdefault(uid, {})[did] = {"topics": capped}
 
-    def _fetch_learning_groups_performance(self, token: str, cache_prefix: str) -> dict:
+    def _fetch_learning_groups_performance(
+        self, token: str, cache_prefix: str, only_group_ids: set[str] | None = None
+    ) -> dict:
         """
         Успеваемость и КТ по цепочке из каталога запросов LXP
         (группы подорганизаций → дисциплины → studentDiscipline).
+
+        `only_group_ids` ограничивает обход: снимок по всему колледжу — это
+        48 групп с дисциплинами по каждой, около четверти часа на медленной
+        сети, тогда как пилоту нужна одна группа.
         """
         max_suborgs = int(getattr(settings, "LXP_SNAPSHOT_MAX_SUBORGS", 20))
         max_groups = int(getattr(settings, "LXP_SNAPSHOT_MAX_GROUPS", 50))
@@ -648,6 +654,8 @@ query SnapshotGroupStudentsMinimal($input: SearchStudentsInLearningGroupInput!) 
                     break
                 gid = group.get("id")
                 if not gid:
+                    continue
+                if only_group_ids and str(gid) not in only_group_ids:
                     continue
 
                 dg = self._safe_cached_query(
@@ -762,11 +770,13 @@ query SnapshotGroupStudentsMinimal($input: SearchStudentsInLearningGroupInput!) 
             },
         }
 
-    def fetch_all_data(self, date: date) -> dict:
+    def fetch_all_data(self, date: date, only_group_ids: set[str] | None = None) -> dict:
         token = self.get_token()
         date_str = date.isoformat()
 
-        catalog = self._fetch_learning_groups_performance(token, cache_prefix=date_str)
+        catalog = self._fetch_learning_groups_performance(
+            token, cache_prefix=date_str, only_group_ids=only_group_ids
+        )
         students_performance = self._fetch_students_performance(
             token=token,
             page_size=50,
