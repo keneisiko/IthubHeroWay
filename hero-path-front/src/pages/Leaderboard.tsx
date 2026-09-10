@@ -271,9 +271,11 @@ export default function Leaderboard() {
                           : item.title.slice(0, 2).toUpperCase()}
                       </span>
                     )}
-                    <span className="tag tag--title">{item.title}</span>
-                    {item.track && <span className="tag tag--track">{item.track}</span>}
-                    {item.status && <span className="tag tag--status">{item.status}</span>}
+                    <div className="leaderboard-item__meta">
+                      <span className="tag tag--title">{item.title}</span>
+                      {item.track && <span className="tag tag--track">{item.track}</span>}
+                      {item.status && <span className="tag tag--status">{item.status}</span>}
+                    </div>
                   </div>
                   <button
                     type="button"

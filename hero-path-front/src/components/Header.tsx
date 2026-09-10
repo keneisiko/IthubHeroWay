@@ -45,6 +45,7 @@ export default function Header() {
   const initials = username.slice(0, 2).toUpperCase()
 
   return (
+    <>
     <header className="top-header" style={{ position: 'relative', zIndex: 90 }}>
       <div className="top-header__brand">
         <img src={ithubLogo} alt="IThub" className="top-header__logo-image" />
@@ -110,5 +111,8 @@ export default function Header() {
         )}
       </div>
     </header>
+    {/* В мобильном макете название уходит из шапки под неё */}
+    <p className="top-header__title-mobile">Путь героя</p>
+    </>
   )
 }

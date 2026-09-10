@@ -176,6 +176,20 @@ export default function Profile() {
   const [questsCompleted, setQuestsCompleted] = useState(0)
   const [loading, setLoading] = useState(true)
   const tabIndicator = useTabIndicator(activeTab, loading)
+  const tabsScrollRef = useRef<HTMLDivElement>(null)
+
+  // Активная вкладка подтягивается в центр ленты: на узком экране часть
+  // категорий за краем экрана, и без этого выбранная могла остаться вне вида.
+  // Двигаем scrollLeft сами, чтобы не трогать вертикальную прокрутку страницы.
+  useEffect(() => {
+    const scroller = tabsScrollRef.current
+    const { width, left } = tabIndicator.indicator
+    if (!scroller || !width) return
+    const target = left + width / 2 - scroller.clientWidth / 2
+    const max = scroller.scrollWidth - scroller.clientWidth
+    if (max <= 0) return
+    scroller.scrollTo({ left: Math.max(0, Math.min(target, max)), behavior: 'smooth' })
+  }, [tabIndicator.indicator])
   const [loadError, setLoadError] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [myRating, setMyRating] = useState<number | null>(null)
@@ -884,21 +898,28 @@ export default function Profile() {
           ))}
         </div>
 
-        <div className="profile-path__tabs" ref={tabIndicator.containerRef}>
-          {tabs.map((t) => (
-            <button
-              key={t}
-              type="button"
-              ref={tabIndicator.registerTab(t)}
-              className={`profile-path__tab${t === activeTab ? ' profile-path__tab--active' : ''} btn-press`}
-              onClick={() => setActiveTab(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        <div className="profile-path__underline" aria-hidden="true">
-          <div className="profile-path__indicator" style={{ width: tabIndicator.indicator.width, left: tabIndicator.indicator.left }} />
+        {/* Категорий семь: на узком экране лента прокручивается вбок.
+            Подчёркивание лежит внутри той же прокрутки, иначе индикатор
+            уезжал бы от своей вкладки. */}
+        <div className="profile-path__tabs-scroll" ref={tabsScrollRef}>
+          <div className="profile-path__tabs-inner">
+            <div className="profile-path__tabs" ref={tabIndicator.containerRef}>
+              {tabs.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  ref={tabIndicator.registerTab(t)}
+                  className={`profile-path__tab${t === activeTab ? ' profile-path__tab--active' : ''} btn-press`}
+                  onClick={() => setActiveTab(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div className="profile-path__underline" aria-hidden="true">
+              <div className="profile-path__indicator" style={{ width: tabIndicator.indicator.width, left: tabIndicator.indicator.left }} />
+            </div>
+          </div>
         </div>
 
         <div className="profile-path__grid">

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
 import Sidebar from './components/Sidebar'
+import BottomNav from './components/BottomNav'
 import PageTransition from './PageTransition'
 
 import './App.css'
@@ -74,6 +75,7 @@ function AppShell() {
         </main>
         {isKnownRoute && <Sidebar />}
       </div>
+      {isKnownRoute && <BottomNav />}
     </div>
   )
 }

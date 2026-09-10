@@ -821,8 +821,8 @@ body {
 
 .dashboard__top {
   display: grid;
-  grid-template-columns: 460px 465px;
-  gap: 77px;
+  grid-template-columns: minmax(0, 460px) minmax(0, 465px);
+  gap: clamp(20px, 6vw, 77px);
   margin-right: 145px;
   align-items: start;
   min-height: 680px;
@@ -850,7 +850,8 @@ body {
 }
 
 .card--light {
-  width: 460px;
+  width: 100%;
+  max-width: 460px;
   height: 281px;
   background: var(--ithub-white);
   display: flex;
@@ -957,7 +958,8 @@ body {
 }
 
 .card--purple {
-  width: 460px;
+  width: 100%;
+  max-width: 460px;
   height: 379px;
   background: var(--purple-500);
   color: var(--ithub-white);
@@ -969,7 +971,7 @@ body {
 }
 
 .rating__title {
-  width: 420px;
+  width: 100%;
   height: 36px;
   font-family: var(--font-display);
   font-size: 28px;
@@ -979,7 +981,7 @@ body {
 }
 
 .rating__value {
-  width: 420px;
+  width: 100%;
   height: 52px;
   border-radius: 12px;
   background: var(--ithub-black);
@@ -995,7 +997,7 @@ body {
 }
 
 .rating__line {
-  width: 420px;
+  width: 100%;
   height: 35px;
   display: flex;
   align-items: center;
@@ -1030,7 +1032,7 @@ body {
 }
 
 .rating__progress-row {
-  width: 420px;
+  width: 100%;
   height: 30px;
   display: flex;
   align-items: center;
@@ -1067,7 +1069,7 @@ body {
 }
 
 .rating__meta {
-  width: 420px;
+  width: 100%;
   height: 27px;
   display: flex;
   justify-content: space-between;
@@ -1079,7 +1081,8 @@ body {
 }
 
 .radar-card {
-  width: 465px;
+  width: 100%;
+  max-width: 465px;
   height: 446px;
   position: relative;
   display: flex;
@@ -1156,7 +1159,7 @@ body {
 
 .dashboard__bottom {
   display: grid;
-  grid-template-columns: 580px 580px;
+  grid-template-columns: minmax(0, 580px) minmax(0, 580px);
   gap: 20px;
   position: relative;
   z-index: 1;
@@ -1167,7 +1170,8 @@ body {
   border-radius: var(--radius-24);
   padding: var(--space-20);
   box-shadow: var(--card-shadow);
-  width: 580px;
+  width: 100%;
+  max-width: 580px;
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
@@ -1347,7 +1351,8 @@ body {
 }
 
 .activity-card {
-  width: 580px;
+  width: 100%;
+  max-width: 580px;
   height: 385px;
   border-radius: 24px;
   padding: 20px;
@@ -1365,7 +1370,7 @@ body {
 }
 
 .section-title {
-  width: 540px;
+  width: 100%;
   height: 36px;
   margin: 0;
   font-family: 'TT Firs Neue', sans-serif;
@@ -1393,10 +1398,10 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(108, 214, 62, 0); }
 }
 
-.activity { width: 540px; height: 289px; display: flex; flex-direction: column; gap: 8px; }
+.activity { width: 100%; height: 289px; display: flex; flex-direction: column; gap: 8px; }
 
 .activity__item {
-  width: 540px;
+  width: 100%;
   height: 91px;
   border-radius: 12px;
   border: 4px solid #9a33f4;
@@ -1510,7 +1515,7 @@ body {
 
 .profile__top {
   display: grid;
-  grid-template-columns: 580px 460px;
+  grid-template-columns: minmax(0, 580px) minmax(0, 460px);
   gap: 20px;
   align-items: start;
   padding-right: 145px;
@@ -1528,7 +1533,8 @@ body {
 }
 
 .profile-card--primary {
-  width: 580px;
+  width: 100%;
+  max-width: 580px;
   height: 294px;
   background: #9a33f4;
   color: #f5f5f5;
@@ -1542,7 +1548,7 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  width: 540px;
+  width: 100%;
   height: 93px;
 }
 
@@ -1603,7 +1609,7 @@ body {
 }
 
 .profile-card__rows {
-  width: 540px;
+  width: 100%;
   height: 137px;
   margin-top: 0;
   display: flex;
@@ -1649,7 +1655,8 @@ body {
   background: #f5f5f5;
   padding: 20px 20px 24px;
   position: relative;
-  width: 580px;
+  width: 100%;
+  max-width: 580px;
   height: 261px;
   min-height: 261px;
   display: flex;
@@ -1658,7 +1665,7 @@ body {
 }
 
 .profile-map__title {
-  width: 540px;
+  width: 100%;
   height: 36px;
   margin: 0;
   font-family: 'TT Firs Neue', sans-serif;
@@ -1669,7 +1676,7 @@ body {
 }
 
 .profile-map__body {
-  width: 540px;
+  width: 100%;
   height: 157px;
   display: flex;
   flex-direction: column;
@@ -1818,7 +1825,8 @@ body {
 .profile-card--aside {
   background: #f5f5f5;
   padding: 20px 12px 20px 20px;
-  width: 460px;
+  width: 100%;
+  max-width: 460px;
   height: 590px;
   display: flex;
   flex-direction: column;
@@ -2342,7 +2350,7 @@ body {
 }
 
 .profile-aside__divider {
-  width: 420px;
+  width: 100%;
   height: 0;
   border-top: 4px solid #9a33f4;
   margin: 0;
@@ -3224,6 +3232,16 @@ body {
 .leaderboard-item__card--bottom {
   border-color: #121212;
   background: #f0e6ff;
+}
+
+/* Подписи агента отдельной группой: на десктопе тот же ряд, что и был,
+   на узком экране — колонка справа от аватара. */
+.leaderboard-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .leaderboard-item__tags {
@@ -5896,4 +5914,688 @@ body {
 
 .agent-picker__row--disabled:hover {
   background: #f5f5f5;
+}
+
+/* ============================================================
+   МОБИЛЬНАЯ ВЕРСИЯ
+   Макет Figma, ширина 440: боковая панель уезжает вниз и
+   становится панелью с иконками, весь контент — в одну колонку.
+
+   Блок стоит последним в файле, чтобы перекрывать десктопные
+   правила без гонки специфичностей и !important.
+   ============================================================ */
+
+/* Нижняя навигация существует всегда, но показывается только на узких
+   экранах: так поворот экрана не пересоздаёт дерево и не сбрасывает
+   состояние открытой страницы. */
+.bottom-nav { display: none; }
+
+.top-header__title-mobile { display: none; }
+
+@media (max-width: 900px) {
+  /* --- каркас --- */
+  .right-sidebar { display: none; }
+
+  .app-shell {
+    /* место под нижнюю панель, чтобы она не перекрывала контент */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app-content,
+  .top-header {
+    width: calc(100vw - 24px);
+  }
+
+  /* --- шапка --- */
+  .top-header {
+    height: auto;
+    min-height: 64px;
+    margin: 12px auto 0;
+    padding: 10px 14px;
+    border-radius: var(--radius-16);
+    gap: 12px;
+  }
+
+  .top-header__brand {
+    width: auto;
+    height: auto;
+    flex: 0 0 auto;
+    gap: 0;
+  }
+
+  .top-header__logo-image {
+    width: 118px;
+    height: 42px;
+  }
+
+  .top-header__divider {
+    width: 36px;
+    margin: 0 -8px;
+  }
+
+  /* в макете название уходит из шапки под неё */
+  .top-header__title { display: none; }
+
+  .top-header__title-mobile {
+    display: block;
+    margin: 14px 0 0;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--purple-500);
+  }
+
+  .top-header__user {
+    width: auto;
+    height: auto;
+    flex: 1 1 auto;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .top-header__user-meta {
+    width: auto;
+    min-width: 0;
+  }
+
+  .top-header__username {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .top-header__money { font-size: 14px; }
+  .top-header__coin { width: 14px; height: 14px; }
+
+  .top-header__avatar {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+  }
+
+  .top-header__avatar--initials { font-size: 14px; }
+
+  .header-user-menu {
+    top: 50px;
+    right: 0;
+    min-width: 170px;
+  }
+
+  /* --- нижняя навигация --- */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 50%;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 95;
+    width: calc(100vw - 24px);
+    max-width: 416px;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2px;
+    padding: 8px 10px;
+    border-radius: var(--radius-24);
+    background: var(--ithub-white);
+    box-shadow: var(--card-shadow);
+  }
+
+  .bottom-nav__item {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-12);
+    text-decoration: none;
+    background: transparent;
+    transition: background 0.25s ease, transform 0.25s ease;
+  }
+
+  .bottom-nav__item:active { transform: scale(0.92); }
+
+  .bottom-nav__item--active {
+    background: var(--purple-500);
+    box-shadow: 0 4px 12px rgba(154, 51, 244, 0.45);
+  }
+
+  .bottom-nav__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bottom-nav__icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* --- общая раскладка страниц --- */
+  /* minmax(0, 1fr) вместо 1fr: обычная колонка не даёт содержимому
+     сжиматься уже своей ширины и выпихивает страницу за экран */
+  .dashboard__top,
+  .dashboard__bottom,
+  .profile__top,
+  .q1,
+  .q1__right,
+  .squad-page__top,
+  .shop-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* колонки внутри сеток — тоже с разрешением сжиматься */
+  .dashboard__left-col,
+  .q1__left,
+  .q1__right {
+    min-width: 0;
+  }
+
+  /* В макете порядок другой, чем в двух колонках на десктопе:
+     карточка агента → блок статистики → карта пути.
+     display:contents распускает левую колонку, чтобы её карточки
+     встали в общий поток и слушались order. */
+  .profile__top {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .profile__left { display: contents; }
+
+  .profile-card--primary { order: 1; }
+  .profile-card--aside   { order: 2; }
+  .profile-card--map     { order: 3; }
+
+  .dashboard__top {
+    margin-right: 0;
+    min-height: 0;
+    gap: 20px;
+  }
+
+  /* в мобильном макете активный квест идёт перед лентой активности,
+     на десктопе они лежат в двух колонках и порядок другой */
+  .dashboard__bottom .quest { order: 1; }
+  .dashboard__bottom .activity-card { order: 2; }
+
+  /* карточки распрямляются по ширине экрана, высота — по содержимому */
+  .card--light,
+  .card--purple,
+  .activity-card,
+  .quest,
+  .profile-card--primary,
+  .profile-card--map,
+  .profile-card--aside {
+    max-width: none;
+    height: auto;
+  }
+
+  .profile-card--map { min-height: 0; }
+
+  /* фоновые пятна на узком экране только мешают и дают горизонтальный скролл */
+  .dash-glow { display: none; }
+
+  /* --- радар главной --- */
+  .radar-card {
+    max-width: none;
+    height: 340px;
+    margin-top: 48px;
+    padding: 12px;
+    justify-self: stretch;
+  }
+
+  /* --- радар профиля --- */
+  .profile-radar {
+    width: 100%;
+    height: 420px;
+  }
+
+  /* пилюли осей уходят за холст примерно на 50px с каждой стороны,
+     поэтому холст сжимается ровно на эту величину, а не блок целиком */
+  .profile-radar__chart {
+    width: min(240px, calc(100% - 162px));
+    height: min(240px, calc(100vw - 186px));
+  }
+
+  /* подписи осей вынесены за холст, поэтому чем они компактнее,
+     тем больше остаётся самому пятиугольнику */
+  .profile-radar__axis {
+    font-size: 11px;
+    padding: 3px 6px;
+    gap: 2px;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .profile-radar__axis-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .profile-radar__value {
+    font-size: 11px;
+    min-width: 28px;
+    height: 20px;
+    padding: 2px 6px;
+  }
+
+  /* --- карта пути --- */
+  .profile-path__grid {
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    column-gap: 8px;
+    row-gap: 20px;
+  }
+
+  /* --- достижения --- */
+  .profile-achievements__row {
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .ach { width: auto; flex: 1 1 88px; }
+
+  .ach__icon {
+    width: 100%;
+    max-width: 88px;
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  /* --- лидеры --- */
+  .leaderboard-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .leaderboard-tabs {
+    display: flex;
+    gap: 12px;
+  }
+
+  .leaderboard-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 42px;
+    padding: 0 12px;
+    font-size: 16px;
+  }
+
+  .leaderboard-filters-frame { width: 100%; }
+
+  .leaderboard-filter-button {
+    width: 100%;
+    height: 42px;
+    padding: 0 12px;
+    font-size: 18px;
+  }
+
+  /* в макете номер места не выводится: место читается по порядку
+     и по цвету рамки у первой тройки */
+  .leaderboard-item .rank-badge { display: none; }
+
+  .leaderboard-item__card {
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  /* аватар слева, никнейм/трек/статус — колонкой справа от него */
+  .leaderboard-item__tags {
+    flex-wrap: nowrap;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .leaderboard-item__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  .leaderboard-item__tags .tag--title,
+  .leaderboard-item__tags .tag--track,
+  .leaderboard-item__tags .tag--status {
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .leaderboard-item__tags .tag--title {
+    color: var(--purple-500);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .leaderboard-item__tags .tag--track,
+  .leaderboard-item__tags .tag--status {
+    color: var(--ithub-black);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .leaderboard-item__rating {
+    flex-shrink: 0;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .leaderboard-list { max-height: none; }
+
+  .leaderboard-filters {
+    left: 0;
+    right: 0;
+    width: auto;
+  }
+
+  /* --- карта пути в профиле --- */
+  /* узлы остаются 30px, соединители тянутся по месту */
+  .profile-map__row,
+  .profile-map__labels--top {
+    grid-template-columns: 30px minmax(0, 1fr) 30px minmax(0, 1fr) 30px minmax(0, 1fr) 30px;
+  }
+
+  .profile-map__row--bottom,
+  .profile-map__labels--bottom {
+    grid-template-columns: minmax(0, 70px) 30px minmax(0, 1fr) 30px minmax(0, 1fr) 30px;
+  }
+
+  .profile-map__body {
+    height: auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+  }
+
+  .profile-map__labels span {
+    width: 68px;
+    justify-self: center;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  /* подпись текущего этапа крупнее прочих — на узком экране её
+     тоже приходится ужать, иначе слово рвётся посередине */
+  .profile-map__labels--top span:nth-child(3) {
+    font-size: 11px;
+  }
+
+  /* --- строки профиля --- */
+  .profile-row {
+    flex-wrap: wrap;
+    font-size: 16px;
+    row-gap: 6px;
+  }
+
+  .profile-row__chip {
+    max-width: 100%;
+    font-size: 14px;
+  }
+
+  /* --- вкладки карты пути --- */
+  /* категорий семь: лента едет вбок вместе с подчёркиванием */
+  .profile-path__tabs-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .profile-path__tabs-scroll::-webkit-scrollbar { display: none; }
+
+  .profile-path__tabs-inner {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .profile-path__tabs {
+    justify-content: flex-start;
+    gap: 18px;
+    padding: 0;
+  }
+
+  .profile-path__tab { font-size: 15px; }
+  .profile-path__tab--active { font-size: 16px; }
+
+  .profile-path {
+    padding: 20px;
+    min-height: 0;
+  }
+
+  /* --- шаги квеста --- */
+  .q1__card-steps { width: 100%; }
+
+  .q1__step-seg,
+  .q1__step-rail {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 12px;
+  }
+
+  /* заливка сегмента тянется за ним, а не по своей ширине */
+  .q1__step-seg--red::after,
+  .q1__step-seg--yellow::after {
+    width: auto;
+    left: 3px;
+    right: 3px;
+  }
+
+  .q1__card-pct { font-size: 28px; }
+
+  .q1__card-top { flex-wrap: wrap; font-size: 15px; }
+
+  .q1__card-kind { font-size: 18px; }
+
+  /* --- кошелёк магазина --- */
+  .shop-wallet__label,
+  .shop-wallet__history {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .shop-wallet__history-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* --- шаги серии на главной --- */
+  .quest-steps { width: 100%; }
+
+  .quest-step,
+  .quest-line {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  /* --- вкладки магазина --- */
+  .shop-tabs__labels {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 4px;
+  }
+
+  /* --- плитки достижений --- */
+  /* карточка тянется по колонке, а подпись переносится, а не распирает её */
+  .path-card {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+  }
+
+  .path-card__name,
+  .path-card__chip,
+  .path-card__locked,
+  .ach__name,
+  .ach__rarity {
+    max-width: 100%;
+    text-align: center;
+    overflow-wrap: anywhere;
+    hyphens: auto;
+  }
+
+  .path-card__name { font-size: 12px; }
+
+  /* плашка редкости переносится вместо того, чтобы распирать плитку */
+  .path-card__chip {
+    white-space: normal;
+    height: auto;
+    min-height: 20px;
+    padding: 3px var(--space-8);
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .path-card__locked {
+    width: 100%;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .ach__name { font-size: 12px; }
+  .ach__rarity { font-size: 10px; }
+
+  .profile-achievements__row { min-width: 0; }
+
+  /* --- вкладки квеста на главной --- */
+  .quest__tab {
+    font-size: 15px;
+    height: 40px;
+    padding: 3px var(--space-8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* --- кошелёк магазина: заголовок переносится --- */
+  .shop-wallet__label {
+    font-size: 20px;
+    overflow-wrap: anywhere;
+  }
+
+  .shop-page__head,
+  .shop-page__head-left {
+    min-width: 0;
+  }
+
+  /* --- график истории в профиле --- */
+  .profile-history__chart,
+  .profile-history__plot {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* иконка плитки тянется по колонке, а не держит 90px */
+  .path-card__icon {
+    width: 100%;
+    max-width: 90px;
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  /* --- статистика отряда --- */
+  .squad-my__row {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  /* --- график истории --- */
+  .profile-history__chart { min-width: 0; }
+
+  /* --- отряды --- */
+  .squad-member-row__main {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .squad-member-row__tags {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .squad-member-row__avatar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .squad-member-tag {
+    font-size: 12px;
+    padding: 3px 10px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .squad-member-row__rating {
+    min-width: 0;
+    padding: 0 12px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .squad-my__title { font-size: 22px; }
+
+  /* --- квесты --- */
+  .q1__tab { font-size: 14px; }
+
+  .q1__choice-options {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .q1__option { width: 100%; }
+
+  /* --- магазин --- */
+  .shop-page__band--split { flex-direction: column; }
+
+  .shop-wallet { flex-wrap: wrap; gap: 10px; min-width: 0; }
+
+  .shop-wallet__label { min-width: 0; }
+
+  .shop-tabs {
+    height: auto;
+    padding: 12px 14px;
+  }
+
+  .shop-tabs__labels {
+    gap: var(--space-16);
+    justify-content: space-between;
+  }
+
+  .shop-tab { font-size: 15px; }
+  .shop-tab--active { font-size: 16px; }
+
+  /* --- вход --- */
+  .login-container { width: calc(100vw - 24px); }
+
+  /* --- 404 --- */
+  .error-page__code { width: min(240px, 70vw); }
+}
+
+/* Совсем узкие экраны: 360-390 CSS-пикселей */
+@media (max-width: 420px) {
+  .top-header__logo-image { width: 100px; height: 36px; }
+  .top-header__divider { width: 30px; margin: 0 -6px; }
+  .top-header__username { font-size: 13px; }
+  .top-header__money { font-size: 12px; }
+
+  .bottom-nav { gap: 0; padding: 6px; }
+  .bottom-nav__icon svg { width: 24px; height: 24px; }
+
+  .profile-radar { height: 360px; }
+  .radar-card { height: 300px; }
+
+  .profile-path__grid {
+    grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+  }
 }

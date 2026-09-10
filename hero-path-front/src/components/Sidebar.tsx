@@ -1,19 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import {
-  IconHome, IconProfile, IconQuests,
-  IconShop, IconLeaders, IconSquads, IconBadges
-} from './icons'
-
-const navItems = [
-  { path: '/dashboard',   Icon: IconHome,    label: 'Главная'  },
-  { path: '/profile',     Icon: IconProfile, label: 'Профиль'  },
-  { path: '/quests',      Icon: IconQuests,  label: 'Квесты'   },
-  { path: '/shop',        Icon: IconShop,    label: 'Магазин'  },
-  { path: '/leaderboard', Icon: IconLeaders, label: 'Лидеры'   },
-  { path: '/squads',      Icon: IconSquads,  label: 'Отряды'   },
-  { path: '/badges',      Icon: IconBadges,  label: 'Нашивки'  },
-]
+import { navItems } from './navItems'
 
 export default function Sidebar() {
   const location = useLocation()
