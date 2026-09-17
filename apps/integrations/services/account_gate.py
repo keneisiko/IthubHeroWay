@@ -28,3 +28,20 @@ def deactivate_unlinked_agents() -> int:
         is_superuser=False,
     ).exclude(telegram_link__is_active=True)
     return qs.update(is_active=False)
+
+
+def agents_for_scoring(queryset=None):
+    """Кого платформа считает при начислениях.
+
+    Начисления шли только тем, у кого есть привязка Telegram, — разумно, пока
+    платформа открыта студентам: без привязки человек и войти не может.
+    Но в закрытом прогоне никто не заходит, и ночные задачи каждый раз
+    насчитывали ноль. Настройка снимает это требование, не открывая вход.
+    """
+    from django.conf import settings
+
+    User = get_user_model()
+    qs = User.objects.all() if queryset is None else queryset
+    if getattr(settings, "REQUIRE_TELEGRAM_LINK_FOR_SCORING", True):
+        return qs.filter(telegram_link__is_active=True)
+    return qs

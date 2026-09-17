@@ -28,6 +28,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 
+from apps.integrations.services.account_gate import agents_for_scoring
 from apps.accounts.models import User
 from apps.integrations.models import LXPSnapshot
 from apps.integrations.services.lxp_snapshot_format import unwrap_category
@@ -225,7 +226,7 @@ def apply_rating_from_lxp_snapshot(
     all_closed_bonus_value = int(kp.get("CT_ALL_CLOSED_BONUS", 30))
 
     qs = (
-        User.objects.filter(telegram_link__is_active=True)
+        agents_for_scoring()
         .exclude(Q(lxp_user_id__isnull=True) | Q(lxp_user_id=""))
         .select_related("squad")
     )

@@ -418,6 +418,11 @@ from celery.schedules import crontab
 
 # LXP: TTL токена задаётся LXP_TOKEN_TTL_SECONDS (~23 ч) и совпадает с Redis TTL кеша.
 # refresh-lxp-token за 15 мин до снимка; fetch дополнительно вызывает refresh синхронно в начале задачи.
+# Начисления только тем, у кого есть привязка Telegram. Единица — боевое
+# значение: без привязки студент и войти не может. Ноль ставится на время
+# закрытого прогона, когда никто не заходит, а ночные задачи должны считать.
+REQUIRE_TELEGRAM_LINK_FOR_SCORING = os.getenv("REQUIRE_TELEGRAM_LINK_FOR_SCORING", "1") == "1"
+
 CELERY_BEAT_SCHEDULE = {
     "fetch-lxp-snapshot-daily": {
         "task": "apps.integrations.tasks.fetch_lxp_snapshot",

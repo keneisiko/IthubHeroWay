@@ -35,7 +35,27 @@ cd /opt/hero_path && alias dcp='docker compose -p hero_prod -f docker-compose.pr
 ## Этап 1. Закрытый прогон — 21–25 сентября (пн–пт)
 
 Студенты не знают о платформе. Проверяем, что автоматика считает по реальным
-данным и считает честно. Каждый день одно и то же, вручную:
+данным и считает честно.
+
+Перед началом этапа снимите требование привязки Telegram — иначе ночные
+задачи отработают вхолостую: начисления идут только привязанным, а в закрытом
+прогоне не привязан никто. Вход при этом остаётся закрытым:
+
+```bash
+sed -i 's|^REQUIRE_TELEGRAM_LINK_FOR_SCORING=.*|REQUIRE_TELEGRAM_LINK_FOR_SCORING=0|' .env.prod
+dcp up -d web celery celery-beat
+```
+
+**Перед открытием студентам (этап 3) верните `1`.**
+
+Дальше платформа считает сама по расписанию: 02:00 — снимок LXP и рейтинг,
+06:15 и 20:15 — проверка квестов. Утром достаточно посмотреть отчёт:
+
+```bash
+dcp exec web python manage.py squad_report itr2-24
+```
+
+Если нужно прогнать вручную, не дожидаясь ночи:
 
 ```bash
 dcp exec web python manage.py pull_lxp_performance --learning-group-id 3e51acaf-990f-43bc-adf8-560f1e6e32d0 --force-rating --no-cache

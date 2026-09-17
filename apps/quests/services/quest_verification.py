@@ -8,6 +8,7 @@ from datetime import date
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from apps.integrations.services.account_gate import agents_for_scoring
 from apps.accounts.models import Role
 from apps.quests.models import Quest, QuestType, QuestVerifierKind
 from apps.quests.services.quest_completion import complete_quest_idempotent, update_quest_progress
@@ -31,7 +32,7 @@ def _active_quests_queryset(quest_types: list[str] | None = None, target_date: d
 
 def _eligible_users():
     return (
-        User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
+        agents_for_scoring(User.objects.filter(role=Role.AGENT))
         .select_related("telegram_link")
         .order_by("id")
     )
