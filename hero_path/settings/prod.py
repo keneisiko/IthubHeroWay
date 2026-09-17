@@ -37,8 +37,12 @@ CSRF_TRUSTED_ORIGINS = _env_list("CSRF_TRUSTED_ORIGINS", CORS_ALLOWED_ORIGINS)
 # и он же редиректит http→https.
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# Куки только по HTTPS — правильное значение для боевой установки.
+# Переопределяется на время, пока сертификата ещё нет: с Secure-куками
+# браузер не сохраняет CSRF-токен по http, и вход в админку отдаёт 403.
+COOKIE_SECURE = _env_bool("COOKIE_SECURE", True)
+SESSION_COOKIE_SECURE = COOKIE_SECURE
+CSRF_COOKIE_SECURE = COOKIE_SECURE
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = False  # фронт читает csrftoken из cookie
 

@@ -78,6 +78,7 @@ CORS_ALLOWED_ORIGINS=https://hero.ithub-nalchik.ru
 CSRF_TRUSTED_ORIGINS=https://hero.ithub-nalchik.ru
 POSTGRES_PASSWORD=<длинный случайный>
 SECURE_SSL_REDIRECT=0
+COOKIE_SECURE=0
 ```
 
 Ключ:
@@ -200,6 +201,10 @@ cd /opt/hero_path && git pull && dcp up -d --build
 Остальная платформа при этом работает, но студенты не смогут активироваться.
 
 **Цикл редиректов в браузере.** `SECURE_SSL_REDIRECT=1` без сертификата.
+
+**403 «Ошибка проверки CSRF» при входе в админку по http.** Куки помечены
+`Secure` и по незашифрованному соединению браузером не сохраняются. До выпуска
+сертификата поставьте `COOKIE_SECURE=0`, после — обязательно верните `1`.
 
 **`web` поднялся, но `unhealthy`, а nginx и Celery не стартовали.** В
 `ALLOWED_HOSTS` нет `127.0.0.1` и `localhost`: healthcheck ходит на
