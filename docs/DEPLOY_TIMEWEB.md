@@ -73,7 +73,7 @@ nano .env.prod
 
 ```
 SECRET_KEY=<64 случайных символа>
-ALLOWED_HOSTS=hero.ithub-nalchik.ru
+ALLOWED_HOSTS=hero.ithub-nalchik.ru,127.0.0.1,localhost
 CORS_ALLOWED_ORIGINS=https://hero.ithub-nalchik.ru
 CSRF_TRUSTED_ORIGINS=https://hero.ithub-nalchik.ru
 POSTGRES_PASSWORD=<длинный случайный>
@@ -200,6 +200,11 @@ cd /opt/hero_path && git pull && dcp up -d --build
 Остальная платформа при этом работает, но студенты не смогут активироваться.
 
 **Цикл редиректов в браузере.** `SECURE_SSL_REDIRECT=1` без сертификата.
+
+**`web` поднялся, но `unhealthy`, а nginx и Celery не стартовали.** В
+`ALLOWED_HOSTS` нет `127.0.0.1` и `localhost`: healthcheck ходит на
+`http://127.0.0.1:8000/health/` и получает 400 `DisallowedHost`. Добавьте оба
+адреса и повторите `up -d`.
 
 **Сборка падает с `killed`.** Не хватило памяти — проверьте, что swap подключён:
 `swapon --show`.
