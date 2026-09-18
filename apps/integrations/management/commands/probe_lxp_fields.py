@@ -50,9 +50,18 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--container",
-            type=str,
-            default='studentDiscipline(disciplineId: "00000000-0000-0000-0000-000000000000")',
-            help="Выражение-контейнер, внутри которого проверяются поля",
+            action="append",
+            default=[],
+            dest="containers",
+            help=(
+                "Уровень вложенности (можно повторять — вложение по порядку). "
+                "Без аргумента проверяются поля корневого Query."
+            ),
+        )
+        parser.add_argument(
+            "--in-discipline",
+            action="store_true",
+            help="Проверять внутри studentDiscipline — там, где сейчас приходит посещаемость",
         )
 
     def handle(self, *args, **options):
@@ -62,11 +71,22 @@ class Command(BaseCommand):
             raise CommandError(f"LXP: {e}") from e
 
         fields = options["fields"] or CANDIDATES
-        container = options["container"]
+        containers = list(options["containers"])
+        if options["in_discipline"] and not containers:
+            # studentDiscipline не поле корневого Query: он лежит внутри
+            # состава группы, и проверять его имена нужно там же.
+            containers = [
+                'searchStudentsInLearningGroup(input: {filters: '
+                '{learningGroupId: "00000000-0000-0000-0000-000000000000", isExpelled: false}})',
+                "items",
+                'studentDiscipline(disciplineId: "00000000-0000-0000-0000-000000000000")',
+            ]
+        where = " → ".join(c.split("(")[0] for c in containers) or "Query (корень)"
+        self.stdout.write(self.style.NOTICE(f"Ищем поля в: {where}"))
         found, suggestions = [], {}
 
         for field in fields:
-            query = f"query Probe {{ {container} {{ {field} {{ __typename }} }} }}"
+            query = self._build_query(containers, field)
             status, errors = self._ask(query, token)
             if status == "ok":
                 found.append(field)
@@ -94,6 +114,13 @@ class Command(BaseCommand):
         if all_hints:
             self.stdout.write(f"Подсказки схемы: {', '.join(all_hints)}")
             self.stdout.write("Проверить их: --field " + " --field ".join(all_hints[:10]))
+
+    @staticmethod
+    def _build_query(containers: list[str], field: str) -> str:
+        body = f"{field} {{ __typename }}"
+        for container in reversed(containers):
+            body = f"{container} {{ {body} }}"
+        return f"query Probe {{ {body} }}"
 
     def _ask(self, query: str, token: str) -> tuple[str, str]:
         try:
