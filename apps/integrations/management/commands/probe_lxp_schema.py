@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import requests
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.integrations.services.lxp_graphql_client import (
@@ -48,13 +50,37 @@ class Command(BaseCommand):
         client = LXPGraphQLClient()
         try:
             token = client.get_token()
-            response = client._post(INTROSPECTION_QUERY, {}, token=token, timeout=60)
         except (LXPAuthError, LXPRequestError) as e:
             raise CommandError(f"LXP: {e}") from e
-        if response.errors:
-            raise CommandError(f"LXP отклонил интроспекцию: {response.errors}")
 
-        types = ((response.data or {}).get("__schema") or {}).get("types") or []
+        # Запрос идёт мимо клиента намеренно: тот прячет тела ответов, потому
+        # что в них попадают токены. Здесь ответ — это сама схема или отказ
+        # интроспекции, секретов в нём нет, а причина отказа нужна целиком.
+        try:
+            raw = requests.post(
+                settings.LXP_GRAPHQL_ENDPOINT,
+                json={"query": INTROSPECTION_QUERY, "variables": {}},
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+                timeout=60,
+            )
+        except requests.RequestException as e:
+            raise CommandError(f"LXP недоступен: {type(e).__name__}") from e
+
+        if raw.status_code >= 400:
+            self.stdout.write(self.style.WARNING(f"HTTP {raw.status_code}. Ответ сервера:"))
+            self.stdout.write(raw.text[:1500])
+            raise CommandError(
+                "Интроспекция отклонена. Обычно это значит, что она закрыта на боевом LXP — "
+                "тогда список полей по посещаемости придётся спросить у команды LXP."
+            )
+
+        payload = raw.json()
+        if payload.get("errors"):
+            self.stdout.write(self.style.WARNING("GraphQL вернул ошибки:"))
+            self.stdout.write(str(payload["errors"])[:1500])
+            raise CommandError("Интроспекция отклонена сервером LXP")
+
+        types = ((payload.get("data") or {}).get("__schema") or {}).get("types") or []
         if not types:
             raise CommandError("Схема пришла пустой: интроспекция, возможно, закрыта на сервере LXP")
 
