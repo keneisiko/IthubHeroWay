@@ -91,6 +91,29 @@ def _click_by_text(page: Page, label: str) -> bool:
     )
 
 
+def wait_for_portal(page: Page, timeout_s: int = 40) -> bool:
+    """Дождаться отрисовки портала перед кликами по меню.
+
+    После входа страница остаётся на маршруте логина ещё несколько секунд,
+    и первый же клик уходил в пустоту: в логе было «пункт не найден», хотя
+    в портале этот пункт есть. Ждём либо маршрут #/portal, либо появление
+    самого меню.
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if "#/portal" in (page.url or ""):
+            return True
+        for label in ("Access Control", "Video", "Analysis Report"):
+            try:
+                locator = page.get_by_text(label, exact=False).first
+                if locator.count() and locator.is_visible():
+                    return True
+            except Exception:
+                pass
+        page.wait_for_timeout(1_000)
+    return False
+
+
 def _click_nav_step(page: Page, step: str) -> bool:
     if _click_by_text(page, step):
         return True
@@ -300,6 +323,9 @@ def _dismiss_dialogs(page: Page, *, attempts: int = 3) -> int:
 
 def _navigate_to_records(page: Page, config: HikBrowserExportConfig) -> None:
     _dismiss_dialogs(page)
+
+    if not wait_for_portal(page):
+        logger.warning("Hik: портал не отрисовался за отведённое время (url=%s)", page.url)
 
     if not config.records_url and not config.nav_steps:
         # Без маршрута скрипт оставался на главной портала и падал только
