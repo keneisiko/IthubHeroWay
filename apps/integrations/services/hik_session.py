@@ -26,7 +26,11 @@ from django.conf import settings
 from django.core.cache import cache
 
 from apps.integrations.services.browser_runtime import context_kwargs, launch_kwargs
-from apps.integrations.services.hik_browser_export import HikBrowserExportError, _login
+from apps.integrations.services.hik_browser_export import (
+    HikBrowserExportError,
+    _login,
+    wait_for_portal,
+)
 from apps.integrations.services.hik_browser_settings import hik_browser_config_from_settings
 
 logger = logging.getLogger(__name__)
@@ -93,11 +97,16 @@ def login_and_collect_cookies() -> dict[str, str]:
                 raise HikSessionError(str(exc)) from exc
 
             # Дать SPA обратиться к API, чтобы появились его cookies.
+            # Фиксированной паузы мало: cookies домена API выставляются при
+            # загрузке портала, а она наступает не по таймеру. Ждём портал,
+            # и только потом собираем — иначе сессия выходит неполной.
+            if not wait_for_portal(page):
+                logger.warning("hik_session: портал не отрисовался, cookies могут быть неполными")
             try:
                 page.wait_for_load_state("networkidle", timeout=20_000)
             except Exception:
                 pass
-            page.wait_for_timeout(3_000)
+            page.wait_for_timeout(2_000)
 
             cookies = _collect_cookies(context, hosts)
         finally:
