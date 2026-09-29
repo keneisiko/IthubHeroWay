@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from apps.integrations.services.account_gate import agents_for_scoring
 from apps.accounts.models import User
 from apps.integrations.models import ExternalEvent
 from apps.progress.models import RatingChangeSource, RatingLog, UserStrike
@@ -52,9 +53,16 @@ def _has_classes(user: User, day: date) -> bool:
 
     Выходные и дни без расписания не должны рвать серию: студент не обязан
     приходить в колледж, когда занятий нет.
+
+    Пока расписание отряда не заведено, считаем учебными будни. Прежний
+    ответ «пар не было» пропускал каждого студента, и серии не считались
+    вовсе — квест «Серия дисциплины» молча не работал.
     """
     if not user.squad_id:
         return False
+    has_any_schedule = Schedule.objects.filter(squad_id=user.squad_id, is_active=True).exists()
+    if not has_any_schedule:
+        return day.weekday() < 5
     return Schedule.objects.filter(
         squad_id=user.squad_id, day_of_week=day.weekday(), is_active=True
     ).exists()
@@ -128,7 +136,9 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
     late_user_ids = users_with_late_on_date(yesterday)
     present_user_ids = users_present_on_date(yesterday)
 
-    users = User.objects.filter(telegram_link__is_active=True).select_related("squad")
+    # Требование привязки Telegram снимается настройкой: в закрытом прогоне
+    # студенты не заходят, и серии не считались никому.
+    users = agents_for_scoring(User.objects.all()).select_related("squad")
 
     updated_strikes = 0
     bonuses = 0
