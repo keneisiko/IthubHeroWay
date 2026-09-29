@@ -31,6 +31,7 @@ HTTP API. Браузер нужен только чтобы получить с�
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
@@ -39,6 +40,11 @@ import requests
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+# Портал отвечает неровно: на длинном диапазоне часть страниц упирается
+# в таймаут, хотя следующая попытка проходит.
+REQUEST_ATTEMPTS = 3
+RETRY_PAUSE_SECONDS = 3
 
 DIRECTION_ENTRY = 1
 DIRECTION_EXIT = 2
@@ -178,19 +184,35 @@ class HikWebClient:
         self.session.cookies.update(cookies or {})
 
     def _post(self, payload: dict) -> dict:
-        try:
-            response = self.session.post(
-                self.config.records_url,
-                json=payload,
-                headers={
-                    "Accept": "application/json, text/plain, */*",
-                    "Content-Type": "application/json",
-                    "clientSource": "0",
-                },
-                timeout=self.config.timeout,
-            )
-        except requests.RequestException as exc:
-            raise HikWebClientError(f"Портал недоступен: {exc}") from exc
+        # Диапазон в неделю — это три десятка страниц подряд, и портал такого
+        # темпа не держит: одна страница из середины отвечает дольше минуты,
+        # и весь забор падал целиком, теряя уже полученные страницы.
+        last_error: Exception | None = None
+        for attempt in range(1, REQUEST_ATTEMPTS + 1):
+            try:
+                response = self.session.post(
+                    self.config.records_url,
+                    json=payload,
+                    headers={
+                        "Accept": "application/json, text/plain, */*",
+                        "Content-Type": "application/json",
+                        "clientSource": "0",
+                    },
+                    timeout=self.config.timeout,
+                )
+                break
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt < REQUEST_ATTEMPTS:
+                    logger.warning(
+                        "hik_web: страница не ответила (попытка %s из %s): %s",
+                        attempt,
+                        REQUEST_ATTEMPTS,
+                        type(exc).__name__,
+                    )
+                    time.sleep(RETRY_PAUSE_SECONDS * attempt)
+        else:
+            raise HikWebClientError(f"Портал недоступен: {last_error}") from last_error
 
         if response.status_code in {401, 403}:
             raise HikWebAuthError(

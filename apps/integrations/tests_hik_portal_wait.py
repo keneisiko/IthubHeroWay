@@ -59,3 +59,55 @@ class WaitForPortalTests(TestCase):
         page = FakePage(["https://www.hik-connectru.com/views/login/index.html#/login"])
 
         self.assertFalse(hik_browser_export.wait_for_portal(page, timeout_s=2))
+
+
+class HikClientRetryTests(TestCase):
+    """Портал не отвечает на части страниц длинного диапазона.
+
+    Неделя — это три десятка страниц подряд, и одна из середины упиралась
+    в таймаут: падал весь забор, включая уже полученные страницы.
+    """
+
+    def make_client(self, session):
+        from apps.integrations.services.hik_web_client import HikWebClient
+
+        with mock.patch(
+            "apps.integrations.services.hik_web_client.config_from_settings"
+        ) as config:
+            config.return_value = mock.Mock(
+                base_url="https://portal.test",
+                records_url="https://portal.test/records",
+                timeout=60,
+                page_size=100,
+            )
+            return HikWebClient({}, session=session)
+
+    def test_page_is_retried_after_timeout(self):
+        import requests
+
+        ok = mock.Mock(status_code=200)
+        ok.json.return_value = {"errorCode": "0", "data": {"totalNum": 1, "recordList": []}}
+        session = mock.Mock()
+        session.post.side_effect = [requests.ReadTimeout("тайм-аут"), ok]
+        client = self.make_client(session)
+
+        with mock.patch("apps.integrations.services.hik_web_client.time.sleep"):
+            data = client._post({"pageIndex": 1})
+
+        self.assertEqual(data["totalNum"], 1)
+        self.assertEqual(session.post.call_count, 2)
+
+    def test_gives_up_after_all_attempts(self):
+        import requests
+
+        from apps.integrations.services.hik_web_client import REQUEST_ATTEMPTS, HikWebClientError
+
+        session = mock.Mock()
+        session.post.side_effect = requests.ReadTimeout("тайм-аут")
+        client = self.make_client(session)
+
+        with mock.patch("apps.integrations.services.hik_web_client.time.sleep"):
+            with self.assertRaises(HikWebClientError):
+                client._post({"pageIndex": 1})
+
+        self.assertEqual(session.post.call_count, REQUEST_ATTEMPTS)
