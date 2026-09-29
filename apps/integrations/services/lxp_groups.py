@@ -95,3 +95,48 @@ def group_students(group_id: str, client: LXPGraphQLClient | None = None) -> lis
     if response.errors:
         raise LXPRequestError(f"searchStudentsInLearningGroup: {response.errors}")
     return client._normalize_graphql_list((response.data or {}).get("searchStudentsInLearningGroup"))
+
+
+GROUP_CLASSES_QUERY = """
+query GroupClasses($input: SearchClassesInput!) {
+  searchClasses(input: $input) {
+    total
+    items {
+      id
+      from
+      to
+      discipline { name }
+      learningGroupId
+    }
+  }
+}
+"""
+
+
+def group_classes(group_id: str, start, end, client: LXPGraphQLClient | None = None) -> list[dict]:
+    """Занятия группы за период: время начала, окончания и дисциплина.
+
+    Из этого строится расписание отряда. Без него дедлайн «Утреннего
+    чек-ина» брался общий — 10:00, — и студент, у которого первая пара
+    в 12:50, получал опоздание, придя вовремя.
+    """
+    client = client or LXPGraphQLClient()
+    token = client.get_token()
+    response = _post_with_retry(
+        client,
+        GROUP_CLASSES_QUERY,
+        {
+            "input": {
+                "filters": {
+                    "interval": {"from": start.isoformat(), "to": end.isoformat()},
+                    "learningGroupsIds": [group_id],
+                }
+            }
+        },
+        token,
+        timeout=60,
+    )
+    if response.errors:
+        raise LXPRequestError(f"searchClasses: {response.errors}")
+    root = (response.data or {}).get("searchClasses") or {}
+    return client._normalize_graphql_list(root.get("items"))
