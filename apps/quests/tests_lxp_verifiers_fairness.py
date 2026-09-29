@@ -89,3 +89,55 @@ class ControlPointsWithinPeriodTests(TestCase):
         result = verify_lxp_ct_closed(self.user, {"min_closed": 1, "days": 7}, TODAY)
 
         self.assertFalse(result.completed)
+
+
+class BaselineSurvivesNextSnapshotTests(TestCase):
+    """Метка первого снимка теряется — и «191/1» возвращается.
+
+    На сервере квест снова засчитался всем: при втором снимке записи тем
+    переписывались без `baseline`, тема прошлого курса оставалась с датой
+    базы, а та попадала внутрь недели.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="agent2", email="a2@test.ru", password="x", callsign="Агент2", lxp_user_id="u2"
+        )
+
+    def apply_snapshot(self, closed_map: dict, snapshot_date: date):
+        from apps.progress.services.lxp_rating_from_snapshot import _apply_topic_transitions
+
+        state, _ = LXPTopicState.objects.get_or_create(user=self.user)
+        _apply_topic_transitions(
+            state, closed_map, snapshot_date, per_topic_points=4, stale_days=30, stale_penalty=-20
+        )
+        state.save()
+        return state
+
+    def test_baseline_topics_stay_excluded_after_second_snapshot(self):
+        base_date = date(2026, 9, 17)
+        LXPTopicState.objects.create(
+            user=self.user,
+            topics={f"d:{i}": {"closed": True, "since": base_date.isoformat(), "baseline": True} for i in range(191)},
+            baseline_done=True,
+            last_snapshot_date=base_date,
+        )
+
+        self.apply_snapshot({f"d:{i}": True for i in range(191)}, date(2026, 9, 18))
+
+        self.assertEqual(_count_ct_closed_since(self.user, date(2026, 9, 14)), 0)
+
+    def test_topic_closed_after_baseline_still_counts(self):
+        base_date = date(2026, 9, 17)
+        LXPTopicState.objects.create(
+            user=self.user,
+            topics={"d:old": {"closed": True, "since": base_date.isoformat(), "baseline": True},
+                    "d:new": {"closed": False, "since": base_date.isoformat(), "baseline": True}},
+            baseline_done=True,
+            last_snapshot_date=base_date,
+        )
+
+        self.apply_snapshot({"d:old": True, "d:new": True}, date(2026, 9, 18))
+
+        # Свежесданная тема засчитывается, хотя и была в первом снимке.
+        self.assertEqual(_count_ct_closed_since(self.user, date(2026, 9, 14)), 1)

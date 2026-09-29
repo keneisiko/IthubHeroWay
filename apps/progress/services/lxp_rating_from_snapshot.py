@@ -110,7 +110,15 @@ def _apply_topic_transitions(
                 if previous is not None and previous.get("closed") and previous.get("since")
                 else snapshot_date.isoformat()
             )
-            updated[key] = {"closed": True, "since": since_closed, "penalized": False}
+            entry = {"closed": True, "since": since_closed, "penalized": False}
+            # Метку первого снимка нужно нести дальше: без неё темы прошлых
+            # курсов со второго снимка выглядят закрытыми «в дату базы», и
+            # недельный квест на сдачу КТ снова засчитывается всем — «191/1».
+            # Но только для тех, что уже были закрыты на базе: тема, которая
+            # тогда висела открытой и сдана позже, — настоящее достижение.
+            if previous is not None and previous.get("baseline") and previous.get("closed"):
+                entry["baseline"] = True
+            updated[key] = entry
             continue
 
         outcome.open_total += 1
@@ -136,6 +144,7 @@ def _apply_topic_transitions(
                 outcome.delta_negative += stale_penalty
                 penalized = True
 
+        # Открытой теме метка базы не нужна: когда её сдадут, это засчитается.
         updated[key] = {"closed": False, "since": since, "penalized": penalized}
 
     state.topics = updated
