@@ -176,18 +176,26 @@ def verify_hik_no_late(user: User, params: dict, target_date: date) -> Verificat
             evidence={"verifier": QuestVerifierKind.HIK_NO_LATE, "late_days": late_days},
             message="Есть опоздания в периоде",
         )
-    if checked == 0 and target_date >= timezone.now().date():
+    if checked == 0:
+        # Ни одного прохода за период — не доказательство дисциплины, а
+        # отсутствие данных. Раньше квест закрывался и тем, кто вообще не
+        # появлялся в колледже: «без опозданий» доставалось за неявку.
+        pending = target_date >= timezone.now().date()
         return VerificationResult(
             completed=False,
             progress=0.0,
-            evidence={"verifier": QuestVerifierKind.HIK_NO_LATE, "pending": True},
-            message="Ожидание данных Hik",
+            evidence={"verifier": QuestVerifierKind.HIK_NO_LATE, "pending": pending, "days_with_data": 0},
+            message="Ожидание данных Hik" if pending else "Нет проходов за период",
         )
     return VerificationResult(
         completed=True,
         progress=1.0,
-        evidence={"verifier": QuestVerifierKind.HIK_NO_LATE, "days_checked": days},
-        message="Без опозданий",
+        evidence={
+            "verifier": QuestVerifierKind.HIK_NO_LATE,
+            "days_checked": days,
+            "days_with_data": checked,
+        },
+        message=f"Без опозданий ({checked} дн. с проходами)",
     )
 
 
