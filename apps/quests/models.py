@@ -19,6 +19,7 @@ class QuestVerifierKind(models.TextChoices):
     LXP_CT_CLOSED = "lxp_ct_closed", "LXP: закрытые КТ"
     YOUGILE_TASKS = "yougile_tasks", "YouGile: задачи"
     LATE_STREAK = "late_streak", "Серия без опозданий"
+    LXP_NO_MISSES = "lxp_no_misses", "LXP: без пропусков занятий"
 
 
 class QuestTemplate(models.Model):

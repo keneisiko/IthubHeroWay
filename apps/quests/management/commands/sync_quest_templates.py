@@ -105,6 +105,16 @@ DEFAULT_TEMPLATES = [
         "reward_rating_delta": 12,
     },
     {
+        "code": "weekly-lxp-no-misses",
+        "title": "Неделя без пропусков",
+        "description": "Побывай на всех занятиях недели (отметки преподавателей в LXP).",
+        "quest_type": QuestType.WEEKLY,
+        "verifier": QuestVerifierKind.LXP_NO_MISSES,
+        "verifier_params": {"days": 7, "max_missed": 0},
+        "reward_coins": 20,
+        "reward_rating_delta": 10,
+    },
+    {
         # Единственный периодический квест, не завязанный на интеграции:
         # пока Hik отключён, а YouGile без секрета, ритм недели держит он.
         "code": "weekly-report",

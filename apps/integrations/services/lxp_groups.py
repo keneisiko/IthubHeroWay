@@ -140,3 +140,47 @@ def group_classes(group_id: str, start, end, client: LXPGraphQLClient | None = N
         raise LXPRequestError(f"searchClasses: {response.errors}")
     root = (response.data or {}).get("searchClasses") or {}
     return client._normalize_graphql_list(root.get("items"))
+
+
+GROUP_CLASS_ATTENDANCE_QUERY = """
+query GroupClassAttendance($input: SearchClassesInput!) {
+  searchClasses(input: $input) {
+    total
+    items {
+      id
+      from
+      to
+      discipline { name }
+      attendance { studentId status }
+    }
+  }
+}
+"""
+
+
+def group_class_attendance(group_id: str, start, end, client: LXPGraphQLClient | None = None) -> list[dict]:
+    """Занятия группы вместе с поимённым списком отметок.
+
+    Из `studentDiscipline` посещаемость приходит одним процентом за семестр;
+    здесь — кто был на каждой конкретной паре.
+    """
+    client = client or LXPGraphQLClient()
+    token = client.get_token()
+    response = _post_with_retry(
+        client,
+        GROUP_CLASS_ATTENDANCE_QUERY,
+        {
+            "input": {
+                "filters": {
+                    "interval": {"from": start.isoformat(), "to": end.isoformat()},
+                    "learningGroupsIds": [group_id],
+                }
+            }
+        },
+        token,
+        timeout=90,
+    )
+    if response.errors:
+        raise LXPRequestError(f"searchClasses: {response.errors}")
+    root = (response.data or {}).get("searchClasses") or {}
+    return client._normalize_graphql_list(root.get("items"))

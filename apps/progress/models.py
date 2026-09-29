@@ -156,3 +156,47 @@ class CourseTopicNorm(models.Model):
 
     def __str__(self) -> str:
         return f"курс {self.course}: {self.expected_topics} тем"
+
+
+class LessonAttendanceStatus(models.TextChoices):
+    PRESENT = "present", "Был"
+    ONLINE = "online", "Был онлайн"
+    MISSED = "missed", "Пропустил"
+
+
+class LessonAttendance(models.Model):
+    """Отметка посещения конкретного занятия из LXP.
+
+    Раньше посещаемость приходила одним числом за семестр: по нему нельзя
+    сказать, был ли студент на этой неделе, и «80%» одинаково выглядели
+    у того, кто перестал ходить вчера, и у того, кто пропускал в сентябре.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Студент",
+        on_delete=models.CASCADE,
+        related_name="lesson_attendance",
+    )
+    lxp_class_id = models.CharField("ID занятия в LXP", max_length=64, db_index=True)
+    lesson_date = models.DateField("Дата занятия", db_index=True)
+    starts_at = models.TimeField("Начало", null=True, blank=True)
+    discipline = models.CharField("Дисциплина", max_length=255, blank=True)
+    status = models.CharField(
+        "Отметка", max_length=16, choices=LessonAttendanceStatus.choices, db_index=True
+    )
+    updated_at = models.DateTimeField("Обновлена", auto_now=True)
+
+    class Meta:
+        verbose_name = "Посещение занятия"
+        verbose_name_plural = "Посещения занятий"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "lxp_class_id"], name="uniq_lesson_attendance_user_class"
+            ),
+        ]
+        indexes = [models.Index(fields=["user", "lesson_date"])]
+        ordering = ["-lesson_date", "starts_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} {self.lesson_date} {self.get_status_display()}"

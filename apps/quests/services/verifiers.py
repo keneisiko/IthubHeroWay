@@ -11,7 +11,12 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.integrations.models import ExternalEvent
 from apps.integrations.services.lxp_snapshot_reader import get_student_attendance
-from apps.progress.models import LXPTopicState, UserStrike
+from apps.progress.models import (
+    LessonAttendance,
+    LessonAttendanceStatus,
+    LXPTopicState,
+    UserStrike,
+)
 from apps.quests.models import QuestVerifierKind
 from apps.schedule.models import Schedule
 
@@ -380,6 +385,46 @@ def verify_yougile_tasks(user: User, params: dict, target_date: date) -> Verific
     )
 
 
+def verify_lxp_no_misses(user: User, params: dict, target_date: date) -> VerificationResult:
+    """Неделя без пропусков по поимённым отметкам занятий.
+
+    Процент посещаемости за семестр не отвечает на вопрос «был ли студент на
+    этой неделе»: у бросившего ходить вчера и у пропускавшего в сентябре он
+    одинаковый. Здесь считаются отметки по конкретным парам.
+    """
+    days = int(params.get("days", 7))
+    max_missed = int(params.get("max_missed", 0))
+    since = target_date - timedelta(days=days - 1)
+
+    marks = LessonAttendance.objects.filter(
+        user=user, lesson_date__gte=since, lesson_date__lte=target_date
+    ).values_list("status", flat=True)
+    total = len(marks)
+    missed = sum(1 for status in marks if status == LessonAttendanceStatus.MISSED)
+
+    if total == 0:
+        # Ни одной отметки — не безупречная неделя, а отсутствие данных.
+        return VerificationResult(
+            completed=False,
+            progress=0.0,
+            evidence={"verifier": QuestVerifierKind.LXP_NO_MISSES, "lessons": 0},
+            message="Нет данных о занятиях за период",
+        )
+
+    attended = total - missed
+    return VerificationResult(
+        completed=missed <= max_missed,
+        progress=min(1.0, attended / total),
+        evidence={
+            "verifier": QuestVerifierKind.LXP_NO_MISSES,
+            "lessons": total,
+            "missed": missed,
+            "max_missed": max_missed,
+        },
+        message=f"Посещено {attended} из {total} занятий, пропусков {missed}",
+    )
+
+
 def verify_late_streak(user: User, params: dict, target_date: date) -> VerificationResult:
     min_days = int(params.get("min_days", 7))
     strike, _ = UserStrike.objects.get_or_create(user=user)
@@ -400,6 +445,7 @@ VERIFIERS = {
     QuestVerifierKind.LXP_CT_CLOSED: verify_lxp_ct_closed,
     QuestVerifierKind.YOUGILE_TASKS: verify_yougile_tasks,
     QuestVerifierKind.LATE_STREAK: verify_late_streak,
+    QuestVerifierKind.LXP_NO_MISSES: verify_lxp_no_misses,
 }
 
 
