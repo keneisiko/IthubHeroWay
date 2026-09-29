@@ -68,6 +68,40 @@ def _has_classes(user: User, day: date) -> bool:
     ).exists()
 
 
+# Пропуск сам по себе серию без опозданий не рвал: тот, кто приходит раз
+# в неделю и не опаздывает в эти дни, за месяц набирал недельную серию.
+# Болезнь при этом наказывать не хочется, поэтому рвём не с первого дня.
+MISSED_DAYS_BREAKING_STREAK = 3
+
+
+def missed_school_days(user: User, since: date | None, until: date) -> int:
+    """Сколько учебных дней студент пропустил подряд к этому дню."""
+    if since is None or since >= until:
+        return 0
+    missed = 0
+    day = since + timedelta(days=1)
+    while day <= until:
+        if _has_classes(user, day):
+            missed += 1
+        day += timedelta(days=1)
+    return missed
+
+
+def previous_school_day(user: User, day: date, *, lookback: int = 14) -> date | None:
+    """Предыдущий учебный день отряда.
+
+    Серии сравнивались с календарным «вчера», поэтому понедельник после
+    пятницы всегда обнулял их: выходные выглядели пропуском, и серия дольше
+    пяти дней не набиралась.
+    """
+    candidate = day - timedelta(days=1)
+    for _ in range(lookback):
+        if _has_classes(user, candidate):
+            return candidate
+        candidate -= timedelta(days=1)
+    return None
+
+
 def users_with_late_on_date(day: date) -> set[int]:
     """Кто опоздал в указанный день — одним запросом на весь прогон.
 
@@ -152,22 +186,29 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
         strike, _ = UserStrike.objects.get_or_create(user=user)
         was_present = user.pk in present_user_ids
 
+        previous_day = previous_school_day(user, yesterday)
+
         if was_present:
-            if strike.last_attendance_date and strike.last_attendance_date == yesterday - timedelta(days=1):
+            if strike.last_attendance_date and strike.last_attendance_date == previous_day:
                 strike.attendance_strike += 1
             elif strike.last_attendance_date != yesterday:
                 strike.attendance_strike = 1
             strike.last_attendance_date = yesterday
         else:
+            # Дата присутствия при пропуске не двигается: иначе «последний
+            # день, когда студент был» превращается в «последний обработанный
+            # день», и пропуски подряд не отличить от одного пропуска.
+            missed = missed_school_days(user, strike.last_attendance_date, yesterday)
+            if missed >= MISSED_DAYS_BREAKING_STREAK:
+                strike.late_strike = 0
             strike.attendance_strike = 0
-            strike.last_attendance_date = yesterday
 
         had_late = user.pk in late_user_ids
         if had_late:
             strike.late_strike = 0
             strike.last_late_date = yesterday
         elif was_present:
-            if strike.last_late_date and strike.last_late_date == yesterday - timedelta(days=1):
+            if strike.last_late_date and strike.last_late_date == previous_day:
                 strike.late_strike += 1
             elif strike.last_late_date != yesterday:
                 strike.late_strike = 1
