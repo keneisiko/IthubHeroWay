@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from unittest import mock
+
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 
@@ -86,3 +88,47 @@ class LinkHikPersonsTests(TestCase):
     def test_refuses_without_events(self):
         with self.assertRaises(CommandError):
             call_command("link_hik_persons", squad="itr2-24")
+
+
+class ReprocessHikEventsTests(TestCase):
+    """Разбор сохранённых проходов после проставления кодов.
+
+    Проходы приходят раньше, чем известно, кому они принадлежат: связка
+    делается кодами позже, и уже сохранённые события нужно разобрать заново.
+    """
+
+    def setUp(self):
+        self.squad = Squad.objects.create(code="itr2-24", name="3ИТР2.9.24", course=3)
+        self.student = make_student("Таов", "Алихан", self.squad)
+
+    def test_events_are_reset_and_processed_again(self):
+        event = make_event("Таов Алихан", person_code="1830160598")
+        event.processed = True
+        event.save(update_fields=["processed"])
+        self.student.hik_card_code = "1830160598"
+        self.student.save(update_fields=["hik_card_code"])
+
+        call_command("reprocess_hik_events")
+
+        event.refresh_from_db()
+        self.assertTrue(event.processed)
+
+    def test_only_unmatched_keeps_linked_events_alone(self):
+        linked = make_event("Таов Алихан", person_code="1830160598")
+        linked.processed = True
+        linked.save(update_fields=["processed"])
+        orphan = make_event("Никто Ничей", person_code="")
+        orphan.processed = True
+        orphan.save(update_fields=["processed"])
+
+        with mock.patch(
+            "apps.integrations.management.commands.reprocess_hik_events."
+            "process_unprocessed_hik_events",
+            return_value=(0, 0, 0),
+        ):
+            call_command("reprocess_hik_events", only_unmatched=True)
+
+        linked.refresh_from_db()
+        orphan.refresh_from_db()
+        self.assertTrue(linked.processed)
+        self.assertFalse(orphan.processed)
