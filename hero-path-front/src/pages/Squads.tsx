@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import userAvatar from '../assets/branding/user-avatar.png'
 import api from '../api'
+import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
 import { unwrapList } from '../lib/apiData'
 
@@ -102,6 +103,7 @@ function memberAvatarUrl(avatar?: string | null): string {
 
 export default function Squads() {
   const navigate = useNavigate()
+
   const [memberQuery, setMemberQuery] = useState('')
   const [showSort, setShowSort] = useState(false)
   const { toasts, addToast } = useToasts()
@@ -391,6 +393,12 @@ export default function Squads() {
     )
   }
 
+  // Сколько ещё человек нужно до порога бонуса; 0 означает, что он уже взят
+  const bonusLeft = Math.max(
+    0,
+    Math.ceil(squad.bonus_total * squad.bonus_threshold / 100) - squad.bonus_completed,
+  )
+
   return (
     <div className="dashboard squad-page page-enter">
       <div className="squad-page__top">
@@ -436,9 +444,10 @@ export default function Squads() {
             </div>
             <div className="squad-bonus__progress-block">
               <p className="squad-bonus__hint">
-              До бонуса осталось{' '}
-              {Math.max(0, Math.ceil(squad.bonus_total * squad.bonus_threshold / 100) - squad.bonus_completed)} человек
-            </p>
+                {bonusLeft > 0
+                  ? `До бонуса осталось ${bonusLeft} ${plural(bonusLeft, ['человек', 'человека', 'человек'])}`
+                  : 'Порог бонуса уже набран'}
+              </p>
               <div className="squad-bonus__progress">
                 <span className="squad-bonus__dot squad-bonus__dot--start" aria-hidden="true" />
                 <div className="squad-bonus__track">

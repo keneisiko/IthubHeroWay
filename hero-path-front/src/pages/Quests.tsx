@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useTabIndicator } from '../useTabIndicator'
+import { plural } from '../lib/plural'
 import seriesIcon from '../assets/other/Group 11.svg'
 import {
   mapCompletedQuests,
@@ -45,12 +46,6 @@ function useModal(initial = false) {
 }
 
 // Склонение дней для подписи серии
-function dayWord(days: number) {
-  if (days === 1) return 'день'
-  if (days >= 2 && days <= 4) return 'дня'
-  return 'дней'
-}
-
 export default function Quests() {
   const [activeTab, setActiveTab] = useState(0)
   const [quests, setQuests] = useState<UiQuest[]>([])
@@ -400,7 +395,7 @@ export default function Quests() {
               <h3>Серия:</h3>
               <p>
                 {strike
-                  ? `${strike.late_strike} ${dayWord(strike.late_strike)} без опозданий`
+                  ? `${strike.late_strike} ${plural(strike.late_strike, ['день', 'дня', 'дней'])} без опозданий`
                   : 'Данные обновляются после синхронизации с HikCentral'}
               </p>
             </div>

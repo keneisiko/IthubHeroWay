@@ -126,7 +126,6 @@ export default function Leaderboard() {
         track?: string
         avatar?: string | null
       }>(agentsRes.data)
-      setTotalAgents(agentsRes.data?.count ?? agentsData.length)
 
       const squadsData = unwrapList<{
         code: string
@@ -169,6 +168,15 @@ export default function Leaderboard() {
   useEffect(() => {
     loadLeaderboard()
   }, [loadLeaderboard])
+
+  // Общее число агентов берём отдельным запросом без фильтров: count из
+  // отфильтрованного списка — это размер выборки, и подпись «моё место из N»
+  // показывала, например, «42 из 3» при поиске.
+  useEffect(() => {
+    api.get('/api/v1/leaderboard/agents/', { params: { page: 1, page_size: 1 } })
+      .then((res) => setTotalAgents(res.data?.count ?? 0))
+      .catch(() => setTotalAgents(0))
+  }, [])
 
   const items = activeTab === 'agents' ? agents : squads
   const filteredItems = activeTab === 'agents'
