@@ -89,9 +89,13 @@ export default function Quests() {
     }, 3000)
   }, [])
 
-  const loadQuests = useCallback(() => {
-    setLoading(true)
-    setLoadError(false)
+  // quiet — обновить после отправки отчёта или выбора цели без лоадера
+  // на всю страницу и без прыжка прокрутки
+  const loadQuests = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (!quiet) {
+      setLoading(true)
+      setLoadError(false)
+    }
     Promise.all([
       api.get('/api/v1/quests/active/'),
       api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
@@ -112,12 +116,16 @@ export default function Quests() {
         rating: focusRes.data?.bonus_rating ?? 0,
       })
     }).catch(() => {
+      if (quiet) {
+        addToast('Не удалось обновить квесты', 'error')
+        return
+      }
       setQuests([])
       setCompletedQuests([])
       setActivity([])
       setLoadError(true)
     }).finally(() => setLoading(false))
-  }, [])
+  }, [addToast])
 
   useEffect(() => {
     loadQuests()
@@ -138,9 +146,9 @@ export default function Quests() {
         addToast('Самоотчёт отправлен!', 'success')
         reportModal.hide()
         setReportText('')
-        loadQuests()
+        loadQuests({ quiet: true })
       })
-      .catch(() => addToast('Ошибка отправки', 'error'))
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить самоотчёт'), 'error'))
   }, [reportText, selfReportQuestCode, loadQuests])
 
   const handleConfirmSubmit = useCallback(() => {
@@ -155,7 +163,7 @@ export default function Quests() {
         confirmModal.hide()
         setConfirmQuestCode(null)
         setConfirmLink('')
-        loadQuests()
+        loadQuests({ quiet: true })
       })
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
   }, [confirmQuestCode, confirmLink, loadQuests])
@@ -170,7 +178,7 @@ export default function Quests() {
     api.post('/api/v1/quests/weekly-focus/', { quest_code: code })
       .then(() => {
         addToast(`Цель недели: ${title}`)
-        return loadQuests()
+        loadQuests({ quiet: true })
       })
       .catch(() => addToast('Не удалось выбрать цель недели', 'error'))
   }, [addToast, loadQuests])
@@ -204,7 +212,7 @@ export default function Quests() {
   if (loadError) {
     return (
       <div className="q1 page-enter">
-        <LoadError className="q1__loading" onRetry={loadQuests} />
+        <LoadError className="q1__loading" onRetry={() => loadQuests()} />
       </div>
     )
   }

@@ -1,16 +1,16 @@
 /**
  * Салют на победные моменты: покупка, сданный квест.
  *
- * Квадратное конфетти фирменных цветов — тот же квадрат, что в логотипе
- * IThub и в значках, — плюс жёлтые монетки. На телефоне короткая вибрация.
+ * Квадратное конфетти в фиолетовых тонах бренда — тот же квадрат, что
+ * в логотипе IThub и в значках. На телефоне короткая вибрация.
  * При системной настройке «уменьшить движение» салюта нет, только вибрация.
  *
  * Летит из точки последнего касания: пользователь нажал «Купить» —
  * салют вылетает из-под пальца, а не из центра экрана.
  */
 
-const COLORS = ['#9a33f4', '#9a33f4', '#ff00ee', '#38dddd', '#6cd63e', '#121212', '#f5f5f5']
-const COIN = '#ffd900'
+// основной фиолетовый чаще, светлый и тёмный — для объёма
+const COLORS = ['#9a33f4', '#9a33f4', '#9a33f4', '#b672f8', '#d3a8fb', '#7a1fcc']
 
 let lastPointer: { x: number; y: number } | null = null
 if (typeof window !== 'undefined') {
@@ -22,7 +22,7 @@ if (typeof window !== 'undefined') {
 interface Particle {
   x: number; y: number; vx: number; vy: number
   size: number; rot: number; vr: number
-  color: string; coin: boolean
+  color: string
   life: number; age: number
 }
 
@@ -48,14 +48,12 @@ export function celebrate(size: 'small' | 'big' = 'big'): void {
     // конус вверх ±70° от вертикали
     const angle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI * 0.78)
     const speed = (size === 'big' ? 7 : 5.5) + Math.random() * 7
-    const coin = Math.random() < 0.22
     return {
       x: origin.x, y: origin.y,
       vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      size: coin ? 9 + Math.random() * 4 : 6 + Math.random() * 6,
+      size: 6 + Math.random() * 6,
       rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.35,
-      color: coin ? COIN : COLORS[(Math.random() * COLORS.length) | 0],
-      coin,
+      color: COLORS[(Math.random() * COLORS.length) | 0],
       life: 70 + Math.random() * 45, age: 0,
     }
   })
@@ -91,15 +89,9 @@ export function celebrate(size: 'small' | 'big' = 'big'): void {
       ctx.translate(p.x, p.y)
       ctx.rotate(p.rot)
       ctx.fillStyle = p.color
-      if (p.coin) {
-        // монетка «кувыркается»: сплющивается по ширине
-        ctx.scale(Math.abs(Math.cos(p.rot * 2)) * 0.8 + 0.2, 1)
-        ctx.beginPath()
-        ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2)
-        ctx.fill()
-      } else {
-        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size)
-      }
+      // бумажка кувыркается: сплющивается по ширине
+      ctx.scale(Math.abs(Math.cos(p.rot * 2)) * 0.75 + 0.25, 1)
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size)
       ctx.restore()
     }
     if (alive > 0) frame = requestAnimationFrame(draw)

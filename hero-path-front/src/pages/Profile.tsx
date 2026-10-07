@@ -15,7 +15,8 @@ import api from '../api'
 import LoadError from '../components/LoadError'
 import { useToasts } from '../useToasts'
 import AgentPicker from '../components/AgentPicker'
-import { RARITY_LABELS, formatDateRu, unwrapList } from '../lib/apiData'
+import { RARITY_LABELS, apiErrorMessage, formatDayMonth, unwrapList } from '../lib/apiData'
+import { plural } from '../lib/plural'
 import { useTabIndicator } from '../useTabIndicator'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -101,11 +102,24 @@ interface DuelRow {
   winner: { username: string; callsign: string } | null
 }
 
+interface DuelsResponse {
+  results?: DuelRow[]
+  bet_coins?: number
+  duration_days?: number
+  max_rating_diff?: number
+  my_rating?: number
+}
+
 interface MentorshipRow {
   id: number
   mentor: { username: string; callsign: string }
   mentee: { username: string; callsign: string }
   ended_at: string | null
+}
+
+// Позывной, а если его нет — логин с @, как в чипах макета.
+function agentName(agent: { username: string; callsign: string }): string {
+  return agent.callsign || `@${agent.username}`
 }
 
 interface UserBadge {
@@ -187,6 +201,9 @@ export default function Profile() {
   const avatarModal = useModal()
   const mentorModal = useModal()
   const duelModal = useModal()
+  const endModal = useModal()
+  // Чьё шефство завершаем: действие необратимое, поэтому сначала спрашиваем.
+  const [endTarget, setEndTarget] = useState<MentorshipRow | null>(null)
   const [duels, setDuels] = useState<DuelRow[]>([])
   const [duelInfo, setDuelInfo] = useState<{ bet: number; days: number; maxDiff: number; myRating: number }>(
     { bet: 0, days: 0, maxDiff: 0, myRating: 0 },
@@ -200,10 +217,24 @@ export default function Profile() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const { toasts, addToast } = useToasts()
 
-  const loadProfile = useCallback(() => {
-    setLoading(true)
-    setLoadError(false)
-    setNotFound(false)
+  const applyDuels = useCallback((data: DuelsResponse | undefined) => {
+    setDuels(data?.results ?? [])
+    setDuelInfo({
+      bet: data?.bet_coins ?? 0,
+      days: data?.duration_days ?? 0,
+      maxDiff: data?.max_rating_diff ?? 0,
+      myRating: data?.my_rating ?? 0,
+    })
+  }, [])
+
+  // quiet — обновить данные после действия на странице (закрепить нашивку,
+  // принять дуэль): без лоадера на весь экран и без прыжка прокрутки.
+  const loadProfile = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (!quiet) {
+      setLoading(true)
+      setLoadError(false)
+      setNotFound(false)
+    }
     const profileUrl = isOwnProfile
       ? '/api/v1/profile/me/'
       : `/api/v1/profile/${encodeURIComponent(routeUsername!)}/`
@@ -234,13 +265,7 @@ export default function Profile() {
           setQuestsCompleted(unwrapList(questsRes.data).length)
           setCharacteristics(unwrapList<CharacteristicItem>(charsRes.data))
           setAllBadges(unwrapList<UserBadge['badge']>(allBadgesRes.data))
-          setDuels(duelsRes.data?.results ?? [])
-          setDuelInfo({
-            bet: duelsRes.data?.bet_coins ?? 0,
-            days: duelsRes.data?.duration_days ?? 0,
-            maxDiff: duelsRes.data?.max_rating_diff ?? 0,
-            myRating: duelsRes.data?.my_rating ?? 0,
-          })
+          applyDuels(duelsRes.data)
           setMentees(mentorRes.data?.mentees ?? [])
           setMentors(mentorRes.data?.mentors ?? [])
         })
@@ -248,9 +273,12 @@ export default function Profile() {
     ]
 
     if (!isOwnProfile) {
+      // мои дуэли нужны и на чужом профиле: из них видно, можно ли вызвать
+      // этого человека — лимит разницы рейтинга задаёт бэкенд
       requests.push(
-        api.get('/api/v1/rating/me/').then((res) => {
-          setMyRating(res.data?.rating_current ?? null)
+        api.get('/api/v1/social/duels/my/').then((res) => {
+          applyDuels(res.data)
+          setMyRating(res.data?.my_rating ?? null)
         }),
       )
     } else {
@@ -259,6 +287,10 @@ export default function Profile() {
 
     return Promise.all(requests)
       .catch((err) => {
+        if (quiet) {
+          addToast('Не удалось обновить данные профиля', 'error')
+          return
+        }
         setProfile(null)
         if (err?.response?.status === 404) {
           setNotFound(true)
@@ -267,7 +299,7 @@ export default function Profile() {
         }
       })
       .finally(() => setLoading(false))
-  }, [isOwnProfile, routeUsername])
+  }, [isOwnProfile, routeUsername, applyDuels, addToast])
 
   useEffect(() => {
     loadProfile()
@@ -452,18 +484,15 @@ export default function Profile() {
     request
       .then(() => {
         addToast(isPinned ? 'Нашивка откреплена' : 'Нашивка закреплена!', 'success')
-        loadProfile()
+        loadProfile({ quiet: true })
       })
       .catch(() => addToast('Не удалось изменить нашивку', 'error'))
   }
 
   const duelAction = (id: number, action: 'accept' | 'reject' | 'cancel', message: string) => {
     api.post(`/api/v1/social/duels/${id}/${action}/`)
-      .then(() => { addToast(message, 'success'); loadProfile() })
-      .catch((err) => {
-        const detail = err.response?.data?.detail
-        addToast(typeof detail === 'string' ? detail : 'Не удалось выполнить действие', 'error')
-      })
+      .then(() => { addToast(message, 'success'); loadProfile({ quiet: true }) })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось выполнить действие'), 'error'))
   }
 
   const challengeAgent = () => {
@@ -476,18 +505,29 @@ export default function Profile() {
         addToast('Вызов отправлен!', 'success')
         duelModal.hide()
         setDuelUsername('')
-        loadProfile()
+        loadProfile({ quiet: true })
       })
-      .catch((err) => {
-        const detail = err.response?.data?.detail
-        addToast(typeof detail === 'string' ? detail : 'Не удалось вызвать на дуэль', 'error')
-      })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось вызвать на дуэль'), 'error'))
   }
 
-  const endMentorship = (id: number) => {
-    api.post(`/api/v1/social/mentorships/${id}/end/`)
-      .then(() => { addToast('Наставничество завершено', 'success'); loadProfile() })
-      .catch(() => addToast('Не удалось завершить наставничество', 'error'))
+  // Завершённое шефство — уже история, в карточке только действующее.
+  const activeMentees = mentees.filter((row) => !row.ended_at)
+  const activeMentors = mentors.filter((row) => !row.ended_at)
+
+  const askEndMentorship = (row: MentorshipRow) => {
+    setEndTarget(row)
+    endModal.show()
+  }
+
+  const endMentorship = () => {
+    if (!endTarget) return
+    api.post(`/api/v1/social/mentorships/${endTarget.id}/end/`)
+      .then(() => {
+        addToast('Шефство завершено', 'success')
+        endModal.hide()
+        loadProfile({ quiet: true })
+      })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось завершить шефство'), 'error'))
   }
 
   const handleRespect = () => {
@@ -495,10 +535,7 @@ export default function Profile() {
     setSocialBusy(true)
     api.post('/api/v1/social/respects/', { to_username: profile.username })
       .then(() => addToast('Респект отправлен!', 'success'))
-      .catch((err) => {
-        const detail = err.response?.data?.detail
-        addToast(typeof detail === 'string' ? detail : 'Не удалось отправить респект', 'error')
-      })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить респект'), 'error'))
       .finally(() => setSocialBusy(false))
   }
 
@@ -506,18 +543,29 @@ export default function Profile() {
     if (!profile?.username) return
     setSocialBusy(true)
     api.post('/api/v1/social/duels/', { opponent_username: profile.username })
-      .then(() => addToast('Вызов на дуэль отправлен!', 'success'))
-      .catch((err) => {
-        const detail = err.response?.data?.detail
-        addToast(typeof detail === 'string' ? detail : 'Не удалось вызвать на дуэль', 'error')
+      .then(() => {
+        addToast('Вызов на дуэль отправлен!', 'success')
+        loadProfile({ quiet: true })
       })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось вызвать на дуэль'), 'error'))
       .finally(() => setSocialBusy(false))
   }
 
-  const canDuel = !isOwnProfile
-    && profile?.rating_current != null
-    && myRating != null
-    && Math.abs(myRating - (profile.rating_current ?? 0)) <= 150
+  // Почему нельзя вызвать этого человека — пишем текстом под кнопкой:
+  // подсказка в title на телефоне не видна, а неактивная кнопка без
+  // объяснения выглядит как поломка.
+  const hasActiveDuel = duels.some((d) => d.status === 'pending' || d.status === 'accepted')
+  const ratingGap = profile?.rating_current != null && myRating != null
+    ? Math.abs(myRating - profile.rating_current)
+    : null
+  const duelBlockReason = isOwnProfile || ratingGap == null
+    ? ''
+    : hasActiveDuel
+      ? 'У тебя уже идёт дуэль — новая станет доступна после неё'
+      : duelInfo.maxDiff > 0 && ratingGap > duelInfo.maxDiff
+        ? `Разница рейтинга ${ratingGap}, а для дуэли нужна не больше ${duelInfo.maxDiff}`
+        : ''
+  const canDuel = !isOwnProfile && ratingGap != null && !duelBlockReason
 
   if (loading) {
     return (
@@ -547,7 +595,7 @@ export default function Profile() {
   if (loadError || !profile) {
     return (
       <div className="profile page-enter">
-        <LoadError onRetry={loadProfile} />
+        <LoadError onRetry={() => loadProfile()} />
       </div>
     )
   }
@@ -642,144 +690,153 @@ export default function Profile() {
         <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
           <button className="profile-aside__btn btn-press" onClick={editModal.show}>Настроить профиль</button>
           <div className="profile-aside__divider" />
-          <h3 className="profile-aside__title">Статистика:</h3>
-          <div className="profile-aside__stats">
-            <span className="profile-aside__pill">Выполнено квестов: <strong>{animQuests}</strong></span>
-            <span className="profile-aside__pill">
-              Получено нашивок: <strong>{animBadges}</strong>{allBadges.length ? <> из <strong>{allBadges.length}</strong></> : null}
-            </span>
-            {profile?.duel_wins != null && (
-              <span className="profile-aside__pill">Побед в дуэлях: <strong>{profile.duel_wins}</strong></span>
-            )}
-            {profile?.respects_received != null && (
+          <div className="profile-aside__section">
+            <h3 className="profile-aside__title">Статистика:</h3>
+            <div className="profile-aside__stats">
+              <span className="profile-aside__pill">Выполнено квестов: <strong>{animQuests}</strong></span>
               <span className="profile-aside__pill">
-                Респектов за месяц: <strong>{profile.respects_received}</strong>
+                Получено нашивок: <strong>{animBadges}</strong>{allBadges.length ? <> из <strong>{allBadges.length}</strong></> : null}
               </span>
-            )}
-          </div>
-          <h3 className="profile-aside__title profile-aside__title--sp">Шефство:</h3>
-          {mentees.length > 0 && (
-            <ul className="profile-social__list">
-              {mentees.map((row) => (
-                <li key={row.id} className="profile-social__row">
-                  <span>{row.mentee.callsign || row.mentee.username}</span>
-                  {row.ended_at ? (
-                    <span className="profile-social__muted">завершено</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="profile-social__link"
-                      onClick={() => endMentorship(row.id)}
-                    >
-                      завершить
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {mentors.length > 0 && (
-            <p className="profile-social__muted">
-              Наставник: {mentors.map((row) => row.mentor.callsign || row.mentor.username).join(', ')}
-            </p>
-          )}
-          <div className="profile-aside__mentor-row">
-            <button className="profile-aside__mentor-btn btn-press" onClick={mentorModal.show}>Стать наставником</button>
+              {profile?.duel_wins != null && (
+                <span className="profile-aside__pill">Побед в дуэлях: <strong>{profile.duel_wins}</strong></span>
+              )}
+              {profile?.respects_received != null && (
+                <span className="profile-aside__pill">
+                  Респектов за месяц: <strong>{profile.respects_received}</strong>
+                </span>
+              )}
+            </div>
           </div>
 
-          <h3 className="profile-aside__title profile-aside__title--sp">Дуэли:</h3>
-          {duels.length === 0 ? (
-            <p className="profile-social__muted">Дуэлей пока нет</p>
-          ) : (
-            <ul className="profile-social__list">
+          <div className="profile-aside__section">
+            <h3 className="profile-aside__title">Шефство:</h3>
+            <div className="profile-social">
+              {activeMentees.map((row) => (
+                <div key={row.id} className="profile-social__row">
+                  <span className="profile-aside__mentee">{agentName(row.mentee)}</span>
+                  <button
+                    type="button"
+                    className="profile-social__action profile-social__action--light btn-press"
+                    onClick={() => askEndMentorship(row)}
+                  >
+                    Завершить
+                  </button>
+                </div>
+              ))}
+              {activeMentors.length > 0 && (
+                <div className="profile-social__row">
+                  <span className="profile-social__label">
+                    {activeMentors.length > 1 ? 'Наставники:' : 'Наставник:'}
+                  </span>
+                  {activeMentors.map((row) => (
+                    <span key={row.id} className="profile-aside__mentee">{agentName(row.mentor)}</span>
+                  ))}
+                </div>
+              )}
+              <button className="profile-aside__mentor-btn btn-press" onClick={mentorModal.show}>Стать наставником</button>
+            </div>
+          </div>
+
+          <div className="profile-aside__section">
+            <h3 className="profile-aside__title">Дуэли:</h3>
+            <div className="profile-social">
+              {duels.length === 0 && <p className="profile-social__empty">Дуэлей пока нет</p>}
               {duels.slice(0, 5).map((duel) => {
                 const iAmOpponent = duel.opponent.username === profile?.username
                 const rival = iAmOpponent ? duel.challenger : duel.opponent
+                const won = duel.winner?.username === profile?.username
                 return (
-                  <li key={duel.id} className="profile-social__row">
-                    <span>{rival.callsign || rival.username}</span>
+                  <div key={duel.id} className="profile-social__row">
+                    <span className="profile-aside__mentee">{agentName(rival)}</span>
                     {duel.status === 'pending' && iAmOpponent && (
                       <span className="profile-social__actions">
                         <button
                           type="button"
-                          className="profile-social__link"
+                          className="profile-social__action btn-press"
                           onClick={() => duelAction(duel.id, 'accept', 'Вызов принят')}
                         >
-                          принять
+                          Принять
                         </button>
                         <button
                           type="button"
-                          className="profile-social__link profile-social__link--muted"
+                          className="profile-social__action profile-social__action--light btn-press"
                           onClick={() => duelAction(duel.id, 'reject', 'Вызов отклонён')}
                         >
-                          отклонить
+                          Отклонить
                         </button>
                       </span>
                     )}
                     {duel.status === 'pending' && !iAmOpponent && (
-                      <button
-                        type="button"
-                        className="profile-social__link profile-social__link--muted"
-                        onClick={() => duelAction(duel.id, 'cancel', 'Вызов отозван')}
-                      >
-                        отозвать
-                      </button>
+                      <>
+                        <span className="profile-social__status">ждёт ответа</span>
+                        <button
+                          type="button"
+                          className="profile-social__action profile-social__action--light btn-press"
+                          onClick={() => duelAction(duel.id, 'cancel', 'Вызов отозван')}
+                        >
+                          Отозвать
+                        </button>
+                      </>
                     )}
                     {duel.status === 'accepted' && (
-                      <span className="profile-social__muted">
-                        идёт, итог {duel.resolve_after ? formatDateRu(duel.resolve_after) : ''}
+                      <span className="profile-social__status">
+                        {duel.resolve_after ? `итог ${formatDayMonth(duel.resolve_after)}` : 'идёт'}
                       </span>
                     )}
                     {duel.status === 'finished' && (
-                      <span className="profile-social__muted">
-                        {duel.winner
-                          ? duel.winner.username === profile?.username ? 'победа' : 'поражение'
-                          : 'ничья'}
+                      <span
+                        className={`profile-social__status${
+                          duel.winner ? (won ? ' profile-social__status--win' : '') : ''
+                        }`}
+                      >
+                        {duel.winner ? (won ? 'Победа' : 'Поражение') : 'Ничья'}
                       </span>
                     )}
-                    {duel.status === 'rejected' && <span className="profile-social__muted">отменена</span>}
-                  </li>
+                    {duel.status === 'rejected' && <span className="profile-social__status">отменена</span>}
+                  </div>
                 )
               })}
-            </ul>
-          )}
-          {duelInfo.bet > 0 && (
-            <p className="profile-social__muted">
-              Ставка {duelInfo.bet} монет, итог через {duelInfo.days} дн. по приросту рейтинга
-            </p>
-          )}
-          <div className="profile-aside__mentor-row">
-            <button
-              type="button"
-              className="profile-aside__mentor-btn btn-press"
-              onClick={duelModal.show}
-            >
-              Вызвать на дуэль
-            </button>
+              {duelInfo.bet > 0 && (
+                <p className="profile-social__hint">
+                  Ставка {duelInfo.bet} {plural(duelInfo.bet, ['монета', 'монеты', 'монет'])}, итог через {duelInfo.days} дн.
+                </p>
+              )}
+              <button
+                type="button"
+                className="profile-aside__mentor-btn btn-press"
+                onClick={duelModal.show}
+              >
+                Вызвать на дуэль
+              </button>
+            </div>
           </div>
         </section>
         )}
 
         {!isOwnProfile && (
         <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
-          <h3 className="profile-aside__title">Социальные действия:</h3>
-          <button
-            className="profile-aside__btn btn-press"
-            type="button"
-            onClick={handleRespect}
-            disabled={socialBusy}
-          >
-            Отправить респект
-          </button>
-          <button
-            className="profile-aside__mentor-btn btn-press"
-            type="button"
-            onClick={handleDuel}
-            disabled={socialBusy || !canDuel}
-            title={canDuel ? undefined : 'Дуэль доступна при разнице рейтинга ≤ 150'}
-          >
-            Вызвать на дуэль
-          </button>
+          <div className="profile-aside__section">
+            <h3 className="profile-aside__title">Социальные действия:</h3>
+            <div className="profile-social">
+              <button
+                className="profile-aside__btn btn-press"
+                type="button"
+                onClick={handleRespect}
+                disabled={socialBusy}
+              >
+                Отправить респект
+              </button>
+              <button
+                className="profile-aside__mentor-btn btn-press"
+                type="button"
+                onClick={handleDuel}
+                disabled={socialBusy || !canDuel}
+              >
+                Вызвать на дуэль
+              </button>
+              {duelBlockReason && <p className="profile-social__hint">{duelBlockReason}</p>}
+            </div>
+          </div>
         </section>
         )}
       </div>
@@ -977,7 +1034,7 @@ export default function Profile() {
           <div className="modal-fixed__content" ref={duelModal.ref}>
             <h3 className="popup__title">Вызвать на дуэль</h3>
             <label className="popup__label">
-              Ставка {duelInfo.bet} монет. Побеждает тот, кто за {duelInfo.days} дн. прибавит
+              Ставка {duelInfo.bet} {plural(duelInfo.bet, ['монета', 'монеты', 'монет'])}. Побеждает тот, кто за {duelInfo.days} дн. прибавит
               больше рейтинга
             </label>
             <AgentPicker
@@ -1033,11 +1090,32 @@ export default function Profile() {
                     addToast('Наставничество оформлено!', 'success')
                     mentorModal.hide()
                     setMenteeUsername('')
-                    loadProfile()
+                    loadProfile({ quiet: true })
                   })
-                  .catch(() => { addToast('Не удалось оформить наставничество', 'error') })
+                  .catch((err) => addToast(apiErrorMessage(err, 'Не удалось оформить наставничество'), 'error'))
               }}>
                 Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Подтверждение: завершить шефство */}
+      {endModal.open && endTarget && (
+        <div className="modal-fixed">
+          <div className="modal-fixed__content" ref={endModal.ref}>
+            <h3 className="popup__title">Завершить шефство?</h3>
+            <p className="popup__label">
+              {agentName(endTarget.mentee)} больше не будет числиться твоим подшефным, а еженедельные монеты
+              за него перестанут начисляться.
+            </p>
+            <div className="shop-modal__buttons">
+              <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={endModal.hide}>
+                Отмена
+              </button>
+              <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={endMentorship}>
+                Завершить
               </button>
             </div>
           </div>

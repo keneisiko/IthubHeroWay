@@ -2406,7 +2406,7 @@ body {
 }
 
 .profile-aside__title {
-  margin: 0 0 12px;
+  margin: 0;
   font-family: 'TT Firs Neue', sans-serif;
   font-size: 28px;
   font-weight: 700;
@@ -2414,7 +2414,13 @@ body {
   color: #9a33f4;
 }
 
-.profile-aside__title--sp { margin-top: 18px; }
+/* Секция карточки: заголовок и содержимое через 12px, секции между
+   собой — через общий gap карточки (20px), как в макете */
+.profile-aside__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
 
 .profile-aside__stats {
   display: flex;
@@ -2435,8 +2441,10 @@ body {
 }
 
 .profile-aside__mentee {
-  margin-top: 2px;
-  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border-radius: 48px;
   padding: 5px 16px;
   border: 4px solid #121212;
@@ -4763,6 +4771,11 @@ body {
   transform: scale(0.96);
 }
 
+/* неактивная кнопка не «проседает» под пальцем — нажатия ведь не будет */
+.btn-press:disabled:active {
+  transform: none;
+}
+
 /* Фикс для активных осей радара */
 .profile-radar__axis--active {
   background: #9a33f4 !important;
@@ -5028,16 +5041,6 @@ body {
   text-decoration: underline;
   text-underline-position: from-font;
 }
-
-/* Шефство: чип подшефного и кнопка в одну строку — по макету Figma */
-.profile-aside__mentor-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-}
-
-.profile-aside__mentor-row .profile-aside__mentor-btn { margin-top: 0; }
 
 /* Обёртка иконки в сайдбаре: flex убирает лишнюю строчную высоту,
    чтобы её центр совпадал с центром самой иконки */
@@ -5660,52 +5663,94 @@ body {
   cursor: default;
 }
 
-/* Списки дуэлей и подшефных в боковой карточке профиля. */
-.profile-social__list {
+/* Шефство и дуэли в боковой карточке профиля. Словарь макета: человек —
+   белый чип в чёрной рамке с фиолетовым именем, главное действие — чёрная
+   кнопка, подписи — Montserrat 20 SemiBold. Мелкий «обычный» текст сюда
+   не пускаем. */
+.profile-social {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-  margin: 0 0 var(--space-12);
-  padding: 0;
-  list-style: none;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+.profile-social .profile-aside__mentor-btn { margin-top: var(--space-8); }
+.profile-social .profile-aside__btn { margin: 0; }
+
+/* Кнопка, которую сейчас нажать нельзя: причина написана под ней */
+.profile-aside__btn:disabled,
+.profile-aside__mentor-btn:disabled {
+  background: var(--grey-text);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 .profile-social__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-8);
-  font-family: var(--font-text);
-  font-size: 15px;
-  font-weight: 600;
+  gap: var(--space-8) var(--space-12);
+  max-width: 100%;
 }
 
 .profile-social__actions {
   display: flex;
-  gap: var(--space-8);
+  gap: var(--space-12);
 }
 
-.profile-social__link {
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--purple-500);
-  font-family: var(--font-text);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.profile-social__link--muted {
-  color: #848484;
-}
-
-.profile-social__muted {
-  color: #848484;
-  font-family: var(--font-text);
-  font-size: 14px;
+.profile-social__label,
+.profile-social__status,
+.profile-social__empty {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1;
+  color: var(--ithub-black);
+}
+
+.profile-social__status,
+.profile-social__empty { color: var(--grey-text); }
+
+.profile-social__status--win { color: var(--purple-500); }
+
+.profile-social__hint {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--grey-text);
+}
+
+/* Действие над человеком — пилюля того же размера, что и чип рядом */
+.profile-social__action {
+  min-height: 35px;
+  padding: 4px var(--space-16);
+  border-radius: 48px;
+  border: 4px solid var(--purple-500);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .2s, border-color .2s, color .2s;
+}
+
+.profile-social__action:hover { background: #8424d9; border-color: #8424d9; }
+
+.profile-social__action--light {
+  border-color: var(--ithub-black);
+  background: var(--ithub-white);
+  color: var(--ithub-black);
+}
+
+.profile-social__action--light:hover {
+  background: var(--ithub-white);
+  border-color: var(--purple-500);
+  color: var(--purple-500);
 }
 
 /* Подсказки поиска студентов в модалках социальных действий. */
@@ -6301,7 +6346,8 @@ body {
     height: auto;
   }
 
-  .profile-card--map { min-height: 0; }
+  .profile-card--map,
+  .profile-card--aside { min-height: 0; }
 
   /* фоновые пятна на узком экране только мешают и дают горизонтальный скролл */
   .dash-glow { display: none; }

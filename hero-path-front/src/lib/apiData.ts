@@ -54,6 +54,15 @@ export function formatDateRu(iso: string): string {
   }
 }
 
+/** «14 октября» — для близких дат, где год только мешает. */
+export function formatDayMonth(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(iso))
+  } catch {
+    return iso
+  }
+}
+
 export function formatDateTimeRu(iso: string): string {
   try {
     return new Intl.DateTimeFormat('ru-RU', {
@@ -76,12 +85,37 @@ export const RARITY_LABELS: Record<string, string> = {
   legendary: 'Легендарный',
 }
 
-// Бэкенд магазина отвечает по-английски — переводим то, что знаем.
+// Часть ответов бэкенда — по-английски. Переводим то, что знаем.
 const KNOWN_DETAILS: Record<string, string> = {
   'Insufficient coins.': 'Не хватает монет',
   'Item is not available yet.': 'Товар пока недоступен',
   'Item is no longer available.': 'Товар больше недоступен',
+  'Cannot send respect to yourself.': 'Себе респект не отправить',
+  'Weekly respect limit reached.': 'Респекты на эту неделю закончились',
+  'You can respect this user again in two weeks.': 'Этому студенту снова можно будет отправить респект через две недели',
+  'Cannot duel yourself.': 'Себя на дуэль не вызвать',
+  'You already have an active duel.': 'У тебя уже есть активная дуэль',
+  'Opponent already has an active duel.': 'У соперника уже есть активная дуэль',
+  'Cannot mentor yourself.': 'Себе наставником не стать',
+  'You are already in a squad.': 'Ты уже состоишь в отряде',
+  'Squad not found.': 'Отряд с таким кодом не найден',
+  'Squad is full.': 'В отряде нет свободных мест',
+  'Only agents can create squads.': 'Отряды создают только студенты',
+  'Could not allocate a squad code, try again.': 'Не получилось выдать код отряда, попробуй ещё раз',
+  'Quest does not accept self-reports.': 'Этот квест не принимает самоотчёты',
+  'Quest is not started yet.': 'Квест ещё не начался',
+  'Quest is already ended.': 'Срок квеста уже истёк',
+  'Quest is already completed.': 'Квест уже выполнен',
+  'Too frequent. Try again later.': 'Слишком часто, попробуй чуть позже',
+  'Progress for this quest is updated automatically.': 'Прогресс этого квеста считается автоматически',
 }
+
+// Ответы с числом внутри: лимиты берутся из настроек бэкенда.
+const KNOWN_PATTERNS: [RegExp, (n: string) => string][] = [
+  [/^Rating difference must be (\d+) or less\.$/, (n) => `Разница рейтинга должна быть не больше ${n}`],
+  [/^Mentee limit reached \((\d+)\)\.$/, (n) => `Подшефных уже ${n} — это максимум`],
+  [/^Daily self-report limit reached \((\d+)\/day\)\.$/, (n) => `Самоотчётов на сегодня больше нельзя: лимит ${n}`],
+]
 
 /**
  * Текст ошибки запроса для пользователя.
@@ -94,5 +128,9 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
   if (typeof detail !== 'string' || !detail.trim()) return fallback
   if (KNOWN_DETAILS[detail]) return KNOWN_DETAILS[detail]
+  for (const [pattern, translate] of KNOWN_PATTERNS) {
+    const match = detail.match(pattern)
+    if (match) return translate(match[1])
+  }
   return /[а-яё]/i.test(detail) ? detail : fallback
 }

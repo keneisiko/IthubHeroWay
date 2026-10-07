@@ -201,12 +201,19 @@ export default function Dashboard() {
   const tilt = useTilt()
   const { toasts, addToast } = useToasts()
 
-  const loadDashboard = useCallback(() => {
-    setLoadError(false)
-    setLoading(true)
+  // quiet — обновить после действия без лоадера на весь экран
+  const loadDashboard = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (!quiet) {
+      setLoadError(false)
+      setLoading(true)
+    }
     api.get('/api/v1/dashboard/')
       .then(res => setData(res.data))
       .catch(() => {
+        if (quiet) {
+          addToast('Не удалось обновить главную', 'error')
+          return
+        }
         setData(null)
         setLoadError(true)
         addToast('Не удалось загрузить дашборд', 'error')
@@ -234,7 +241,7 @@ export default function Dashboard() {
   if (loadError) {
     return (
       <div className="dashboard page-enter">
-        <LoadError className="profile-loading" onRetry={loadDashboard} />
+        <LoadError className="profile-loading" onRetry={() => loadDashboard()} />
       </div>
     )
   }
@@ -494,7 +501,7 @@ export default function Dashboard() {
             // Это заявка куратору, а не зачёт: награда придёт после одобрения
             // (apps/quests/views.py, QuestCompleteView). «Квест подтверждён!»
             // обещал то, чего ещё не случилось.
-            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Отправлено куратору на проверку', 'success'); celebrate('small'); loadDashboard() })
+            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Отправлено куратору на проверку', 'success'); celebrate('small'); loadDashboard({ quiet: true }) })
             .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
         }}
       />

@@ -4,7 +4,7 @@ import userAvatar from '../assets/branding/user-avatar.png'
 import api from '../api'
 import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
-import { unwrapList } from '../lib/apiData'
+import { apiErrorMessage, unwrapList } from '../lib/apiData'
 
 type SortKey = 'name' | 'track' | 'status'
 
@@ -225,10 +225,7 @@ export default function Squads() {
         setJoinCode('')
         loadSquad()
       })
-      .catch((err) => {
-        const msg = err.response?.data?.detail || 'Не удалось вступить в отряд'
-        addToast(typeof msg === 'string' ? msg : 'Не удалось вступить в отряд', 'error')
-      })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось вступить в отряд'), 'error'))
       .finally(() => setSubmitting(false))
   }, [addToast, loadSquad])
 
@@ -249,10 +246,7 @@ export default function Squads() {
         setCreateName('')
         loadSquad()
       })
-      .catch((err) => {
-        const msg = err.response?.data?.detail || 'Не удалось создать отряд'
-        addToast(typeof msg === 'string' ? msg : 'Не удалось создать отряд', 'error')
-      })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось создать отряд'), 'error'))
       .finally(() => setSubmitting(false))
   }, [addToast, createCourse, createName, loadSquad])
 

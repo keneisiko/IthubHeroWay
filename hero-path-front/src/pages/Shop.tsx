@@ -95,8 +95,10 @@ export default function Shop() {
   const tabsScrollRef = useRef<HTMLElement>(null)
   const tabIndicator = useTabIndicator(activeTab, loading, tabsScrollRef)
 
-  const loadShop = useCallback(() => {
-    setLoading(true)
+  // quiet — обновить после покупки без лоадера: иначе сетка товаров
+  // пропадает, страница сжимается и прокрутка прыгает вверх.
+  const loadShop = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (!quiet) setLoading(true)
     const itemType = SHOP_TAB_TYPES[activeTab]
 
     Promise.all([
@@ -163,7 +165,7 @@ export default function Shop() {
       ))
 
       setCoins(String(profileRes.data.coins_balance ?? 0))
-    }).catch(() => addToast('Не удалось загрузить магазин', 'error'))
+    }).catch(() => addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error'))
       .finally(() => setLoading(false))
   }, [activeTab, addToast])
 
@@ -182,7 +184,7 @@ export default function Shop() {
     request
       .then(() => {
         addToast(purchase.isApplied ? 'Покупка снята' : 'Покупка применена', 'success')
-        return loadShop()
+        loadShop({ quiet: true })
       })
       .catch(() => addToast('Не удалось изменить покупку', 'error'))
       .finally(() => setApplyingId(null))
@@ -204,7 +206,7 @@ export default function Shop() {
         addToast('Покупка оформлена!', 'success')
         celebrate('big')
         notifyBalanceChanged()
-        loadShop()
+        loadShop({ quiet: true })
       })
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось оформить покупку'), 'error'))
       .finally(() => setShowPurchase(null))
