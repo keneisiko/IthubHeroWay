@@ -2738,6 +2738,10 @@ body {
 
 .q1__card-reward-coins { color: var(--sys-yellow); }
 
+/* полоска прогресса и «Показать все» — только в мобильной ленте */
+.q1__card-bar,
+.q1__quests-more { display: none; }
+
 .q1__card-confirm {
   width: 100%;
   border-radius: var(--radius-16);
@@ -6117,7 +6121,7 @@ body {
 
   .app-shell {
     /* место под нижнюю панель, чтобы она не перекрывала контент */
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
   .app-content,
@@ -6197,7 +6201,7 @@ body {
   /* кнопка «наверх» поднимается над нижней панелью */
   .scroll-top {
     right: 16px;
-    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
     width: 44px;
     height: 44px;
   }
@@ -6205,19 +6209,19 @@ body {
   /* --- нижняя навигация --- */
   .bottom-nav {
     display: flex;
+    /* прибита к нижнему краю: под ней ничего не просвечивает */
     position: fixed;
-    left: 50%;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 95;
-    width: calc(100vw - 24px);
-    max-width: 416px;
     box-sizing: border-box;
     align-items: center;
     justify-content: space-between;
     gap: 2px;
-    padding: 8px 10px;
-    border-radius: var(--radius-24);
+    /* на планшете иконки не разъезжаются по всей ширине */
+    padding: 8px max(10px, calc((100% - 416px) / 2)) calc(8px + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--radius-24) var(--radius-24) 0 0;
     background: var(--ithub-white);
     box-shadow: var(--card-shadow);
   }
@@ -6258,14 +6262,6 @@ body {
     pointer-events: none;
   }
 
-  /* при прокрутке вниз панель уходит за нижний край */
-  .bottom-nav {
-    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .bottom-nav--hidden {
-    transform: translate(-50%, calc(100% + 24px + env(safe-area-inset-bottom, 0px)));
-  }
 
   .bottom-nav__icon {
     display: flex;
@@ -6579,11 +6575,109 @@ body {
     min-height: 0;
   }
 
-  .q1__card-pct { font-size: 28px; }
+  /* --- квесты: компактная лента вместо прокрутки внутри прокрутки ---
+     одна карточка больше не занимает весь экран: шапка с типом и
+     процентом, название, полоска прогресса, награда и срок строкой */
+  .q1__quests-slot { padding: var(--space-16); }
 
-  .q1__card-top { flex-wrap: wrap; font-size: 15px; }
+  .q1__quests-slot-inner {
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    gap: var(--space-12);
+  }
 
-  .q1__card-kind { font-size: 18px; }
+  .q1__quests-slot-inner:not(.q1__quests-slot-inner--all) > .q1__card:nth-child(n + 4) {
+    display: none;
+  }
+
+  .q1__quests-more {
+    display: block;
+    width: 100%;
+    height: 48px;
+    border: var(--stroke-4) solid var(--ithub-white);
+    border-radius: var(--radius-16);
+    background: var(--ithub-black);
+    color: var(--ithub-white);
+    font-family: var(--font-text);
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .q1__card { padding: var(--space-12) var(--space-16) var(--space-16); }
+  .q1__card-body { gap: var(--space-8); }
+
+  .q1__card-top {
+    flex-wrap: wrap;
+    row-gap: var(--space-8);
+    font-size: 15px;
+  }
+
+  .q1__card-kind { order: 0; font-size: 16px; }
+  /* «Цель недели» уходит ко сроку, чтобы процент не съезжал вниз */
+  .q1__card-focus { order: 5; }
+  .q1__card-kind-ic { display: none; }
+  .q1__card-pct { order: 2; margin-left: auto; font-size: 24px; line-height: 1; }
+
+  /* срок переносится на вторую строку шапки */
+  .q1__card-top::after { content: ''; order: 3; flex-basis: 100%; }
+  .q1__card-left { order: 4; margin: 0; height: 24px; font-size: 14px; padding: 0 var(--space-12); }
+
+  .q1__card-name { font-size: 18px; line-height: 1.2; }
+  .q1__card-desc {
+    font-size: 15px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .q1__card-bar {
+    display: block;
+    height: 8px;
+    border-radius: 8px;
+    background: var(--ithub-black);
+    overflow: hidden;
+  }
+
+  .q1__card-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 8px;
+    background: var(--purple-500);
+  }
+
+  .q1__card--completed .q1__card-bar span { background: var(--sys-green, #6cd63e); }
+
+  .q1__card-reward {
+    justify-content: flex-start;
+    width: fit-content;
+    max-width: 100%;
+    padding: 6px var(--space-12);
+    font-size: 15px;
+  }
+
+  /* еженедельный выбор: варианты тоже компактные */
+  .q1__choice-options { gap: var(--space-12); }
+  .q1__option { padding: var(--space-16); gap: var(--space-8); }
+  .q1__option-title { font-size: 20px; line-height: 1.15; }
+  .q1__option-task { font-size: 15px; line-height: 1.3; }
+  .q1__option-reward {
+    width: fit-content;
+    padding: 6px var(--space-12);
+    font-size: 15px;
+  }
+  .q1__option-pick { height: 44px; font-size: 18px; }
+  .q1__choice-lead { font-size: 18px; line-height: 1.25; }
+
+  .q1__card-confirm {
+    padding: 0 var(--space-16);
+    height: 44px;
+    font-size: 18px;
+    border-radius: var(--radius-12);
+  }
 
   /* --- кошелёк магазина --- */
   .shop-wallet__label,

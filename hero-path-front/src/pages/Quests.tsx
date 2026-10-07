@@ -48,7 +48,11 @@ function useModal(initial = false) {
 }
 
 // Склонение дней для подписи серии
+// сколько квестов видно на телефоне до «Показать все»
+const MOBILE_QUESTS = 3
+
 export default function Quests() {
+  const [showAllQuests, setShowAllQuests] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
   const [quests, setQuests] = useState<UiQuest[]>([])
   const [completedQuests, setCompletedQuests] = useState<UiQuest[]>([])
@@ -238,7 +242,7 @@ export default function Quests() {
                 ref={tabIndicator.registerTab(i)}
                 aria-selected={i === activeTab}
                 className={`q1__tab${i === activeTab ? ' q1__tab--active' : ''} btn-press`}
-                onClick={() => setActiveTab(i)}
+                onClick={() => { setActiveTab(i); setShowAllQuests(false) }}
               >{t}</button>
             ))}
           </div>
@@ -277,7 +281,7 @@ export default function Quests() {
               <h2 className="q1__quests-title">
                 {activeTab === 0 ? 'Активный квест' : 'Выполненные квесты'}
               </h2>
-              <div className="q1__quests-slot-inner">
+              <div className={`q1__quests-slot-inner${showAllQuests ? ' q1__quests-slot-inner--all' : ''}`}>
                 {currentQuests.map((q, i) => (
                   <article key={q.id} className={`q1__card hover-lift ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
                     <div className="q1__card-body">
@@ -308,6 +312,10 @@ export default function Quests() {
                         <div className="q1__card-desc">{q.desc}</div>
                         {q.note && <div className="q1__card-team">{q.note}</div>}
                       </div>
+                      {/* на телефоне прогресс виден полоской, процент — в углу */}
+                      <div className="q1__card-bar" aria-hidden="true">
+                        <span style={{ width: `${q.progress}%` }} />
+                      </div>
                       <div className="q1__card-reward">
                         Награда:&nbsp;<span className="q1__card-reward-coins">{q.reward}</span>
                       </div>
@@ -329,7 +337,6 @@ export default function Quests() {
                           Куратор отклонил подтверждение
                         </div>
                       )}
-                      {q.note && <div className="q1__card-note">{q.note}</div>}
                     </div>
                   </article>
                 ))}
@@ -339,6 +346,18 @@ export default function Quests() {
                   </div>
                 )}
               </div>
+              {/* на телефоне сначала видны три квеста, остальные — по кнопке;
+                  на десктопе список прокручивается внутри слота */}
+              {currentQuests.length > MOBILE_QUESTS && (
+                <button
+                  type="button"
+                  className="q1__quests-more btn-press"
+                  onClick={() => setShowAllQuests((v) => !v)}
+                  aria-expanded={showAllQuests}
+                >
+                  {showAllQuests ? 'Свернуть' : `Показать все (${currentQuests.length})`}
+                </button>
+              )}
 
 
             </div>
