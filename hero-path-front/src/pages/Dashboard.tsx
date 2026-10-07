@@ -217,9 +217,10 @@ export default function Dashboard() {
     loadDashboard()
   }, [loadDashboard])
 
-  const rating = data?.user.rating_current ?? 0
+  // Цепочка обрывалась после data?: ответ без user ронял страницу в белый экран
+  const rating = data?.user?.rating_current ?? 0
   const ratingDisplay = useCountUp(rating)
-  const level = data?.user.level ?? 0
+  const level = data?.user?.level ?? 0
   const questTitle = data?.current_quest?.title ?? 'На сегодня всё. Отдыхай.'
   // Прогресс приходит долей (0.15), а не процентами: на дашборде он
   // выводился как «0.15%», хотя в списке квестов — как 15%.
