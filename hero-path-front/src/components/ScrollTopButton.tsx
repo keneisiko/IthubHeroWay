@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 
 /**
  * Кнопка «наверх» на длинных страницах: лидеры, нашивки, квесты на
- * телефоне уходят на несколько экранов вниз. Появляется после полутора
- * экранов прокрутки.
+ * телефоне уходят на несколько экранов вниз. Появляется, когда
+ * прокрутил больше экрана.
  */
 export default function ScrollTopButton() {
   const [visible, setVisible] = useState(false)
@@ -14,7 +14,7 @@ export default function ScrollTopButton() {
       if (frame) return
       frame = requestAnimationFrame(() => {
         frame = 0
-        setVisible(window.scrollY > window.innerHeight * 1.5)
+        setVisible(window.scrollY > window.innerHeight)
       })
     }
     onScroll()

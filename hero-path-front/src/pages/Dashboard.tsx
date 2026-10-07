@@ -301,7 +301,7 @@ export default function Dashboard() {
   const activity = data?.feed ?? []
 
   return (
-    <div className="dashboard page-enter">
+    <div className="dashboard dashboard--home page-enter">
       <div className="dash-glow dash-glow--a" aria-hidden="true" />
       <div className="dash-glow dash-glow--b" aria-hidden="true" />
 

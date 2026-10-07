@@ -81,7 +81,8 @@ export default function Leaderboard() {
   const [totalAgents, setTotalAgents] = useState(0)
   const [agents, setAgents] = useState<LeaderItem[]>([])
   const [squads, setSquads] = useState<LeaderItem[]>([])
-  const [myRank, setMyRank] = useState({ rank: 0, delta: '0' })
+  const [myRank, setMyRank] = useState({ rank: 0, delta: '0', username: '' })
+  const myRowRef = useRef<HTMLDivElement | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
@@ -102,6 +103,18 @@ export default function Leaderboard() {
       setActiveTab(tab)
       setTransitioning(false)
     }, 280)
+  }
+
+  // «Моё место»: если ты в списке — прокрутить к своей строке и мигнуть
+  // ей, иначе открыть свой профиль
+  const goToMyPlace = () => {
+    const row = myRowRef.current
+    if (!row) { navigate('/profile'); return }
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    row.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
+    row.classList.remove('leaderboard-item--flash')
+    void row.offsetWidth
+    row.classList.add('leaderboard-item--flash')
   }
 
   const loadLeaderboard = useCallback(() => {
@@ -157,6 +170,7 @@ export default function Leaderboard() {
       setMyRank({
         rank: meRes.data?.rank ?? 0,
         delta: String(meRes.data?.rating_current ?? 0),
+        username: meRes.data?.username ?? '',
       })
     }).catch(() => {
       setAgents([])
@@ -263,10 +277,13 @@ export default function Leaderboard() {
 
         <div className={`leaderboard-panel${transitioning ? ' leaderboard-panel--transitioning' : ''}`}>
           <div className="leaderboard-list">
-            {filteredItems.map((item, i) => (
-              <div 
-                className="leaderboard-item hover-lift" 
-                key={item.username} 
+            {filteredItems.map((item, i) => {
+              const isMe = activeTab === 'agents' && item.username === myRank.username
+              return (
+              <div
+                className={`leaderboard-item hover-lift${isMe ? ' leaderboard-item--me' : ''}`}
+                key={item.username}
+                ref={isMe ? myRowRef : undefined}
                 style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
               >
                 <div className={item.badgeClass}>{item.rank}</div>
@@ -281,6 +298,7 @@ export default function Leaderboard() {
                     )}
                     <div className="leaderboard-item__meta">
                       <span className="tag tag--title">{item.title}</span>
+                      {isMe && <span className="tag tag--me">Это ты</span>}
                       {item.track && <span className="tag tag--track">{item.track}</span>}
                       {item.status && <span className="tag tag--status">{item.status}</span>}
                     </div>
@@ -294,7 +312,8 @@ export default function Leaderboard() {
                   </button>
                 </div>
               </div>
-            ))}
+              )
+            })}
             {filteredItems.length === 0 && (
               <div className="leaderboard-empty" style={{
                 textAlign: 'center', padding: '40px 20px', color: '#848484',
@@ -310,7 +329,7 @@ export default function Leaderboard() {
           <button
             type="button"
             className="leaderboard-myplace btn-press"
-            onClick={() => navigate('/profile')}
+            onClick={goToMyPlace}
           >
             Моё место: <strong>{animMyRank}</strong>
             {totalAgents ? <> из {totalAgents}</> : null}

@@ -48,7 +48,7 @@ function useModal(initial = false) {
 }
 
 // Склонение дней для подписи серии
-// сколько квестов видно на телефоне до «Показать все»
+// сколько квестов видно до «Показать все»
 const MOBILE_QUESTS = 3
 
 export default function Quests() {
@@ -346,8 +346,7 @@ export default function Quests() {
                   </div>
                 )}
               </div>
-              {/* на телефоне сначала видны три квеста, остальные — по кнопке;
-                  на десктопе список прокручивается внутри слота */}
+              {/* сначала видны три квеста, остальные — по кнопке */}
               {currentQuests.length > MOBILE_QUESTS && (
                 <button
                   type="button"

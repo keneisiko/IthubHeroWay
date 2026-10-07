@@ -2600,33 +2600,13 @@ body {
   gap: 12px;
   /* в макете карточки уже слота на 8 с каждой стороны */
   padding: 0 var(--space-8);
-  /* Список прокручивается внутри слота: с экземплярами квестов на каждый
-     период карточек становится много, и без ограничения высоты страница
-     уезжала вниз без конца, унося кнопку подтверждения за край экрана. */
-  max-height: min(58vh, 620px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(18, 18, 18, 0.35) transparent;
-  /* Место под полосу прокрутки, чтобы карточки не дёргались при её появлении. */
-  padding-right: var(--space-12);
 }
 
-.q1__quests-slot-inner::-webkit-scrollbar {
-  width: 8px;
-}
-
-.q1__quests-slot-inner::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.q1__quests-slot-inner::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background: rgba(18, 18, 18, 0.35);
-}
-
-.q1__quests-slot-inner::-webkit-scrollbar-thumb:hover {
-  background: rgba(18, 18, 18, 0.55);
+/* Квестов на каждый период много: видны первые три, остальные — по
+   кнопке «Показать все». Раньше список прокручивался внутри слота —
+   прокрутка в прокрутке, и с телефона его было не пролистать. */
+.q1__quests-slot-inner:not(.q1__quests-slot-inner--all) > .q1__card:nth-child(n + 4) {
+  display: none;
 }
 
 .q1__card {
@@ -2739,8 +2719,20 @@ body {
 .q1__card-reward-coins { color: var(--sys-yellow); }
 
 /* полоска прогресса и «Показать все» — только в мобильной ленте */
-.q1__card-bar,
-.q1__quests-more { display: none; }
+.q1__card-bar { display: none; }
+
+.q1__quests-more {
+  width: 100%;
+  height: 56px;
+  border: var(--stroke-4) solid var(--ithub-white);
+  border-radius: var(--radius-16);
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 .q1__card-confirm {
   width: 100%;
@@ -5407,6 +5399,35 @@ body {
 
 .leaderboard-myplace strong { color: var(--purple-500); }
 
+/* своя строка в списке: фиолетовая карточка и пометка «Это ты» */
+.leaderboard-item--me .leaderboard-item__card {
+  background: #f3e8ff;
+  border-color: var(--purple-500);
+  box-shadow: 0 0 0 3px rgba(154, 51, 244, 0.25), var(--card-shadow);
+}
+
+.tag--me {
+  padding: 4px var(--space-12);
+  border-radius: var(--radius-48);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* «Моё место» нажато — строка коротко пульсирует */
+.leaderboard-item--flash .leaderboard-item__card { animation: myRowFlash 1.2s ease-out; }
+
+@keyframes myRowFlash {
+  0%, 40% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(154, 51, 244, 0.35); }
+  100% { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaderboard-item--flash .leaderboard-item__card { animation: none; }
+}
+
 /* Панель фильтров */
 .leaderboard-filters {
   position: absolute;
@@ -6317,8 +6338,18 @@ body {
 
   /* в мобильном макете активный квест идёт перед лентой активности,
      на десктопе они лежат в двух колонках и порядок другой */
-  .dashboard__bottom .quest { order: 1; }
-  .dashboard__bottom .activity-card { order: 2; }
+  /* на телефоне сначала то, ради чего заходят: рейтинг и активный
+     квест с кнопкой «Подтвердить»; серия, лента и радар — ниже.
+     Обёртки колонок растворяются, и карточки встают в один поток */
+  .dashboard__top,
+  .dashboard__left-col,
+  .dashboard__bottom { display: contents; }
+
+  .dashboard--home .card--purple { order: 1; }
+  .dashboard--home .quest { order: 2; }
+  .dashboard--home .card--light { order: 3; }
+  .dashboard--home .activity-card { order: 4; }
+  .dashboard--home .radar-card { order: 5; }
 
   /* карточки распрямляются по ширине экрана, высота — по содержимому */
   .card--light,
@@ -6575,35 +6606,24 @@ body {
     min-height: 0;
   }
 
+  /* «Моё место» на телефоне всегда под рукой: прилипает к низу экрана
+     над нижней панелью, пока листаешь список */
+  .leaderboard-myplace {
+    position: sticky;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    height: 52px;
+    font-size: 20px;
+  }
+
   /* --- квесты: компактная лента вместо прокрутки внутри прокрутки ---
      одна карточка больше не занимает весь экран: шапка с типом и
      процентом, название, полоска прогресса, награда и срок строкой */
   .q1__quests-slot { padding: var(--space-16); }
 
-  .q1__quests-slot-inner {
-    max-height: none;
-    overflow: visible;
-    padding: 0;
-    gap: var(--space-12);
-  }
+  .q1__quests-slot-inner { padding: 0; }
 
-  .q1__quests-slot-inner:not(.q1__quests-slot-inner--all) > .q1__card:nth-child(n + 4) {
-    display: none;
-  }
-
-  .q1__quests-more {
-    display: block;
-    width: 100%;
-    height: 48px;
-    border: var(--stroke-4) solid var(--ithub-white);
-    border-radius: var(--radius-16);
-    background: var(--ithub-black);
-    color: var(--ithub-white);
-    font-family: var(--font-text);
-    font-size: 18px;
-    font-weight: 700;
-    cursor: pointer;
-  }
+  .q1__quests-more { height: 48px; font-size: 18px; }
 
   .q1__card { padding: var(--space-12) var(--space-16) var(--space-16); }
   .q1__card-body { gap: var(--space-8); }
