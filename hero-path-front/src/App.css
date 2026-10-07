@@ -569,7 +569,9 @@ body {
 
 .right-sidebar {
   width: 100px;
-  height: 620px;
+  /* высота по числу пунктов: при фиксированных 620px седьмой пункт
+     обрезался нижним краем панели */
+  height: auto;
   border-radius: var(--radius-24);
   /* в макете 24 внешних + 20 внутренних отступа сверху и снизу */
   padding: 44px 0;
@@ -3897,12 +3899,14 @@ body {
   margin: 0;
 }
 
+/* Карточка участников фиолетовая, поэтому кнопка белая с фиолетовым
+   текстом — как в макете. Прозрачная с фиолетовой обводкой сливалась с фоном. */
 .squad-members__sort {
   height: 40px;
   border-radius: 12px;
-  border: 3px solid #9a33f4;
-  background: transparent;
-  color: #9a33f4;
+  border: 3px solid var(--ithub-white);
+  background: var(--ithub-white);
+  color: var(--purple-500);
   font-family: 'Montserrat', sans-serif;
   font-size: 16px;
   font-weight: 700;
@@ -6083,8 +6087,7 @@ body {
   .profile__top,
   .q1,
   .q1__right,
-  .squad-page__top,
-  .shop-grid {
+  .squad-page__top {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -6518,9 +6521,42 @@ body {
     gap: 8px;
   }
 
+  /* как в лидерах: ник, трек и статус колонкой обычным текстом */
   .squad-member-row__tags {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 0;
     min-width: 0;
+  }
+
+  .squad-member-tag {
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .squad-member-tag--dark {
+    color: var(--purple-500);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .squad-member-tag--purple {
+    color: var(--ithub-black);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* заголовок и сортировка не умещаются в строку — ставим их друг под друга */
+  .squad-members__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 
   .squad-member-row__avatar {
@@ -6529,12 +6565,6 @@ body {
     flex-shrink: 0;
   }
 
-  .squad-member-tag {
-    font-size: 12px;
-    padding: 3px 10px;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
 
   .squad-member-row__rating {
     min-width: 0;
@@ -6547,6 +6577,24 @@ body {
 
   /* --- квесты --- */
   .q1__tab { font-size: 14px; }
+
+  .q1__tabs-row {
+    gap: var(--space-12);
+    justify-content: space-between;
+  }
+
+  /* заголовок серии набран крупно и в одну строку не помещается */
+  .series__header {
+    height: auto;
+    align-items: center;
+  }
+
+  .series__header h3 { font-size: 22px; }
+
+  .series__header p {
+    font-size: 18px;
+    overflow-wrap: break-word;
+  }
 
   .q1__choice-options {
     flex-direction: column;
@@ -6562,18 +6610,94 @@ body {
 
   .shop-wallet__label { min-width: 0; }
 
+  /* в макете кошелёк лежит над вкладками, а не рядом с ними */
+  .shop-page__head {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* В колоночном флексе ширина строки равна самому широкому элементу,
+     поэтому левой части нужна явная ширина — иначе она растягивала
+     страницу под своё содержимое. */
+  .shop-page__head-left {
+    order: 2;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .shop-wallet { order: 1; width: 100%; }
+
+  /* категорий больше, чем влезает в строку: лента едет вбок вместе
+     с полоской-индикатором, иначе он уезжал бы от своей вкладки */
   .shop-tabs {
     height: auto;
     padding: 12px 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: stretch;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
 
+  .shop-tabs::-webkit-scrollbar { display: none; }
+
   .shop-tabs__labels {
-    gap: var(--space-16);
-    justify-content: space-between;
+    width: max-content;
+    min-width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: var(--space-20);
   }
+
+  .shop-tabs__track { width: 100%; }
 
   .shop-tab { font-size: 15px; }
   .shop-tab--active { font-size: 16px; }
+
+  /* товары в макете идут в две колонки */
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .shop-card {
+    min-width: 0;
+    /* высота по содержимому: иначе между ценой и кнопкой зияет пустота */
+    min-height: 0;
+    gap: 8px;
+    padding: var(--space-12);
+  }
+
+  .shop-card__title {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .shop-card__thumb { height: 140px; }
+
+  .shop-card__price {
+    height: 36px;
+    padding: var(--space-4) var(--space-8);
+  }
+
+  .shop-card__price-value { font-size: 18px; }
+  .shop-card__coin { width: 18px; height: 18px; }
+
+  .shop-card__buy {
+    font-size: 14px;
+    height: 36px;
+    padding: 0 10px;
+  }
+
+  /* кнопка списка покупок — во всю ширину, как прочие действия */
+  .shop-purchases-frame { width: 100%; }
+
+  .shop-purchases-btn {
+    width: 100%;
+    height: 44px;
+  }
 
   /* --- вход --- */
   .login-container { width: calc(100vw - 24px); }
