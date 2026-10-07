@@ -5218,7 +5218,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-  padding-right: 120px;
+  padding-right: var(--sidebar-gutter);
 }
 
 .shop-detail__back {
@@ -5472,7 +5472,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-  padding-right: 120px;
+  padding-right: var(--sidebar-gutter);
 }
 
 .shop-purchases__card {
@@ -6107,7 +6107,6 @@ body {
    состояние открытой страницы. */
 .bottom-nav { display: none; }
 
-.top-header__title-mobile { display: none; }
 
 @media (max-width: 900px) {
   /* панель уехала вниз — поле справа больше не нужно */
@@ -6153,19 +6152,10 @@ body {
     margin: 0 -8px;
   }
 
-  /* в макете название уходит из шапки под неё */
+  /* на телефоне название не влезает в шапку, а отдельной строкой под
+     ней на каждой странице только съедает экран */
   .top-header__title { display: none; }
-
-  .top-header__title-mobile {
-    display: block;
-    margin: 14px 0 0;
-    text-align: center;
-    font-family: var(--font-display);
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--purple-500);
-  }
+  .top-header { margin-bottom: var(--space-20); }
 
   .top-header__user {
     width: auto;
@@ -6854,6 +6844,35 @@ body {
   }
 
   /* кнопка списка покупок — во всю ширину, как прочие действия */
+  /* покупка на телефоне: картинка и название сверху, статус и кнопка —
+     строкой ниже, во всю ширину; в одну строку это не помещается */
+  .shop-purchase {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-areas: "img name" "img state" "apply apply";
+    gap: var(--space-12);
+    padding: var(--space-12);
+  }
+  .shop-purchase__image { grid-area: img; align-self: center; }
+  .shop-purchase__name {
+    grid-area: name;
+    justify-self: start;
+    max-width: 100%;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+  .shop-purchase__state {
+    grid-area: state;
+    justify-self: start;
+    font-size: 16px;
+  }
+  .shop-purchase__apply {
+    grid-area: apply;
+    margin-left: 0;
+    width: 100%;
+    height: 44px;
+  }
+
   .shop-purchases-frame { width: 100%; }
 
   .shop-purchases-btn {
