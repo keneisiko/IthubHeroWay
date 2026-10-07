@@ -75,3 +75,24 @@ export const RARITY_LABELS: Record<string, string> = {
   epic: 'Эпический',
   legendary: 'Легендарный',
 }
+
+// Бэкенд магазина отвечает по-английски — переводим то, что знаем.
+const KNOWN_DETAILS: Record<string, string> = {
+  'Insufficient coins.': 'Не хватает монет',
+  'Item is not available yet.': 'Товар пока недоступен',
+  'Item is no longer available.': 'Товар больше недоступен',
+}
+
+/**
+ * Текст ошибки запроса для пользователя.
+ *
+ * Бэкенд объясняет отказ в detail («Срок квеста уже истёк», «Квест уже
+ * выполнен»), а страницы показывали безликое «Ошибка». Русскую причину
+ * отдаём как есть, известную английскую переводим, остальное — fallback.
+ */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  if (typeof detail !== 'string' || !detail.trim()) return fallback
+  if (KNOWN_DETAILS[detail]) return KNOWN_DETAILS[detail]
+  return /[а-яё]/i.test(detail) ? detail : fallback
+}

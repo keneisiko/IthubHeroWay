@@ -3,6 +3,8 @@ import api from '../api'
 import LoadError from '../components/LoadError'
 import { useTabIndicator } from '../useTabIndicator'
 import { plural } from '../lib/plural'
+import { celebrate } from '../lib/celebrate'
+import { apiErrorMessage } from '../lib/apiData'
 import seriesIcon from '../assets/other/Group 11.svg'
 import {
   mapCompletedQuests,
@@ -149,12 +151,13 @@ export default function Quests() {
     api.post(`/api/v1/quests/${confirmQuestCode}/complete/`, { proof_payload: proof })
       .then(() => {
         addToast('Отправлено куратору на проверку', 'success')
+        celebrate('small')
         confirmModal.hide()
         setConfirmQuestCode(null)
         setConfirmLink('')
         loadQuests()
       })
-      .catch(() => addToast('Ошибка подтверждения', 'error'))
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
   }, [confirmQuestCode, confirmLink, loadQuests])
 
   const openConfirm = (code: string, title: string) => {

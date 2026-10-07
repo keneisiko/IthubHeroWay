@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ithubLogo from '../assets/other/лого-26 1.svg'
 import api from '../api'
 import { clearAuthTokens } from '../auth'
+import { onBalanceChanged } from '../lib/balance'
+import { useAnimatedNumber } from '../useCountUp'
 
 interface ProfileData {
   callsign: string
@@ -16,9 +18,25 @@ export default function Header() {
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     api.get('/api/v1/profile/me/').then(res => setProfile(res.data)).catch(() => {})
   }, [])
+
+  // Шапка живёт всю сессию, поэтому профиль перечитывается, когда баланс
+  // поменяли на странице (покупка) и когда пользователь вернулся во вкладку:
+  // награды за квесты начисляет куратор, пока студент занят другим.
+  useEffect(() => {
+    loadProfile()
+    const offBalance = onBalanceChanged(loadProfile)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadProfile()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      offBalance()
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [loadProfile])
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -41,6 +59,20 @@ export default function Header() {
 
   const username = profile?.callsign || 'Агент'
   const coins = profile?.coins_balance ?? 0
+  const shownCoins = useAnimatedNumber(coins)
+
+  // Короткий «пульс» монетки, когда баланс изменился уже после загрузки
+  const [pulse, setPulse] = useState<'up' | 'down' | null>(null)
+  const prevCoins = useRef<number | null>(null)
+  useEffect(() => {
+    if (!profile) return
+    const prev = prevCoins.current
+    prevCoins.current = coins
+    if (prev === null || prev === coins) return
+    setPulse(coins > prev ? 'up' : 'down')
+    const timer = setTimeout(() => setPulse(null), 700)
+    return () => clearTimeout(timer)
+  }, [coins, profile])
   const avatarUrl = profile?.avatar
   const initials = username.slice(0, 2).toUpperCase()
 
@@ -55,9 +87,9 @@ export default function Header() {
       <div className="top-header__user" style={{ position: 'relative', zIndex: 100 }} ref={menuRef}>
         <div className="top-header__user-meta">
           <div className="top-header__username">{username}</div>
-          <div className="top-header__money">
+          <div className={`top-header__money${pulse ? ` top-header__money--${pulse}` : ''}`}>
             <span className="top-header__coin" aria-hidden="true" />
-            <strong>{coins}</strong>
+            <strong>{shownCoins}</strong>
           </div>
         </div>
         <button

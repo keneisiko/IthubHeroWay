@@ -11,8 +11,9 @@ import {
 import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
 import api from '../api'
+import { celebrate } from '../lib/celebrate'
 import { useToasts } from '../useToasts'
-import { formatDateTimeRu, progressPercent } from '../lib/apiData'
+import { apiErrorMessage, formatDateTimeRu, progressPercent } from '../lib/apiData'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -490,8 +491,11 @@ export default function Dashboard() {
           }
           const proof = confirmLink.trim() ? { link: confirmLink.trim() } : {}
           api.post(`/api/v1/quests/${code}/complete/`, { proof_payload: proof })
-            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Квест подтверждён!', 'success'); loadDashboard() })
-            .catch(() => addToast('Ошибка подтверждения', 'error'))
+            // Это заявка куратору, а не зачёт: награда придёт после одобрения
+            // (apps/quests/views.py, QuestCompleteView). «Квест подтверждён!»
+            // обещал то, чего ещё не случилось.
+            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Отправлено куратору на проверку', 'success'); celebrate('small'); loadDashboard() })
+            .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
         }}
       />
 

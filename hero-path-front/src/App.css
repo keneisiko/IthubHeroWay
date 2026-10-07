@@ -347,6 +347,11 @@ body {
   /* Stroke */
   --stroke-4: 4px;
 
+  /* Поле справа под боковую панель. Раньше это число стояло отдельно
+     у каждой страницы: новая страница про него не знала и уезжала под
+     панель, а на 900-980px отступ уже снимался, хотя панель ещё видна. */
+  --sidebar-gutter: 145px;
+
   /* Тень карточек — одна на весь макет */
   --card-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
   --card-shadow-hover: 25px 32px 26px -18px rgba(0, 0, 0, 0.45);
@@ -764,6 +769,16 @@ body {
    DASHBOARD — премиальный моушн-слой
    ========================= */
 
+/* Отступ под боковую панель — на корне страницы, чтобы ни один блок
+   не мог оказаться под ней. .dashboard — общий корень ещё и для
+   лидеров, магазина и отрядов. */
+.dashboard,
+.profile,
+.q1,
+.badges-page {
+  padding-right: var(--sidebar-gutter);
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;
@@ -825,7 +840,6 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 460px) minmax(0, 465px);
   gap: clamp(20px, 6vw, 77px);
-  margin-right: 145px;
   align-items: start;
   min-height: 680px;
   position: relative;
@@ -1215,6 +1229,22 @@ body {
   transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
 }
 
+/* Карточка квеста подстраивает вкладки и шаги под собственную ширину,
+   а не под экран: она бывает узкой и на планшете, и в колонке на
+   десктопе. Стоит после базовых правил — иначе те перебивали бы запрос. */
+.quest { container: quest / inline-size; }
+
+@container quest (max-width: 520px) {
+  .quest__tab { font-size: 18px; height: 42px; padding: 3px var(--space-12); }
+}
+
+@container quest (max-width: 400px) {
+  .quest__tab { font-size: 15px; height: 40px; padding: 3px var(--space-8); }
+  .quest .dot { width: 24px; height: 24px; border-width: 6px; }
+  .quest .quest__steps,
+  .quest .quest-step { gap: var(--space-4); }
+}
+
 .quest__tab:active { transform: scale(0.96); }
 .quest__tab--active { border-color: var(--ithub-white); }
 
@@ -1257,7 +1287,9 @@ body {
 }
 
 .quest__steps { display: flex; align-items: center; justify-content: center; gap: var(--space-8); }
-.quest-step { display: flex; align-items: center; gap: var(--space-8); }
+/* Шаг может ужиматься: на узкой карточке (планшет, телефон) цепочка
+   шагов иначе торчала из неё с обеих сторон. */
+.quest-step { display: flex; align-items: center; gap: var(--space-8); min-width: 0; }
 
 .dot {
   width: 30px;
@@ -1274,7 +1306,13 @@ body {
 .dot--green { background: transparent; border-color: #6cd63e; animation-delay: 0.24s; }
 
 .quest-step__bar {
+  /* 80px из макета; на узкой карточке полоска сжимается. Ширину задаём
+     через width, а не flex-basis: пустой элемент с одной лишь базой
+     браузер считает нулевым, и шаг сжимался до минимума даже при
+     свободном месте. */
   width: 80px;
+  flex-shrink: 1;
+  min-width: 16px;
   height: 12px;
   border-radius: 6px;
   background: var(--ithub-black);
@@ -1521,7 +1559,6 @@ body {
   grid-template-columns: minmax(0, 580px) minmax(0, 460px);
   gap: 20px;
   align-items: start;
-  padding-right: 145px;
 }
 
 .profile__left {
@@ -1840,10 +1877,11 @@ body {
 }
 
 .profile-radar {
-  margin: 26px auto 0;
+  /* В макете центр радара совпадает с центром шапки, а не колонки слева
+     от боковой панели. Подписи осей до панели не дотягиваются, поэтому
+     блок занимает и поле справа, а холст центрируется внутри. */
+  margin: 26px calc(-1 * var(--sidebar-gutter)) 0 0;
   position: relative;
-  width: 899px;
-  max-width: 100%;
   /* Подписи осей вынесены за холст примерно на 80px вверх и 24px вниз.
      Высота считается от холста плюс это поле: при фиксированной высоте
      на узких брейкпоинтах холст оставался прежним и подписи наезжали
@@ -2169,9 +2207,9 @@ body {
   padding: 40px;
   box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
   min-height: 813px;
-  width: min(1180px, 100%);
-  margin-left: auto;
-  margin-right: auto;
+  /* В макете панель на всю ширину под шапкой. Боковой панели она не
+     касается — между ними весь радар, — поэтому занимает и поле справа. */
+  margin-right: calc(-1 * var(--sidebar-gutter));
   overflow: visible;
 }
 
@@ -3019,10 +3057,6 @@ body {
    LEADERBOARD
    ========================= */
 
-.leaderboard-page {
-  padding-right: 145px;
-}
-
 .leaderboard-controls {
   display: flex;
   justify-content: space-between;
@@ -3351,11 +3385,6 @@ body {
    SHOP
    ========================= */
 
-.shop-page {
-  /* три карточки по 340 с зазором 20 занимают 1060, остальное — под сайдбар */
-  padding-right: 120px;
-}
-
 .shop-page__head {
   display: grid;
   grid-template-columns: minmax(0, 700px) minmax(0, 340px);
@@ -3379,13 +3408,30 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--space-8);
   width: 100%;
   height: 93px;
   padding: 0 20px;
   background: var(--ithub-white);
   border-radius: var(--radius-24);
   box-shadow: var(--card-shadow);
+  /* Когда категории не влезают (планшет, телефон), лента едет вбок.
+     Если влезают — прокрутки нет, вкладки по центру, как в макете. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.shop-tabs::-webkit-scrollbar { display: none; }
+
+/* вкладки и линия под ними: шириной в содержимое, но не уже ленты */
+.shop-tabs__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: max-content;
+  min-width: 100%;
 }
 
 .shop-tabs__labels {
@@ -3614,6 +3660,20 @@ body {
   transition: opacity 0.2s;
 }
 
+/* Не хватает монет — серая кнопка с суммой, как в мобильном макете */
+.shop-card__buy--lack,
+.shop-card__buy--lack:disabled {
+  background: var(--grey-text);
+  border-color: var(--grey-text);
+  color: var(--ithub-white);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.15;
+  padding: 0 var(--space-8);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .shop-card__buy:hover {
   opacity: 0.85;
 }
@@ -3621,10 +3681,6 @@ body {
 /* =========================
    SQUADS
    ========================= */
-
-.squad-page {
-  padding-right: 145px;
-}
 
 .squad-page__top {
   display: grid;
@@ -4769,25 +4825,16 @@ body {
    ========================= */
 
 @media (max-width: 1260px) {
+  :root { --sidebar-gutter: 130px; }
+
   .q1 {
     grid-template-columns: 1fr;
-    padding-right: 130px;
   }
 
   .q1__right {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-  }
-
-  .leaderboard-page,
-  .shop-page,
-  .squad-page {
-    padding-right: 130px;
-  }
-
-  .profile__top {
-    padding-right: 130px;
   }
 
   .shop-grid {
@@ -4802,15 +4849,11 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .profile-radar {
-    width: 100%;
-  }
 }
 
 @media (max-width: 980px) {
   .q1 {
     grid-template-columns: 1fr;
-    padding-right: 0;
   }
 
   .q1__right {
@@ -4832,16 +4875,6 @@ body {
 
   .q1__tab {
     font-size: 16px;
-  }
-
-  .leaderboard-page,
-  .shop-page,
-  .squad-page {
-    padding-right: 0;
-  }
-
-  .profile__top {
-    padding-right: 0;
   }
 
   .leaderboard-controls {
@@ -4885,7 +4918,6 @@ body {
   }
 
   .profile-radar {
-    width: 100%;
     padding: 84px 0 50px;
   }
 
@@ -5727,7 +5759,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-  padding: var(--space-20) 0;
+  /* только по вертикали: сокращённая запись padding обнуляла правое поле
+     под боковую панель, и карточки уезжали под неё */
+  padding-block: var(--space-20);
 }
 
 .badges-toasts {
@@ -5928,6 +5962,92 @@ body {
   background: #f5f5f5;
 }
 
+/* холст салюта (lib/celebrate.ts) — поверх всего, клики не перехватывает */
+.celebrate-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+/* =========================
+   КНОПКА «НАВЕРХ»
+   ========================= */
+
+.scroll-top {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 94;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* белая обводка, как у кнопок макета на цветном фоне: иначе на
+     фиолетовой карточке (лидеры, отряды) кнопка с ней сливалась */
+  border: 3px solid var(--ithub-white);
+  border-radius: var(--radius-12);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  box-shadow: var(--card-shadow);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(16px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scroll-top--visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.scroll-top:hover { box-shadow: var(--card-shadow-hover); }
+.scroll-top:active { transform: scale(0.92); }
+
+/* =========================
+   МОНЕТЫ В ШАПКЕ
+   ========================= */
+
+/* баланс поменялся — монетка коротко подпрыгивает */
+.top-header__money--up .top-header__coin,
+.top-header__money--down .top-header__coin {
+  animation: coinBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.top-header__money--up strong { animation: coinFlashUp 0.7s ease; }
+.top-header__money--down strong { animation: coinFlashDown 0.7s ease; }
+
+@keyframes coinBounce {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.45) rotate(-12deg); box-shadow: 0 0 12px 3px rgba(255, 217, 0, 0.75); }
+  100% { transform: scale(1); }
+}
+
+@keyframes coinFlashUp {
+  0%, 100% { color: inherit; }
+  30% { color: var(--sys-green); }
+}
+
+@keyframes coinFlashDown {
+  0%, 100% { color: inherit; }
+  30% { color: var(--ithub-white); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav,
+  .bottom-nav__pill,
+  .scroll-top { transition: none; }
+  .top-header__money--up .top-header__coin,
+  .top-header__money--down .top-header__coin,
+  .top-header__money--up strong,
+  .top-header__money--down strong { animation: none; }
+}
+
 /* ============================================================
    МОБИЛЬНАЯ ВЕРСИЯ
    Макет Figma, ширина 440: боковая панель уезжает вниз и
@@ -5945,6 +6065,9 @@ body {
 .top-header__title-mobile { display: none; }
 
 @media (max-width: 900px) {
+  /* панель уехала вниз — поле справа больше не нужно */
+  :root { --sidebar-gutter: 0px; }
+
   /* --- каркас --- */
   .right-sidebar { display: none; }
 
@@ -6036,6 +6159,14 @@ body {
     min-width: 170px;
   }
 
+  /* кнопка «наверх» поднимается над нижней панелью */
+  .scroll-top {
+    right: 16px;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    width: 44px;
+    height: 44px;
+  }
+
   /* --- нижняя навигация --- */
   .bottom-nav {
     display: flex;
@@ -6071,9 +6202,34 @@ body {
 
   .bottom-nav__item:active { transform: scale(0.92); }
 
-  .bottom-nav__item--active {
+  /* фон активного пункта рисует общая пилюля — она едет между пунктами */
+  .bottom-nav__item { position: relative; z-index: 1; }
+
+  /* пока пилюля не измерена, фон рисует сам пункт: иначе белая иконка
+     активного пункта на кадр пропадала бы на белой панели */
+  .bottom-nav:not(.bottom-nav--measured) .bottom-nav__item--active {
+    background: var(--purple-500);
+  }
+
+  .bottom-nav__pill {
+    position: absolute;
+    top: 8px;
+    left: 0;
+    height: 44px;
+    border-radius: var(--radius-12);
     background: var(--purple-500);
     box-shadow: 0 4px 12px rgba(154, 51, 244, 0.45);
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), width 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  /* при прокрутке вниз панель уходит за нижний край */
+  .bottom-nav {
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .bottom-nav--hidden {
+    transform: translate(-50%, calc(100% + 24px + env(safe-area-inset-bottom, 0px)));
   }
 
   .bottom-nav__icon {
@@ -6161,7 +6317,6 @@ body {
 
   /* --- радар профиля --- */
   .profile-radar {
-    width: 100%;
     /* подписи здесь мельче, поэтому поле под них меньше десктопного */
     padding: 64px 0 46px;
   }
@@ -6196,8 +6351,11 @@ body {
   }
 
   /* --- карта пути --- */
+  /* карточки достижений — кнопки: не уже 88px, чтобы в них было удобно
+     попадать и плашка редкости помещалась. На телефоне выходит три
+     колонки, как в мобильном макете. */
   .profile-path__grid {
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
     column-gap: 8px;
     row-gap: 20px;
   }
@@ -6385,24 +6543,6 @@ body {
     min-height: 0;
   }
 
-  /* --- шаги квеста --- */
-  .q1__card-steps { width: 100%; }
-
-  .q1__step-seg,
-  .q1__step-rail {
-    width: auto;
-    flex: 1 1 0;
-    min-width: 12px;
-  }
-
-  /* заливка сегмента тянется за ним, а не по своей ширине */
-  .q1__step-seg--red::after,
-  .q1__step-seg--yellow::after {
-    width: auto;
-    left: 3px;
-    right: 3px;
-  }
-
   .q1__card-pct { font-size: 28px; }
 
   .q1__card-top { flex-wrap: wrap; font-size: 15px; }
@@ -6419,22 +6559,6 @@ body {
   .shop-wallet__history-label {
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  /* --- шаги серии на главной --- */
-  .quest-steps { width: 100%; }
-
-  .quest-step,
-  .quest-line {
-    flex-shrink: 1;
-    min-width: 0;
-  }
-
-  /* --- вкладки магазина --- */
-  .shop-tabs__labels {
-    flex-wrap: wrap;
-    justify-content: center;
-    row-gap: 4px;
   }
 
   /* --- плитки достижений --- */
@@ -6463,7 +6587,7 @@ body {
     white-space: normal;
     height: auto;
     min-height: 20px;
-    padding: 3px var(--space-8);
+    padding: 3px 6px;
     font-size: 10px;
     line-height: 1.15;
   }
@@ -6478,16 +6602,6 @@ body {
   .ach__rarity { font-size: 10px; }
 
   .profile-achievements__row { min-width: 0; }
-
-  /* --- вкладки квеста на главной --- */
-  .quest__tab {
-    font-size: 15px;
-    height: 40px;
-    padding: 3px var(--space-8);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 
   /* --- кошелёк магазина: заголовок переносится --- */
   .shop-wallet__label {
@@ -6646,30 +6760,14 @@ body {
 
   .shop-wallet { order: 1; width: 100%; }
 
-  /* категорий больше, чем влезает в строку: лента едет вбок вместе
-     с полоской-индикатором, иначе он уезжал бы от своей вкладки */
+  /* лента вкладок прокручивается на любой ширине (см. .shop-tabs),
+     здесь только компактнее */
   .shop-tabs {
     height: auto;
     padding: 12px 14px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    align-items: stretch;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
   }
 
-  .shop-tabs::-webkit-scrollbar { display: none; }
-
-  .shop-tabs__labels {
-    width: max-content;
-    min-width: 100%;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    gap: var(--space-20);
-  }
-
-  .shop-tabs__track { width: 100%; }
+  .shop-tabs__labels { gap: var(--space-20); }
 
   .shop-tab { font-size: 15px; }
   .shop-tab--active { font-size: 16px; }
@@ -6732,11 +6830,8 @@ body {
   .top-header__money { font-size: 12px; }
 
   .bottom-nav { gap: 0; padding: 6px; }
+  .bottom-nav__pill { top: 6px; }
   .bottom-nav__icon svg { width: 24px; height: 24px; }
 
   .radar-card { min-height: 300px; }
-
-  .profile-path__grid {
-    grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
-  }
 }

@@ -14,8 +14,16 @@ export interface TabIndicator {
  *
  * Пересчитываем при изменении размеров и после загрузки шрифтов: пока
  * гарнитура не подгрузилась, ширина текста другая.
+ *
+ * Если вкладки лежат в прокручиваемой ленте, передайте её в scrollerRef:
+ * выбранная вкладка будет подъезжать к центру ленты, иначе на узком
+ * экране она могла остаться за краем.
  */
-export function useTabIndicator(activeKey: string | number, ready: unknown = true) {
+export function useTabIndicator(
+  activeKey: string | number,
+  ready: unknown = true,
+  scrollerRef?: { current: HTMLElement | null },
+) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const tabRefs = useRef<Record<string, HTMLElement | null>>({})
   const [indicator, setIndicator] = useState<TabIndicator>({ left: 0, width: 0 })
@@ -44,6 +52,23 @@ export function useTabIndicator(activeKey: string | number, ready: unknown = tru
     document.fonts?.ready.then(update)
     return () => observer.disconnect()
   }, [update, ready])
+
+  // Подтягиваем выбранную вкладку к центру ленты. Двигаем scrollLeft самой
+  // ленты, а не scrollIntoView: тот заодно прокрутил бы и страницу по вертикали.
+  useEffect(() => {
+    const scroller = scrollerRef?.current
+    const tab = tabRefs.current[String(activeKey)]
+    if (!scroller || !tab || !indicator.width) return
+    const max = scroller.scrollWidth - scroller.clientWidth
+    if (max <= 0) return
+    // положение вкладки внутри прокручиваемого содержимого ленты; если лента
+    // сама позиционирована, offsetLeft вкладки уже отсчитан от неё
+    const tabLeft = tab.offsetParent === scroller
+      ? tab.offsetLeft
+      : tab.offsetLeft - scroller.offsetLeft - scroller.clientLeft
+    const target = tabLeft + tab.offsetWidth / 2 - scroller.clientWidth / 2
+    scroller.scrollTo({ left: Math.max(0, Math.min(target, max)), behavior: 'smooth' })
+  }, [indicator, activeKey, scrollerRef])
 
   return { containerRef, registerTab, indicator }
 }

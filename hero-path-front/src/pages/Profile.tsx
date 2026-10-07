@@ -175,21 +175,9 @@ export default function Profile() {
   const [allBadges, setAllBadges] = useState<UserBadge['badge'][]>([])
   const [questsCompleted, setQuestsCompleted] = useState(0)
   const [loading, setLoading] = useState(true)
-  const tabIndicator = useTabIndicator(activeTab, loading)
+  // лента категорий прокручивается; выбранная вкладка подъезжает к центру
   const tabsScrollRef = useRef<HTMLDivElement>(null)
-
-  // Активная вкладка подтягивается в центр ленты: на узком экране часть
-  // категорий за краем экрана, и без этого выбранная могла остаться вне вида.
-  // Двигаем scrollLeft сами, чтобы не трогать вертикальную прокрутку страницы.
-  useEffect(() => {
-    const scroller = tabsScrollRef.current
-    const { width, left } = tabIndicator.indicator
-    if (!scroller || !width) return
-    const target = left + width / 2 - scroller.clientWidth / 2
-    const max = scroller.scrollWidth - scroller.clientWidth
-    if (max <= 0) return
-    scroller.scrollTo({ left: Math.max(0, Math.min(target, max)), behavior: 'smooth' })
-  }, [tabIndicator.indicator])
+  const tabIndicator = useTabIndicator(activeTab, loading, tabsScrollRef)
   const [loadError, setLoadError] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [myRating, setMyRating] = useState<number | null>(null)

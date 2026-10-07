@@ -4,6 +4,7 @@ import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
 import Sidebar from './components/Sidebar'
 import BottomNav from './components/BottomNav'
+import ScrollTopButton from './components/ScrollTopButton'
 import PageTransition from './PageTransition'
 
 import './App.css'
@@ -76,6 +77,7 @@ function AppShell() {
         {isKnownRoute && <Sidebar />}
       </div>
       {isKnownRoute && <BottomNav />}
+      <ScrollTopButton />
     </div>
   )
 }
