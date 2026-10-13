@@ -27,6 +27,9 @@ class Squad(models.Model):
     name = models.CharField("Название", max_length=255)
     course = models.PositiveSmallIntegerField("Курс", null=True, blank=True)
     capacity = models.PositiveSmallIntegerField("Вместимость", null=True, blank=True)
+    # Проставляется импортом группы: по нему ночные задачи знают, откуда
+    # брать расписание и отметки посещения, без ручного списка в настройках.
+    lxp_group_id = models.CharField("ID учебной группы LXP", max_length=64, blank=True, db_index=True)
 
     class Meta:
         verbose_name = "Отряд"

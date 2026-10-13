@@ -428,6 +428,18 @@ HIK_LATE_GRACE_MINUTES = int(os.getenv("HIK_LATE_GRACE_MINUTES", "10"))
 REQUIRE_TELEGRAM_LINK_FOR_SCORING = os.getenv("REQUIRE_TELEGRAM_LINK_FOR_SCORING", "1") == "1"
 
 CELERY_BEAT_SCHEDULE = {
+    # Отметки по парам нужны «Неделе без пропусков»: без ежедневной загрузки
+    # квест считался по данным двухнедельной давности.
+    "sync-lxp-class-attendance-daily": {
+        "task": "apps.integrations.tasks.sync_lxp_class_attendance",
+        "schedule": crontab(hour=2, minute=30),
+    },
+    # Расписание меняется в течение семестра, а от него зависит, считается ли
+    # проход опозданием. Раз в неделю, ночью с воскресенья на понедельник.
+    "sync-lxp-schedules-weekly": {
+        "task": "apps.integrations.tasks.sync_lxp_schedules",
+        "schedule": crontab(hour=3, minute=0, day_of_week="mon"),
+    },
     "fetch-lxp-snapshot-daily": {
         "task": "apps.integrations.tasks.fetch_lxp_snapshot",
         "schedule": crontab(hour=2, minute=0),

@@ -103,3 +103,22 @@ class RetryTests(TestCase):
 
         self.assertIn("попыток", str(caught.exception))
         self.assertEqual(client._post.call_count, lxp_groups.ATTEMPTS)
+
+
+class SquadKeepsLxpGroupTests(TestCase):
+    """Связь отряда с группой LXP нужна ночным задачам.
+
+    Без неё расписание и отметки посещения синхронизировать не из чего:
+    идентификатор группы знал только тот, кто запускал импорт руками.
+    """
+
+    def test_import_remembers_the_group(self):
+        run(group_id="g-itr2", squad_code="itr2-24", squad_name="3ИТР2.9.24", course=3)
+
+        self.assertEqual(Squad.objects.get(code="itr2-24").lxp_group_id, "g-itr2")
+
+    def test_repeated_import_with_new_group_updates_the_link(self):
+        run(group_id="g-old", squad_code="itr2-24", course=3)
+        run(group_id="g-new", squad_code="itr2-24", course=3)
+
+        self.assertEqual(Squad.objects.get(code="itr2-24").lxp_group_id, "g-new")

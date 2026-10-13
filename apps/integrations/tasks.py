@@ -240,3 +240,84 @@ def fetch_hik_browser_export_daily(target_date_iso: str | None = None) -> str:
         f"hik_browser date={target.isoformat()} file={path.name} "
         f"import={result.get('import_inserted')} external={result.get('external_created')}"
     )
+
+
+@shared_task
+def sync_lxp_class_attendance(weeks: int = 1) -> str:
+    """Отметки посещения занятий по отрядам, у которых известна группа LXP.
+
+    Команда была разовой, поэтому «Неделя без пропусков» закрылась один раз
+    и дальше считалась по данным двухнедельной давности: свежих отметок
+    в базе просто не появлялось.
+    """
+    from django.core.management import call_command
+
+    from apps.accounts.models import Squad
+
+    squads = list(Squad.objects.exclude(lxp_group_id="").values_list("code", "lxp_group_id"))
+    if not squads:
+        return "lxp_attendance: нет отрядов с привязкой к группе LXP"
+
+    done, failed = 0, []
+    for code, group_id in squads:
+        try:
+            call_command(
+                "pull_lxp_class_attendance",
+                group_id=group_id,
+                squad_code=code,
+                weeks=int(weeks),
+            )
+            done += 1
+        except Exception as exc:  # noqa: BLE001 — один отряд не должен ронять остальные
+            logger.warning("sync_lxp_class_attendance: отряд %s — %s", code, exc)
+            failed.append(code)
+
+    if failed:
+        send_alert_to_admin(
+            title="Отметки посещения LXP не загрузились",
+            message="Отряды: " + ", ".join(failed),
+            error_type="lxp",
+            deduplicate_key="lxp_class_attendance_failed",
+            is_critical=False,
+        )
+    return f"lxp_attendance: отрядов {done}, с ошибкой {len(failed)}"
+
+
+@shared_task
+def sync_lxp_schedules(weeks: int = 2) -> str:
+    """Расписание отрядов из занятий LXP.
+
+    Расписание меняется в течение семестра, а от него зависит, считается ли
+    проход опозданием: устаревшая сетка наказывает за приход вовремя.
+    """
+    from django.core.management import call_command
+
+    from apps.accounts.models import Squad
+
+    squads = list(Squad.objects.exclude(lxp_group_id="").values_list("code", "lxp_group_id"))
+    if not squads:
+        return "lxp_schedule: нет отрядов с привязкой к группе LXP"
+
+    done, failed = 0, []
+    for code, group_id in squads:
+        try:
+            call_command(
+                "import_lxp_schedule",
+                group_id=group_id,
+                squad_code=code,
+                weeks=int(weeks),
+            )
+            done += 1
+        except Exception as exc:  # noqa: BLE001 — один отряд не должен ронять остальные
+            logger.warning("sync_lxp_schedules: отряд %s — %s", code, exc)
+            failed.append(code)
+
+    if failed:
+        send_alert_to_admin(
+            title="Расписание из LXP не обновилось",
+            message="Отряды: " + ", ".join(failed),
+            error_type="lxp",
+            deduplicate_key="lxp_schedule_failed",
+            is_critical=False,
+        )
+    return f"lxp_schedule: отрядов {done}, с ошибкой {len(failed)}"

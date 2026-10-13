@@ -77,11 +77,23 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             squad, squad_created = Squad.objects.get_or_create(
-                code=squad_code, defaults={"name": squad_name, "course": course}
+                code=squad_code,
+                defaults={"name": squad_name, "course": course, "lxp_group_id": group_id},
             )
-            if not squad_created and (squad.name != squad_name or squad.course != course):
-                squad.name, squad.course = squad_name, course
-                squad.save(update_fields=["name", "course"])
+            changed = []
+            if squad.name != squad_name:
+                squad.name = squad_name
+                changed.append("name")
+            if squad.course != course:
+                squad.course = course
+                changed.append("course")
+            if squad.lxp_group_id != group_id:
+                # Без этой связи ночные задачи не знают, откуда брать
+                # расписание и отметки посещения для отряда.
+                squad.lxp_group_id = group_id
+                changed.append("lxp_group_id")
+            if changed:
+                squad.save(update_fields=changed)
 
             created = matched = 0
             for item in students:
