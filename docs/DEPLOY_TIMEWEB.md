@@ -125,7 +125,8 @@ docker run --rm \
 ```
 
 Затем в [deploy/nginx.conf](../deploy/nginx.conf) раскомментировать блок для 443
-и редирект с 80, в `.env.prod` поставить `SECURE_SSL_REDIRECT=1` и перезапустить:
+и строку редиректа в блоке 80, а в `.env.prod` вернуть боевые значения —
+`SECURE_SSL_REDIRECT=1` и `COOKIE_SECURE=1` — и перезапустить:
 
 ```bash
 dcp restart nginx web
