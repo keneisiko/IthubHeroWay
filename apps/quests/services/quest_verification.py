@@ -8,8 +8,8 @@ from datetime import date
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from apps.integrations.services.account_gate import agents_for_scoring
 from apps.accounts.models import Role
+from apps.integrations.services.account_gate import agents_for_scoring
 from apps.quests.models import Quest, QuestType, QuestVerifierKind
 from apps.quests.services.quest_completion import complete_quest_idempotent, update_quest_progress
 from apps.quests.services.quest_conditions import is_auto_verified, resolve_verifier_config

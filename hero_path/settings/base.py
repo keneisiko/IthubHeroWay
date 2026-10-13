@@ -421,6 +421,10 @@ from celery.schedules import crontab
 # Начисления только тем, у кого есть привязка Telegram. Единица — боевое
 # значение: без привязки студент и войти не может. Ноль ставится на время
 # закрытого прогона, когда никто не заходит, а ночные задачи должны считать.
+# Допуск к началу первой пары: турникет срабатывает, пока студент идёт
+# к аудитории, и проход минута в минуту опозданием считать нечестно.
+HIK_LATE_GRACE_MINUTES = int(os.getenv("HIK_LATE_GRACE_MINUTES", "10"))
+
 REQUIRE_TELEGRAM_LINK_FOR_SCORING = os.getenv("REQUIRE_TELEGRAM_LINK_FOR_SCORING", "1") == "1"
 
 CELERY_BEAT_SCHEDULE = {

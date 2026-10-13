@@ -127,7 +127,7 @@ class Command(BaseCommand):
         # Пустой снимок с --force-rating затирал полный: обход по группе
         # молча возвращал ноль студентов при обрыве соединения.
         if only_groups:
-            collected = len(((data.get("control_points") or {}).get("data") or {}))
+            collected = len((data.get("control_points") or {}).get("data") or {})
             if not collected:
                 meta_errors = (data.get("meta") or {}).get("errors") or []
                 raise CommandError(

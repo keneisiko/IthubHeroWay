@@ -14,9 +14,9 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from apps.integrations.services.account_gate import agents_for_scoring
 from apps.accounts.models import User
 from apps.integrations.models import ExternalEvent
+from apps.integrations.services.account_gate import agents_for_scoring
 from apps.progress.models import RatingChangeSource, RatingLog, UserStrike
 from apps.progress.services.late_penalties import (
     attendance_streak_bonus_for_days,

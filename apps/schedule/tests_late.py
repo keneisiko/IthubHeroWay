@@ -46,10 +46,10 @@ class ScheduleClassificationTests(TestCase):
 
     def test_late_after_start(self):
         tz = timezone.get_current_timezone()
-        event_dt = timezone.make_aware(datetime(2026, 6, 1, 9, 12), tz)
+        event_dt = timezone.make_aware(datetime(2026, 6, 1, 9, 25), tz)
         result = classify_entrance_against_schedule(squad_id=self.squad.pk, event_dt=event_dt)
         self.assertEqual(result["event_type"], "late")
-        self.assertEqual(result["late_minutes"], 12)
+        self.assertEqual(result["late_minutes"], 25)
 
 
 class HikLateIntegrationTests(TestCase):
@@ -71,7 +71,7 @@ class HikLateIntegrationTests(TestCase):
             rating_current=300,
         )
         tz = timezone.get_current_timezone()
-        event_time = timezone.make_aware(datetime(2026, 6, 1, 9, 8), tz)
+        event_time = timezone.make_aware(datetime(2026, 6, 1, 9, 25), tz)
         HikEvent.objects.create(
             event_id="HIK-LATE-1",
             student_code="CARD-L",
@@ -83,9 +83,9 @@ class HikLateIntegrationTests(TestCase):
         process_unprocessed_hik_events(limit=10)
         ev = ExternalEvent.objects.get(source="hik", external_event_id="HIK-LATE-1")
         self.assertEqual(ev.payload.get("event_type"), "late")
-        self.assertEqual(ev.payload.get("late_minutes"), 8)
+        self.assertEqual(ev.payload.get("late_minutes"), 25)
         u.refresh_from_db()
-        self.assertEqual(u.rating_current, 297)
+        self.assertEqual(u.rating_current, 292)
         self.assertTrue(
             RatingLog.objects.filter(user=u, source_id=f"hik-late:{u.pk}:2026-06-01").exists()
         )
@@ -111,7 +111,7 @@ class HikLateIntegrationTests(TestCase):
         HikEvent.objects.create(
             event_id="portal-guid-1",
             student_code="",
-            event_time=timezone.make_aware(datetime(2026, 6, 1, 9, 8), tz),
+            event_time=timezone.make_aware(datetime(2026, 6, 1, 9, 25), tz),
             event_type="access",
             door_name="Вход",
             raw_data={"personEmail": "student@nalchik.ithub.ru", "direction": 1},
@@ -180,7 +180,7 @@ class HikLateIntegrationTests(TestCase):
         tz = timezone.get_current_timezone()
         for idx, moment in enumerate(
             [
-                datetime(2026, 6, 1, 9, 8),
+                datetime(2026, 6, 1, 9, 25),
                 datetime(2026, 6, 1, 12, 30),
                 datetime(2026, 6, 1, 14, 15),
             ]
@@ -201,7 +201,7 @@ class HikLateIntegrationTests(TestCase):
         penalties = RatingLog.objects.filter(user=u, source_id__startswith="hik-late:")
         self.assertEqual(penalties.count(), 1)
         u.refresh_from_db()
-        self.assertEqual(u.rating_current, 297)
+        self.assertEqual(u.rating_current, 292)
 
     def test_reprocessing_same_day_does_not_penalize_twice(self):
         """Повторный импорт той же выгрузки не должен списывать рейтинг снова."""
@@ -225,7 +225,7 @@ class HikLateIntegrationTests(TestCase):
         HikEvent.objects.create(
             event_id="HIK-RE-1",
             student_code="CARD-R",
-            event_time=timezone.make_aware(datetime(2026, 6, 1, 9, 8), tz),
+            event_time=timezone.make_aware(datetime(2026, 6, 1, 9, 25), tz),
             event_type="entry",
             door_name="Main",
             raw_data={},
@@ -244,7 +244,7 @@ class HikLateIntegrationTests(TestCase):
         process_unprocessed_hik_events(limit=10)
 
         u.refresh_from_db()
-        self.assertEqual(u.rating_current, 297)
+        self.assertEqual(u.rating_current, 292)
         self.assertEqual(
             RatingLog.objects.filter(user=u, source_id__startswith="hik-late:").count(), 1
         )

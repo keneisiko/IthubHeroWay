@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.utils import timezone
 
 from apps.schedule.models import Schedule
 
 
-def classify_entrance_against_schedule(*, squad_id: int | None, event_dt: datetime) -> dict:
+def classify_entrance_against_schedule(
+    *, squad_id: int | None, event_dt: datetime, grace_minutes: int | None = None
+) -> dict:
     """
     Определяет тип события по первой паре дня.
 
@@ -34,14 +37,19 @@ def classify_entrance_against_schedule(*, squad_id: int | None, event_dt: dateti
     first = slots[0]
     last = slots[-1]
 
-    if entrance_time <= first.start_time:
+    # Турникет срабатывает, пока студент идёт к аудитории: проход ровно
+    # в минуту начала пары опозданием считать нечестно.
+    if grace_minutes is None:
+        grace_minutes = int(getattr(settings, "HIK_LATE_GRACE_MINUTES", 10))
+    start_dt = timezone.make_aware(
+        datetime.combine(local.date(), first.start_time), timezone.get_current_timezone()
+    )
+    deadline = start_dt + timedelta(minutes=max(0, grace_minutes))
+
+    if local <= deadline:
         return {"event_type": "access", "late_minutes": 0, "schedule_id": first.pk}
 
     if entrance_time <= last.end_time:
-        start_dt = timezone.make_aware(
-            datetime.combine(local.date(), first.start_time),
-            timezone.get_current_timezone(),
-        )
         late_minutes = max(0, int((local - start_dt).total_seconds() // 60))
         return {"event_type": "late", "late_minutes": late_minutes, "schedule_id": first.pk}
 

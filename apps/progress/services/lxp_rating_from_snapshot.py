@@ -28,9 +28,9 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 
-from apps.integrations.services.account_gate import agents_for_scoring
 from apps.accounts.models import User
 from apps.integrations.models import LXPSnapshot
+from apps.integrations.services.account_gate import agents_for_scoring
 from apps.integrations.services.lxp_snapshot_format import unwrap_category
 from apps.progress.models import LXPTopicState, RatingChangeSource, RatingLog
 from apps.progress.services.academic_year import academic_year_label

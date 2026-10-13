@@ -209,6 +209,17 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
         if u.email:
             email_to_user.setdefault(u.email.strip().lower(), u)
 
+    # Первый вход за день решает, опоздал студент или нет. Прежде опозданием
+    # считался каждый проход после начала пары: вернулся с обеда — «опоздание
+    # 233 минуты». За две недели так набралось 114 опозданий на 8 обычных
+    # проходов, то есть вся группа числилась опаздывающей.
+    days_with_entry = {
+        (row["user_id"], row["event_date"])
+        for row in ExternalEvent.objects.filter(
+            source="hik", event_type__in=("access", "late"), user__isnull=False
+        ).values("user_id", "event_date")
+    }
+
     for he in pending:
         seen += 1
         code = (he.student_code or "").strip()
@@ -232,12 +243,25 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
 
         try:
             with transaction.atomic():
-                classification = classify_entrance_against_schedule(
-                    squad_id=user.squad_id,
-                    event_dt=he.event_time,
-                )
-                event_type = classification["event_type"]
-                late_minutes = classification.get("late_minutes")
+                event_date = timezone.localtime(he.event_time).date()
+                day_key = (user.pk, event_date)
+                first_entry_of_day = is_entry and day_key not in days_with_entry
+
+                if first_entry_of_day:
+                    classification = classify_entrance_against_schedule(
+                        squad_id=user.squad_id,
+                        event_dt=he.event_time,
+                    )
+                    event_type = classification["event_type"]
+                    late_minutes = classification.get("late_minutes")
+                    if event_type in ("access", "late"):
+                        days_with_entry.add(day_key)
+                else:
+                    # Повторный проход и любой выход: к опозданию отношения
+                    # не имеют, но сохраняем как присутствие.
+                    classification = {"schedule_id": None}
+                    event_type = "access"
+                    late_minutes = None
 
                 _, ext_c = ExternalEvent.objects.get_or_create(
                     source="hik",
@@ -247,7 +271,7 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
                         # выборки «события пользователя за день» иначе
                         # требуют перебора всей таблицы.
                         "user": user,
-                        "event_date": timezone.localtime(he.event_time).date(),
+                        "event_date": event_date,
                         "event_type": event_type,
                         "payload": {
                             "event_type": event_type,
@@ -261,6 +285,7 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
                             "schedule_id": classification.get("schedule_id"),
                             "direction": raw.get("direction"),
                             "is_entry": is_entry,
+                            "first_entry_of_day": first_entry_of_day,
                         },
                     },
                 )
