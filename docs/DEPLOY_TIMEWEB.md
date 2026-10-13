@@ -207,6 +207,11 @@ cd /opt/hero_path && git pull && dcp up -d --build
 `Secure` и по незашифрованному соединению браузером не сохраняются. До выпуска
 сертификата поставьте `COOKIE_SECURE=0`, после — обязательно верните `1`.
 
+**`web` стал `unhealthy` сразу после включения TLS.** Проверка контейнера
+ходит в gunicorn напрямую по http, а с `SECURE_SSL_REDIRECT=1` Django отвечает
+на такой запрос редиректом. Проверка шлёт `X-Forwarded-Proto: https`, как это
+делает nginx; если контейнер собран со старым compose-файлом — обновите его.
+
 **`web` поднялся, но `unhealthy`, а nginx и Celery не стартовали.** В
 `ALLOWED_HOSTS` нет `127.0.0.1` и `localhost`: healthcheck ходит на
 `http://127.0.0.1:8000/health/` и получает 400 `DisallowedHost`. Добавьте оба

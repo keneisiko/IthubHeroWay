@@ -81,7 +81,10 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health/')\""]
+      # Заголовок обязателен: при SECURE_SSL_REDIRECT=1 Django отвечает
+      # редиректом на https всему, что пришло без него, и проверка считала
+      # здоровый контейнер больным. nginx передаёт тот же заголовок.
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/health/', headers={'X-Forwarded-Proto': 'https'}))\""]
       interval: 30s
       timeout: 10s
       retries: 3
