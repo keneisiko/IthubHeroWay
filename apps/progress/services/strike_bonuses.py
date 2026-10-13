@@ -81,7 +81,9 @@ def missed_school_days(user: User, since: date | None, until: date) -> int:
     missed = 0
     day = since + timedelta(days=1)
     while day <= until:
-        if _has_classes(user, day):
+        # День без выгрузки пропуском не считается: мы просто не знаем,
+        # был студент или нет.
+        if _has_classes(user, day) and hik_has_data_for_date(day):
             missed += 1
         day += timedelta(days=1)
     return missed
@@ -93,10 +95,14 @@ def previous_school_day(user: User, day: date, *, lookback: int = 14) -> date | 
     Серии сравнивались с календарным «вчера», поэтому понедельник после
     пятницы всегда обнулял их: выходные выглядели пропуском, и серия дольше
     пяти дней не набиралась.
+
+    Дни, за которые выгрузка Hik не приехала, тоже пропускаем: иначе сбой
+    на нашей стороне рвал студенту серию — на пилоте так терялись четверг
+    1 октября, пятница 9-го и понедельник 12-го.
     """
     candidate = day - timedelta(days=1)
     for _ in range(lookback):
-        if _has_classes(user, candidate):
+        if _has_classes(user, candidate) and hik_has_data_for_date(candidate):
             return candidate
         candidate -= timedelta(days=1)
     return None

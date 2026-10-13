@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from apps.accounts.models import Squad
+from apps.integrations.models import ExternalEvent
 from apps.progress.services.strike_bonuses import (
     MISSED_DAYS_BREAKING_STREAK,
     missed_school_days,
@@ -42,6 +43,19 @@ class SchoolDayArithmeticTests(TestCase):
                 end_time=time(10, 30),
                 is_active=True,
             )
+        # Выгрузка Hik приезжала каждый день: дни без данных проверяются
+        # отдельно, в DataGapsDoNotBreakStreaksTests.
+        day = date(2026, 9, 14)
+        while day <= date(2026, 10, 5):
+            ExternalEvent.objects.create(
+                source="hik",
+                external_event_id=f"seed-{day}",
+                user=self.user,
+                event_date=day,
+                event_type="access",
+                payload={},
+            )
+            day += timedelta(days=1)
 
     def test_monday_follows_friday(self):
         """Выходные не пропуск: иначе серия рвалась каждую неделю."""
@@ -78,8 +92,67 @@ class ScheduleAwareStreakTests(TestCase):
         self.user = User.objects.create_user(
             username="agent2", email="a2@test.ru", password="x", callsign="Агент2", squad=self.squad
         )
+        day = date(2026, 9, 21)
+        while day <= date(2026, 9, 28):
+            ExternalEvent.objects.create(
+                source="hik",
+                external_event_id=f"plain-{day}",
+                user=self.user,
+                event_date=day,
+                event_type="access",
+                payload={},
+            )
+            day += timedelta(days=1)
 
     def test_weekend_skipped_without_schedule_too(self):
         monday = date(2026, 9, 28)
 
         self.assertEqual(previous_school_day(self.user, monday), date(2026, 9, 25))
+
+
+class DataGapsDoNotBreakStreaksTests(TestCase):
+    """Сбой выгрузки — не прогул студента.
+
+    На пилоте выгрузка Hik не приехала за четверг 1 октября, пятницу 9-го и
+    понедельник 12-го. Эти дни выглядели разрывом, серия сбрасывалась в 1,
+    и дольше трёх дней ни у кого не держалась.
+    """
+
+    def setUp(self):
+        self.squad = Squad.objects.create(code="itr2-24", name="3ИТР2.9.24", course=3)
+        self.user = User.objects.create_user(
+            username="agent3", email="a3@test.ru", password="x", callsign="Агент3", squad=self.squad
+        )
+        for weekday in range(5):
+            Schedule.objects.create(
+                squad=self.squad,
+                day_of_week=weekday,
+                start_time=time(9, 0),
+                end_time=time(10, 30),
+                is_active=True,
+            )
+
+    def with_data(self, day: date) -> None:
+        ExternalEvent.objects.create(
+            source="hik",
+            external_event_id=f"e-{day}",
+            user=self.user,
+            event_date=day,
+            event_type="access",
+            payload={},
+        )
+
+    def test_day_without_export_is_skipped(self):
+        wednesday, thursday, friday = date(2026, 9, 23), date(2026, 9, 24), date(2026, 9, 25)
+        self.with_data(wednesday)
+        # За четверг выгрузки нет.
+
+        self.assertEqual(previous_school_day(self.user, friday), wednesday)
+        self.assertNotEqual(previous_school_day(self.user, friday), thursday)
+
+    def test_day_without_export_is_not_a_miss(self):
+        monday, friday = date(2026, 9, 21), date(2026, 9, 25)
+        self.with_data(date(2026, 9, 22))
+
+        # Со вторника по пятницу данные есть только за вторник.
+        self.assertEqual(missed_school_days(self.user, monday, friday), 1)
