@@ -58,13 +58,20 @@ def fetch_lxp_snapshot() -> str:
     return f"Snapshot for {yesterday} saved"
 
 
-@shared_task
-def fetch_hik_web_daily(target_date_iso: str | None = None) -> str:
+# Портал отказывает примерно в трети ночей, и всегда по временным причинам:
+# «сессия истекла», «страница логина не сменилась», таймаут. Одна попытка за
+# ночь теряла целый учебный день — за три недели пилота так пропало пять.
+HIK_DAILY_RETRIES = 3
+HIK_DAILY_RETRY_DELAY = 15 * 60
+
+
+@shared_task(bind=True, max_retries=HIK_DAILY_RETRIES)
+def fetch_hik_web_daily(self, target_date_iso: str | None = None) -> str:
     """Забрать проходы из портала по HTTP (основной путь).
 
-    Браузер участвует только в получении cookies. При недоступности прямого
-    API падаем на старый сценарий с выгрузкой XLSX, и только если не вышло
-    и это — шлём алерт: раньше пустой результат и поломка были неразличимы.
+    Браузер участвует только в получении cookies. Временный отказ портала
+    приводит к повторной попытке через четверть часа; только когда попытки
+    исчерпаны, пробуем старую выгрузку XLSX и шлём алерт.
     """
     if getattr(settings, "HIK_DATA_MODE", "snapshot") == "off":
         return "hik_off"
@@ -75,7 +82,22 @@ def fetch_hik_web_daily(target_date_iso: str | None = None) -> str:
 
     try:
         outcome = import_from_portal(target, target)
-    except Exception as exc:  # noqa: BLE001 — решение о фолбэке принимаем здесь
+    except Exception as exc:  # noqa: BLE001 — решение о повторе принимаем здесь
+        if self.request.retries < HIK_DAILY_RETRIES:
+            # Половина отказов — «сессия истекла»: с теми же куками повтор
+            # бессмысленен, следующая попытка должна входить заново.
+            from apps.integrations.services.hik_session import drop_session
+
+            drop_session()
+            logger.warning(
+                "fetch_hik_web_daily: попытка %s из %s не удалась (%s), повтор через %s мин",
+                self.request.retries + 1,
+                HIK_DAILY_RETRIES,
+                exc,
+                HIK_DAILY_RETRY_DELAY // 60,
+            )
+            raise self.retry(exc=exc, countdown=HIK_DAILY_RETRY_DELAY) from exc
+
         logger.warning("fetch_hik_web_daily: прямой API не сработал (%s), пробую XLSX", exc)
         fallback = fetch_hik_browser_export_daily(target_date_iso=target.isoformat())
         if fallback.startswith("hik_browser_error") or fallback == "hik_browser_disabled":
