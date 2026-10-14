@@ -10,9 +10,14 @@ class DailyCoinCapTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="coincap", password="x", callsign="coincap")
 
-    def test_seven_three_coin_quests_cap_at_twenty(self):
+    def test_daily_quests_cap_at_configured_limit(self):
+        """Дневной предел монет действует на квесты.
+
+        Величина берётся из настройки, а не из теста: при переходе на
+        Положение предел пересчитали, и тест с числом 20 внутри ловил бы
+        не ошибку, а сам ребаланс.
+        """
         cap = max_daily_coins()
-        self.assertEqual(cap, 20)
         for i in range(7):
             quest = Quest.objects.create(
                 code=f"daily-{i}",
@@ -24,4 +29,4 @@ class DailyCoinCapTests(TestCase):
             )
             complete_quest_idempotent(self.user, quest, reason="test")
         self.user.refresh_from_db()
-        self.assertEqual(self.user.coins_balance, 20)
+        self.assertEqual(self.user.coins_balance, cap)

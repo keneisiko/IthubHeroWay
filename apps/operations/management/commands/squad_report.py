@@ -66,7 +66,7 @@ class Command(BaseCommand):
             self.stdout.write("  пусто — данные ещё не подтягивались")
         for row in by_source:
             label = SOURCE_LABELS.get(row["source"], row["source"])
-            self.stdout.write(f"  {label}: {row['total']:+d} за {row['n']} записей")
+            self.stdout.write(f"  {label}: {row['total']:+.2f} за {row['n']} записей")
 
         limit = int(options["limit"] or 0)
         shown = members[:limit] if limit else members

@@ -11,14 +11,16 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Role, Squad, Track
-from apps.badges.models import Badge, BadgeCategory, BadgeRarity
+from apps.badges.catalog import BADGES
+from apps.badges.models import Badge
 from apps.integrations.models import TelegramAccountLink
 from apps.operations.services.environment import ensure_not_production
 from apps.progress.models import Characteristic, CharacteristicHistory, UserStrike
 from apps.progress.services.pillar_labels import UI_PILLARS
 from apps.quests.models import Quest, QuestType, UserQuestProgress
 from apps.schedule.models import Schedule
-from apps.shop.models import ShopItem, ShopItemType
+from apps.shop.catalog import SHOP_ITEMS
+from apps.shop.models import ShopItem
 
 User = get_user_model()
 SYNTHETIC_TELEGRAM_BASE = 5_100_000_000
@@ -31,67 +33,6 @@ TRACKS = [
 SQUADS = [
     {"code": "alpha-2025", "name": "Отряд Альфа", "course": 2, "capacity": 20},
     {"code": "beta-2025", "name": "Отряд Бета", "course": 3, "capacity": 20},
-]
-
-SHOP_ITEMS = [
-    {"code": "cosmetic-avatar-frame", "title": "Рамка аватара «Фиолетовый»", "item_type": ShopItemType.COSMETIC, "price_coins": 50},
-    {"code": "cosmetic-badge-glow", "title": "Свечение значка", "item_type": ShopItemType.COSMETIC, "price_coins": 80},
-    {"code": "boost-xp-2h", "title": "Буст опыта ×1.5 (2 ч)", "item_type": ShopItemType.BOOST, "price_coins": 120},
-    {"code": "boost-coins-day", "title": "Двойные монеты (1 день)", "item_type": ShopItemType.BOOST, "price_coins": 150},
-    {"code": "merch-sticker", "title": "Стикерпак IThub", "item_type": ShopItemType.OTHER, "price_coins": 200},
-    {"code": "merch-mug", "title": "Кружка «Путь Героя»", "item_type": ShopItemType.OTHER, "price_coins": 350},
-    {"code": "service-mentor", "title": "Сессия с ментором", "item_type": ShopItemType.SERVICE, "price_coins": 100},
-    {"code": "service-cv", "title": "Разбор резюме", "item_type": ShopItemType.SERVICE, "price_coins": 75},
-]
-
-BADGES = [
-    {
-        "code": "first-quest",
-        "title": "Первый шаг",
-        "description": "Выполни первый квест",
-        "category": BadgeCategory.PROGRESS,
-        "rarity": BadgeRarity.COMMON,
-        "condition": {"completed_quests_at_least": 1},
-        "reward_coins": 10,
-    },
-    {
-        "code": "quest-master",
-        "title": "Мастер квестов",
-        "description": "Выполни 3 квеста",
-        "category": BadgeCategory.PROGRESS,
-        "rarity": BadgeRarity.RARE,
-        "condition": {"completed_quests_at_least": 3},
-        "reward_coins": 25,
-    },
-    {
-        "code": "quest-veteran",
-        "title": "Ветеран квестов",
-        "description": "Выполни 10 квестов",
-        "category": BadgeCategory.PROGRESS,
-        "rarity": BadgeRarity.EPIC,
-        "condition": {"completed_quests_at_least": 10},
-        "reward_coins": 50,
-    },
-    # Две последние вехи карты пути отмечает куратор: событий «вышел на
-    # стажировку» и «выпустился» нет ни в LXP, ни в Hik.
-    {
-        "code": "path-internship",
-        "title": "Стажировка",
-        "description": "Веха карты пути: студент вышел на стажировку. Выдаётся куратором.",
-        "category": BadgeCategory.SPECIAL,
-        "rarity": BadgeRarity.EPIC,
-        "condition": {"manual": True},
-        "reward_coins": 0,
-    },
-    {
-        "code": "path-graduation",
-        "title": "Выпуск",
-        "description": "Веха карты пути: студент завершил обучение. Выдаётся куратором.",
-        "category": BadgeCategory.SPECIAL,
-        "rarity": BadgeRarity.LEGENDARY,
-        "condition": {"manual": True},
-        "reward_coins": 0,
-    },
 ]
 
 PILLAR_DEMO_VALUES = [
@@ -169,7 +110,7 @@ class Command(BaseCommand):
                 code=item_data["code"],
                 defaults={
                     "title": item_data["title"],
-                    "description": f"Демо-товар: {item_data['title']}",
+                    "description": item_data.get("description", ""),
                     "item_type": item_data["item_type"],
                     "price_coins": item_data["price_coins"],
                     "is_active": True,
@@ -182,7 +123,7 @@ class Command(BaseCommand):
                 code=badge_data["code"],
                 defaults={
                     "title": badge_data["title"],
-                    "description": badge_data["description"],
+                    "description": badge_data.get("description", ""),
                     "category": badge_data["category"],
                     "rarity": badge_data["rarity"],
                     "condition": badge_data["condition"],

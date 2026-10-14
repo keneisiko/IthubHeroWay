@@ -11,6 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.text import slugify
 
 from apps.operations.admin_rbac import (
     ManagedRoleAdminMixin,
@@ -20,8 +21,11 @@ from apps.operations.admin_rbac import (
     is_superadmin,
     is_tutor,
 )
-from apps.progress.services.drive_awards import UnknownDriveCode, grant_drive_award_bulk
-from apps.progress.services.drive_awards import available_codes as available_drive_codes
+from apps.progress.services.polozhenie_awards import (
+    UnknownTariff,
+    award_bulk_by_tariff_code,
+    tariff_choices,
+)
 from apps.progress.services.rating_zones import ZONE_COLORS, ZONE_NAMES_RU
 from apps.progress.services.rating_zones import rating_zone as zone_of
 from apps.progress.services.rewards import grant_coins_with_daily_cap
@@ -30,15 +34,28 @@ from apps.quests.models import Quest, QuestType, UserQuestProgress
 from .models import Role, Squad, Track, User
 
 
-def _drive_choices():
-    """Коды «Движа» с их стоимостью — прямо из настроек, без дублирования."""
-    return [(code, f"{code} (+{points})") for code, points in sorted(available_drive_codes().items())]
+def _tariff_choices():
+    """Тарифы разделов 5-7 Положения — прямо из настроек, без дублирования.
+
+    Прежде здесь были коды блока RATING_DRIVE со своими ставками. Положение
+    задаёт другие суммы и различает уровень мероприятия и роль студента,
+    поэтому старый список убран: две таблицы тарифов означали бы, что
+    начисление зависит от того, через какую кнопку его сделали.
+    """
+    return tariff_choices()
 
 
 class UserAdminActionForm(ActionForm):
     reason = forms.CharField(required=False, label="Причина")
     recovery_days = forms.IntegerField(required=False, min_value=3, max_value=7, initial=5, label="Дней квеста")
-    drive_code = forms.ChoiceField(required=False, choices=_drive_choices, label="Тип активности")
+    tariff_code = forms.ChoiceField(
+        required=False, choices=_tariff_choices, label="Тариф по Положению"
+    )
+    activity_title = forms.CharField(
+        required=False,
+        label="Название активности",
+        help_text="Служит и названием в истории студента, и ключом: по нему не платим дважды.",
+    )
 
 
 @admin.register(Track)
@@ -76,7 +93,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
     list_filter = ("role", "squad", "is_active", "date_joined")
     search_fields = ("username", "callsign", "first_name", "last_name", "email", "hik_card_code")
     ordering = ("-rating_current", "username")
-    actions = ("grant_event_bonus", "create_recovery_quest", "grant_drive_award")
+    actions = ("grant_event_bonus", "create_recovery_quest", "grant_polozhenie_award")
     fieldsets = BaseUserAdmin.fieldsets + (
         (
             "Путь героя",
@@ -168,12 +185,13 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
                 updated += 1
         self.message_user(request, f"Начислено +10 монет для {updated} студентов.", level=messages.SUCCESS)
 
-    @admin.action(description="Начислить рейтинг за активность («Движ»)")
-    def grant_drive_award(self, request, queryset):
-        """Единственная точка, где начисляются коэффициенты RATING_DRIVE.
+    @admin.action(description="Начислить за мероприятие, олимпиаду или проект")
+    def grant_polozhenie_award(self, request, queryset):
+        """Пакетное начисление по разделам 5-7 Положения.
 
-        Раньше блок «Движ» не был подключён нигде: мероприятия, олимпиады и
-        проекты на рейтинг не влияли вообще.
+        Положение (п. 5.1) допускает подтверждение участия списком участников:
+        ответственный выбирает студентов, тариф и называет активность. Название
+        служит ключом — повторное начисление за ту же активность не проходит.
         """
         if not (is_tutor(request.user) or is_hq(request.user) or is_admin(request.user)):
             self.message_user(
@@ -183,16 +201,34 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
             )
             return
 
-        code = (request.POST.get("drive_code") or "").strip()
+        code = (request.POST.get("tariff_code") or "").strip()
         if not code:
-            self.message_user(request, "Выберите тип активности.", level=messages.ERROR)
+            self.message_user(request, "Выберите тариф.", level=messages.ERROR)
+            return
+
+        title = (request.POST.get("activity_title") or "").strip()
+        if not title:
+            self.message_user(
+                request,
+                "Укажите название активности: оно служит ключом, по которому "
+                "Положение запрещает платить дважды за одно и то же.",
+                level=messages.ERROR,
+            )
             return
 
         note = (request.POST.get("reason") or "").strip()
-        agents = queryset.filter(role=Role.AGENT)
+        activity_key = f"{slugify(title)[:48]}:{timezone.localdate().isoformat()}"
+        agents = list(queryset.filter(role=Role.AGENT))
         try:
-            result = grant_drive_award_bulk(agents, code, note=note)
-        except UnknownDriveCode as exc:
+            result = award_bulk_by_tariff_code(
+                agents,
+                code,
+                activity_key=activity_key,
+                title=title,
+                confirmed_by=request.user,
+                note=note,
+            )
+        except UnknownTariff as exc:
             self.message_user(request, str(exc), level=messages.ERROR)
             return
 
@@ -203,13 +239,14 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
                 object_id=user.pk,
                 object_repr=str(user),
                 action_flag=CHANGE,
-                change_message=f"Движ {code}: +{result.points_each} рейтинга. {note}".strip(),
+                change_message=f"{code} «{title}». {note}".strip(),
             )
 
         self.message_user(
             request,
-            f"«{code}»: начислено {result.granted} студентам по +{result.points_each}; "
-            f"повторно за сегодня пропущено {result.skipped_duplicate}.",
+            f"«{title}»: начислено {result['granted']} студентам "
+            f"(+{result['rating']} рейтинга, +{result['coins']} монет); "
+            f"пропущено как уже начисленное {result['skipped']}.",
             level=messages.SUCCESS,
         )
 

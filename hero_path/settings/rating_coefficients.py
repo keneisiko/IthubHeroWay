@@ -1,6 +1,15 @@
-"""
-Коэффициенты рейтинга 1000 v2.0 (Путь героя).
-Используются квестами, интеграцией LXP и ручными начислениями.
+"""Коэффициенты, которые Положением не регулируются.
+
+Положение (редакция 2.0) задаёт рейтинг, монеты, статусы, тарифы разделов 3-7
+и списания раздела 9 — всё это лежит в `polozhenie.py` и главнее того, что
+здесь. Отсюда остаются квесты, нашивки, дуэли, респекты и дисциплинарные
+механики: Положение их не описывает.
+
+Ребаланс при переходе на Положение. Недельный доход студента по разделу 3 —
+до 30 монет. Прежние награды квестов (до 40 монет за один самоотчёт) рядом
+с этим обесценивали учебный блок: сдать отчёт было выгоднее, чем ходить на
+пары всю неделю. Награды уменьшены так, чтобы квесты оставались приятной
+добавкой — около четверти недельного учебного дохода, а не его заменой.
 """
 
 # --- Гигиена (~КП): успеваемость, посещаемость, дисциплина ---
@@ -12,7 +21,9 @@ RATING_KP = {
     "CT_RETAKE_SUCCESS": 5,
     "CT_ALL_CLOSED_BONUS": 30,
     "CT_DEBT_WEEKLY_PENALTY": -10,
-    "ATTENDANCE_FULL_WEEK": 15,
+    # ATTENDANCE_FULL_WEEK убрана: в коде она не использовалась нигде, а
+    # название обещало 15 баллов за полную неделю посещаемости — ровно то,
+    # что п. 3.4 Положения ограничивает тринадцатью.
     "ATTENDANCE_STREAK_7D": 5,
     "ABSENCE_UNEXCUSED": -10,
     "ABSENCE_EXCUSED": 0,
@@ -47,20 +58,20 @@ RATING_DRIVE = {
 }
 
 QUESTS_REWARDS = {
-    "DAILY_QUEST_REWARD": 3,
-    "WEEKLY_QUEST_REWARD": 10,
-    "SEASONAL_QUEST_REWARD": 50,
-    "PERSONAL_QUEST_REWARD": 8,
-    "TEAM_QUEST_REWARD": 80,
-    "STREAK_3D_COINS": 5,
-    "STREAK_7D_COINS": 15,
-    "STREAK_21D_COINS": 30,
-    "RESPECT_REWARD": 3,
+    "DAILY_QUEST_REWARD": 2,
+    "WEEKLY_QUEST_REWARD": 5,
+    "SEASONAL_QUEST_REWARD": 25,
+    "PERSONAL_QUEST_REWARD": 4,
+    "TEAM_QUEST_REWARD": 30,
+    "STREAK_3D_COINS": 3,
+    "STREAK_7D_COINS": 8,
+    "STREAK_21D_COINS": 15,
+    "RESPECT_REWARD": 2,
     "MENTEE_WEEKLY_COINS": 2,
     # Надбавка за квест, выбранный целью недели. Небольшая намеренно: цель
     # недели — это акцент, а не способ удвоить награду.
-    "WEEKLY_FOCUS_BONUS_COINS": 5,
-    "WEEKLY_FOCUS_BONUS_RATING": 3,
+    "WEEKLY_FOCUS_BONUS_COINS": 3,
+    "WEEKLY_FOCUS_BONUS_RATING": 0,
 }
 
 # --- Годовая модель рейтинга ---
@@ -93,14 +104,20 @@ RATING_YEAR = {
 }
 
 RATING_LIMITS = {
-    "MAX_DAILY_COINS": 20,
+    # Предел дневного заработка монет действует только на квесты и нашивки:
+    # Положение дневных пределов не знает, и начисления разделов 3-7 через
+    # него не проходят (иначе проект на 100 монет срезался бы до 20).
+    "MAX_DAILY_COINS": 10,
     "MAX_DAILY_SELF_REPORTS": 3,
     "CT_UNCLOSED_BLOCK_THRESHOLD": 2,
-    "MAX_RATING_WHEN_BLOCKED": 399,
-    "DEFAULT_RATING_START": 300,
+    # Потолок анти-накрутки пересчитан под шкалу Положения: он должен стоять
+    # на границе статуса, а не на старом пороге зелёной зоны.
+    "MAX_RATING_WHEN_BLOCKED": 249,
+    # п. 2.2 Положения: рейтинг на начало сезона равен нулю.
+    "DEFAULT_RATING_START": 0,
     "DUEL_MAX_RATING_DIFF": 150,
     "DUEL_ACTIVE_LIMIT": 1,
-    "DUEL_BET": 5,
+    "DUEL_BET": 3,
     # Сколько дней идёт принятая дуэль: победителя определяет прирост рейтинга
     # за этот срок, а не мгновенное сравнение.
     "DUEL_DURATION_DAYS": 7,
@@ -111,7 +128,7 @@ RATING_LIMITS = {
     # Раньше 80% и 5 монет были записаны числами в трёх местах вьюхи отрядов
     # и ещё раз текстом в интерфейсе.
     "SQUAD_WEEKLY_BONUS_PERCENT": 80,
-    "SQUAD_WEEKLY_BONUS_COINS": 5,
+    "SQUAD_WEEKLY_BONUS_COINS": 3,
     "RESPECT_SAME_USER_COOLDOWN": 14,
     # Лимиты на одну итерацию пересчёта из снимка LXP (защита от выбросов)
     "LXP_SNAPSHOT_CT_POSITIVE_CAP": 40,

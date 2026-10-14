@@ -48,10 +48,14 @@ def snapshot_payload(topics_by_user: dict[str, list[str]]) -> dict:
     }
 
 
+# Событийная модель в проде выключена: по Положению рейтинг за учёбу даёт
+# недельный расчёт. Тесты включают её явно — модель остаётся в коде и должна
+# оставаться рабочей, если колледж вернётся к ней.
 @override_settings(
     RATING_YEAR=YEAR_SETTINGS,
     RATING_KP={"CT_ALL_CLOSED_BONUS": 30},
     RATING_LIMITS={"MAX_RATING_WHEN_BLOCKED": 399},
+    LXP_EVENT_RATING_ENABLED=True,
 )
 class LxpRatingEventModelTests(TestCase):
     """Рейтинг начисляется за изменение, а не за текущее состояние."""
@@ -170,6 +174,7 @@ class LxpRatingEventModelTests(TestCase):
     RATING_YEAR=YEAR_SETTINGS,
     RATING_KP={"CT_ALL_CLOSED_BONUS": 30},
     RATING_LIMITS={"MAX_RATING_WHEN_BLOCKED": 399},
+    LXP_EVENT_RATING_ENABLED=True,
 )
 class CourseFairnessTests(TestCase):
     """Курсы с разным объёмом программы получают сопоставимый годовой максимум."""

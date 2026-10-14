@@ -49,7 +49,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Отряд {squad.code} «{squad.name}»: {members.count()} агентов")
         self.stdout.write(
             f"Снимется: записей рейтинга {logs.count()} "
-            f"(на {logs.aggregate(s=Sum('delta'))['s'] or 0:+d}), "
+            f"(на {logs.aggregate(s=Sum('delta'))['s'] or 0:+.2f}), "
             f"наград за квесты {rewards.count()}, прогресса по квестам {progress.count()}, "
             f"заявок на подтверждение {proofs.count()}"
         )

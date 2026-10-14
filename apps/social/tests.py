@@ -13,7 +13,11 @@ from apps.social.models import Mentorship, Respect
 
 class SocialLimitsTests(APITestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="u1", password="x", callsign="u1")
+        # Рейтинг задаётся явно: по Положению сезон начинается с нуля, и
+        # тест про разницу рейтингов не должен зависеть от стартового значения.
+        self.user = get_user_model().objects.create_user(
+            username="u1", password="x", callsign="u1", rating_current=300
+        )
         self.opponent = get_user_model().objects.create_user(
             username="u2", password="x", callsign="u2", rating_current=600
         )

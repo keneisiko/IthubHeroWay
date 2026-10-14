@@ -35,6 +35,9 @@ def snapshot_data(lxp_uid: str) -> dict:
     }
 
 
+# Идемпотентность проверяется на событийной модели, поэтому она включается
+# явно: в проде рейтинг за учёбу начисляет недельный расчёт по Положению.
+@override_settings(LXP_EVENT_RATING_ENABLED=True)
 class RatingIdempotencyTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

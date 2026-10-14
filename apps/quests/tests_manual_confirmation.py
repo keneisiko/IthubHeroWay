@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -16,6 +17,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import Role
+from apps.progress.services.rewards import max_daily_coins
 from apps.quests.models import (
     Quest,
     QuestRewardTransaction,
@@ -91,6 +93,7 @@ class ManualConfirmationTests(APITestCase):
         self.assertEqual(proof.status, SelfReportProofStatus.PENDING)
 
     def test_reward_arrives_only_after_approval(self):
+        rating_before = self.user.rating_current
         self.client.post(self._url(self.manual), {"proof_payload": {}}, format="json")
         proof = SelfReportProof.objects.get(user=self.user, quest=self.manual)
 
@@ -99,10 +102,13 @@ class ManualConfirmationTests(APITestCase):
         complete_quest_idempotent(self.user, self.manual, reason="Квест подтверждён куратором")
 
         self.user.refresh_from_db()
-        self.assertEqual(self.user.rating_current, 325)
-        # Монеты режет дневной лимит MAX_DAILY_COINS — так и задумано:
-        # рейтинг за квест приходит целиком, монеты в пределах суточной нормы.
-        self.assertEqual(self.user.coins_balance, 20)
+        # Проверяется прирост, а не абсолютное значение: стартовый рейтинг
+        # задаёт фикстура, и число внутри теста ломалось бы при ребалансе.
+        self.assertEqual(
+            self.user.rating_current - rating_before, Decimal(self.manual.reward_rating_delta)
+        )
+        # Монеты режет дневной предел MAX_DAILY_COINS — он остался у квестов.
+        self.assertEqual(self.user.coins_balance, max_daily_coins())
 
     def test_second_submission_updates_the_same_request(self):
         """Студент может переприслать ссылку, а не плодить заявки."""

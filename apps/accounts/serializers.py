@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.progress.services.path_map import path_reached
-from apps.progress.services.rating_zones import rating_zone
+from apps.progress.services.rating_zones import rating_status_label, rating_zone
 from apps.shop.services import applied_purchases
 from apps.social.services.duels import duel_wins
 from apps.social.services.rewards import respects_received_count
@@ -18,6 +18,10 @@ class MeProfileSerializer(serializers.ModelSerializer):
     applied_items = serializers.SerializerMethodField()
     duel_wins = serializers.SerializerMethodField()
     respects_received = serializers.SerializerMethodField()
+    # Статус по разделу 8 Положения: его название, а не только код зоны.
+    rating_status = serializers.SerializerMethodField()
+    # п. 2.1: принял ли студент действующую редакцию Положения.
+    policy_accepted = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -29,12 +33,22 @@ class MeProfileSerializer(serializers.ModelSerializer):
             "squad",
             "level",
             "rating_current",
+            "rating_status",
             "coins_balance",
             "path_reached",
             "applied_items",
             "duel_wins",
             "respects_received",
+            "policy_accepted",
         ]
+
+    def get_rating_status(self, obj: User) -> str:
+        return rating_status_label(obj.rating_current)
+
+    def get_policy_accepted(self, obj: User) -> bool:
+        from apps.accounts.policy_views import has_accepted_current
+
+        return has_accepted_current(obj)
 
     def get_path_reached(self, obj: User) -> list[str]:
         return path_reached(obj)
@@ -60,6 +74,8 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     # и в интерфейсе всегда было пусто.
     duel_wins = serializers.SerializerMethodField()
     respects_received = serializers.SerializerMethodField()
+    # п. 11.1: статус другого студента виден авторизованным, монеты — нет.
+    rating_status = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -71,6 +87,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "squad",
             "level",
             "rating_zone",
+            "rating_status",
             "rating_current",
             "path_reached",
             "applied_items",
@@ -93,6 +110,9 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     def get_rating_zone(self, obj: User) -> str:
         # Пороги живут в одном месте — apps.progress.services.rating_zones.
         return rating_zone(obj.rating_current)
+
+    def get_rating_status(self, obj: User) -> str:
+        return rating_status_label(obj.rating_current)
 
     def get_rating_current(self, obj: User):
         request = self.context.get("request")

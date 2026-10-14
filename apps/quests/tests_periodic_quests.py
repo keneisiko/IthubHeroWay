@@ -9,9 +9,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.accounts.models import Role, Squad
@@ -107,6 +109,10 @@ class PeriodInstanceTests(TestCase):
         )
 
 
+# Предел дневного заработка монет поднят только здесь: тест проверяет, что
+# награда приходит каждый день, а не как работает предел — иначе три дня
+# по пять монет упирались бы в него и проверка теряла смысл.
+@override_settings(RATING_LIMITS={**settings.RATING_LIMITS, "MAX_DAILY_COINS": 100})
 class DailyRewardRepeatsTests(TestCase):
     def setUp(self):
         QuestTemplate.objects.create(
@@ -122,6 +128,7 @@ class DailyRewardRepeatsTests(TestCase):
         self.user = make_agent("daily_hero", self.squad, 700001)
 
     def test_reward_is_granted_every_day(self):
+        rating_before = self.user.rating_current
         days = [date(2026, 10, 1), date(2026, 10, 2), date(2026, 10, 3)]
         for day in days:
             checkin(self.user, day, time(8, 25))
@@ -129,8 +136,9 @@ class DailyRewardRepeatsTests(TestCase):
 
         self.user.refresh_from_db()
         self.assertEqual(QuestRewardTransaction.objects.filter(user=self.user).count(), 3)
-        self.assertEqual(self.user.coins_balance, 15)
-        self.assertEqual(self.user.rating_current, 306)
+        # Три дня по ставке квеста из фикстуры: 5 монет и 2 рейтинга за день.
+        self.assertEqual(self.user.coins_balance, Decimal("15"))
+        self.assertEqual(self.user.rating_current - rating_before, Decimal("6"))
 
     def test_same_day_rerun_pays_once(self):
         day = date(2026, 10, 1)

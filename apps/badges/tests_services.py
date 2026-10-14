@@ -1,7 +1,7 @@
 """Тесты выдачи значков — модуль не имел покрытия вовсе."""
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from apps.accounts.models import Role
 from apps.badges.models import Badge, UserBadge
@@ -120,12 +120,21 @@ class WeeklyTaskTests(TestCase):
         self.assertIn("checked=1", result)
         self.assertTrue(UserBadge.objects.filter(user=user).exists())
 
-    def test_users_without_telegram_are_skipped(self):
+    def test_audience_follows_scoring_setting(self):
+        """Аудитория нашивок — та же, что у начислений.
+
+        По умолчанию считаются все (п. 2.1-2.2 Положения). Если колледж
+        вернёт требование привязки Telegram, нашивки должны подчиниться той
+        же настройке, а не своему отдельному фильтру.
+        """
         User.objects.create_user(
             username="ghost", email="g@test.ru", password="x", callsign="ghost_call", role=Role.AGENT
         )
-        result = check_badges_weekly()
-        self.assertIn("checked=0", result)
+
+        self.assertIn("checked=1", check_badges_weekly())
+
+        with override_settings(REQUIRE_TELEGRAM_LINK_FOR_SCORING=True):
+            self.assertIn("checked=0", check_badges_weekly())
 
 
 class ManualBadgeTests(TestCase):

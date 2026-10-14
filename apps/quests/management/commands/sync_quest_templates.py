@@ -9,6 +9,10 @@ from django.db import transaction
 from apps.quests.models import Quest, QuestTemplate, QuestType, QuestVerifierKind
 from apps.quests.services.quest_periods import PERIODIC_TYPES, ensure_period_quests
 
+# Награды после перехода на Положение: квесты дают только монеты.
+# Рейтинг по Положению начисляется разделами 3-7, и квестов среди них нет —
+# значит квест, добавляющий рейтинг, начислял бы его без основания.
+# Монеты Положение не ограничивает, поэтому ими квесты и награждаются.
 DEFAULT_TEMPLATES = [
     {
         "code": "daily-hik-on-time",
@@ -19,8 +23,8 @@ DEFAULT_TEMPLATES = [
         # Дедлайн берётся из расписания отряда; значения ниже — запасной
         # вариант для отрядов без расписания.
         "verifier_params": {"deadline_hour": 10, "deadline_minute": 0, "grace_minutes": 0},
-        "reward_coins": 5,
-        "reward_rating_delta": 2,
+        "reward_coins": 3,
+        "reward_rating_delta": 0,
     },
     {
         "code": "daily-hik-no-late",
@@ -29,8 +33,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.DAILY,
         "verifier": QuestVerifierKind.HIK_NO_LATE,
         "verifier_params": {"days": 1},
-        "reward_coins": 5,
-        "reward_rating_delta": 3,
+        "reward_coins": 3,
+        "reward_rating_delta": 0,
     },
     {
         # Был ежедневным на флаге hasAttendance, который не привязан ко дню:
@@ -41,8 +45,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.LXP_ATTENDANCE,
         "verifier_params": {"min_percent": 80},
-        "reward_coins": 15,
-        "reward_rating_delta": 6,
+        "reward_coins": 6,
+        "reward_rating_delta": 0,
     },
     {
         "code": "weekly-yougile-tasks",
@@ -51,8 +55,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.YOUGILE_TASKS,
         "verifier_params": {"days": 7, "min_count": 3},
-        "reward_coins": 25,
-        "reward_rating_delta": 10,
+        "reward_coins": 10,
+        "reward_rating_delta": 0,
     },
     {
         "code": "weekly-lxp-ct",
@@ -61,8 +65,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.LXP_CT_CLOSED,
         "verifier_params": {"min_closed": 1},
-        "reward_coins": 15,
-        "reward_rating_delta": 8,
+        "reward_coins": 6,
+        "reward_rating_delta": 0,
     },
     {
         "code": "weekly-no-late",
@@ -71,8 +75,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.HIK_NO_LATE,
         "verifier_params": {"days": 5},
-        "reward_coins": 20,
-        "reward_rating_delta": 12,
+        "reward_coins": 8,
+        "reward_rating_delta": 0,
     },
     {
         "code": "weekly-late-streak",
@@ -81,8 +85,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.LATE_STREAK,
         "verifier_params": {"min_days": 7},
-        "reward_coins": 10,
-        "reward_rating_delta": 5,
+        "reward_coins": 5,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-lab",
@@ -91,8 +95,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 20,
-        "reward_rating_delta": 8,
+        "reward_coins": 8,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-project",
@@ -101,8 +105,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 30,
-        "reward_rating_delta": 12,
+        "reward_coins": 12,
+        "reward_rating_delta": 0,
     },
     {
         "code": "weekly-lxp-no-misses",
@@ -111,8 +115,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.LXP_NO_MISSES,
         "verifier_params": {"days": 7, "max_missed": 0},
-        "reward_coins": 20,
-        "reward_rating_delta": 10,
+        "reward_coins": 8,
+        "reward_rating_delta": 0,
     },
     {
         # Единственный периодический квест, не завязанный на интеграции:
@@ -123,8 +127,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.WEEKLY,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 15,
-        "reward_rating_delta": 5,
+        "reward_coins": 6,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-practice",
@@ -133,8 +137,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 25,
-        "reward_rating_delta": 10,
+        "reward_coins": 10,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-demo",
@@ -143,8 +147,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 40,
-        "reward_rating_delta": 25,
+        "reward_coins": 15,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-hackathon",
@@ -153,8 +157,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 40,
-        "reward_rating_delta": 25,
+        "reward_coins": 15,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-volunteer",
@@ -163,8 +167,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 25,
-        "reward_rating_delta": 15,
+        "reward_coins": 10,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-help",
@@ -173,8 +177,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 15,
-        "reward_rating_delta": 6,
+        "reward_coins": 6,
+        "reward_rating_delta": 0,
     },
     {
         "code": "self-report-opensource",
@@ -183,8 +187,8 @@ DEFAULT_TEMPLATES = [
         "quest_type": QuestType.SELF_REPORT,
         "verifier": QuestVerifierKind.MANUAL,
         "verifier_params": {},
-        "reward_coins": 20,
-        "reward_rating_delta": 8,
+        "reward_coins": 8,
+        "reward_rating_delta": 0,
     },
 ]
 

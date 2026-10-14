@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 
 from apps.accounts.models import Role
 from apps.badges.services import award_badges_for_user
+from apps.integrations.services.account_gate import agents_for_scoring
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,14 @@ def check_badges_weekly() -> str:
     а значки не выдавались никогда — при том, что и модели, и правила выдачи
     в проекте есть.
 
-    Обходим только активированных агентов: значки участвуют в рейтинге,
-    а он и так считается только по ним.
+    Аудитория та же, что у остальных начислений — `agents_for_scoring`.
+    Прежде здесь стоял свой фильтр по привязке Telegram, и студент без
+    привязки получал монеты за учёбу, но не получал нашивок: правило
+    «кому начисляем» должно жить в одном месте.
     """
     User = get_user_model()
     users = (
-        User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
+        agents_for_scoring(User.objects.filter(role=Role.AGENT))
         .only("id", "username", "coins_balance")
         .order_by("id")
     )

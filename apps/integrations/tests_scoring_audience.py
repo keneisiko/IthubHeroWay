@@ -1,8 +1,9 @@
 """Кого платформа считает при начислениях.
 
-Начисления шли только тем, у кого активна привязка Telegram. В закрытом
-прогоне студенты в платформу не заходят, привязок нет — и ночные задачи
-каждый раз насчитывали ноль, то есть проверяли сами себя.
+Начисления шли только тем, у кого активна привязка Telegram. Положение
+(п. 2.1-2.2) требует другого: начисления производятся всем студентам с общей
+даты запуска, а поздняя активация профиля студента их не лишает. Поэтому
+по умолчанию считаются все, а требование привязки осталось настройкой.
 """
 
 from __future__ import annotations
@@ -69,8 +70,13 @@ class ScoringAudienceTests(TestCase):
         closed.refresh_from_db()
         self.assertFalse(closed.is_active)
 
-    def test_po_umolchaniyu_trebuetsya_privyazka(self):
-        """Забытая настройка не должна молча раздавать рейтинг всем подряд."""
+    def test_po_umolchaniyu_schitayutsya_vse(self):
+        """Пункты 2.1-2.2 Положения: начисления идут всем с даты запуска.
+
+        Привязка Telegram остаётся способом входа, но перестала определять,
+        кому считать: иначе студент, активировавший профиль в ноябре, терял
+        бы октябрьские недели, что Положение прямо запрещает.
+        """
         from django.conf import settings
 
-        self.assertTrue(getattr(settings, "REQUIRE_TELEGRAM_LINK_FOR_SCORING", True))
+        self.assertFalse(getattr(settings, "REQUIRE_TELEGRAM_LINK_FOR_SCORING", True))

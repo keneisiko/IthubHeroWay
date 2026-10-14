@@ -1,4 +1,8 @@
-"""Бонусы за серии посещаемости и отсутствие опозданий.
+"""Бонусы за серии посещаемости и отсутствие опозданий — в монетах.
+
+Рейтинг за посещаемость целиком задан п. 3.4 Положения: 13 баллов в неделю
+при полной посещаемости, и ничего сверх. Поэтому бонусы за серии начисляются
+монетами, которые Положение не регулирует.
 
 Посещаемость считается по проходам турникета за конкретный день. Раньше
 источником был флаг `hasAttendance` из LXP — он приходит без привязки к дате
@@ -24,7 +28,7 @@ from apps.progress.services.late_penalties import (
     late_streak_bonus_for_days,
     late_streak_milestone,
 )
-from apps.progress.services.rewards import apply_rating_delta_with_cap
+from apps.progress.services.polozhenie_ledger import grant
 from apps.schedule.models import Schedule
 
 logger = logging.getLogger(__name__)
@@ -140,14 +144,23 @@ def _rating_already_applied(user_id: int, source_id: str) -> bool:
 
 @transaction.atomic
 def _apply_bonus_once(user: User, delta: int, source_id: str, reason: str) -> bool:
+    """Выдать бонус за серию один раз на веху — монетами, не рейтингом.
+
+    Рейтинг за посещаемость ограничен 13 баллами в неделю (п. 3.4 Положения),
+    и это всё, что посещаемость даёт. Бонус за серию начислялся рейтингом
+    поверх недельного расчёта, то есть неделя без пропусков приносила 13 + 5
+    и выходила за тариф. Монеты Положение не ограничивает, поэтому механика
+    серий сохранена в них.
+    """
     if delta <= 0 or _rating_already_applied(user.pk, source_id):
         return False
-    apply_rating_delta_with_cap(
-        user=user,
-        delta=delta,
+    grant(
+        user,
+        rating=0,
+        coins=delta,
         source=RatingChangeSource.SYSTEM,
-        reason=reason[:250],
         source_id=source_id,
+        reason=reason[:250],
     )
     return True
 
@@ -242,7 +255,7 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
                 user,
                 late_bonus,
                 f"late_streak:{late_milestone}:{late_start.isoformat()}",
-                f"Бонус за {late_milestone} дн. без опозданий",
+                f"Бонус монетами за {late_milestone} дн. без опозданий",
             ):
                 bonuses += 1
 
@@ -254,7 +267,7 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
                 user,
                 att_bonus,
                 f"attendance_streak:{att_milestone}:{att_start.isoformat()}",
-                f"Бонус за {att_milestone} дн. без пропусков",
+                f"Бонус монетами за {att_milestone} дн. без пропусков",
             ):
                 bonuses += 1
 

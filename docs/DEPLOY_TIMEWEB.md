@@ -143,6 +143,15 @@ dcp restart nginx web
 ```bash
 dcp exec web python manage.py createsuperuser
 dcp exec web python manage.py sync_quest_templates
+# Каталоги магазина и нашивок: без этого разделы у студентов пустые.
+dcp exec web python manage.py sync_catalogs
+```
+
+Проверить статусы тем LXP до первого начисления по Положению — если будущие
+КТ попадут в расчёт как несданные, успеваемость обвалится всей группе:
+
+```bash
+dcp exec web python manage.py probe_topic_statuses
 ```
 
 Импорт студентов. Для пилота — одна группа:

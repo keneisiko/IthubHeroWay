@@ -12,7 +12,7 @@ from django.utils import timezone
 from apps.accounts.models import Role, User
 from apps.operations.services.review_queue import pending_proofs
 from apps.progress.models import RatingLog
-from apps.progress.services.rating_zones import zone_bounds
+from apps.progress.services.rating_zones import red_zone_max, risk_zone_max, zone_bounds
 from apps.quests.models import SeasonalEvent
 
 
@@ -66,7 +66,7 @@ def curator_dashboard(request):
     pending_qs = pending_proofs(request.user)
     context = {
         "zone_counts": _zone_counts(users_qs),
-        "red_zone_users": users_qs.filter(rating_current__lt=100).order_by("rating_current")[:20],
+        "red_zone_users": users_qs.filter(rating_current__lt=red_zone_max()).order_by("rating_current")[:20],
         "rating_dynamics": _rating_dynamics(users_qs, days=30),
         "seasonal_events": SeasonalEvent.objects.filter(is_active=True).order_by("-created_at")[:5],
         "pending_self_reports_count": pending_qs.count(),
@@ -88,8 +88,8 @@ def tutor_dashboard(request):
     pending_qs = pending_proofs(request.user)
     context = {
         "zone_counts": _zone_counts(users_qs),
-        "risk_users": users_qs.filter(rating_current__lt=200).order_by("rating_current")[:30],
-        "red_zone_users": users_qs.filter(rating_current__lt=100).order_by("rating_current")[:20],
+        "risk_users": users_qs.filter(rating_current__lt=risk_zone_max()).order_by("rating_current")[:30],
+        "red_zone_users": users_qs.filter(rating_current__lt=red_zone_max()).order_by("rating_current")[:20],
         "rating_dynamics": _rating_dynamics(users_qs, days=30),
         "seasonal_events": SeasonalEvent.objects.filter(is_active=True).order_by("-created_at")[:5],
         "pending_self_reports_count": pending_qs.count(),
@@ -105,7 +105,7 @@ def hq_dashboard(request):
     users_qs = User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
     context = {
         "zone_counts": _zone_counts(users_qs),
-        "red_zone_users": users_qs.filter(rating_current__lt=100).order_by("rating_current")[:20],
+        "red_zone_users": users_qs.filter(rating_current__lt=red_zone_max()).order_by("rating_current")[:20],
         "rating_dynamics": _rating_dynamics(users_qs, days=7),
         "seasonal_events": SeasonalEvent.objects.order_by("-created_at")[:10],
     }

@@ -103,13 +103,19 @@ class StartRatingYearTests(TestCase):
 
     def test_previous_year_total_is_kept_in_log(self):
         user = make_agent("veteran2", rating=760)
+        user.coins_balance = 42
+        user.save(update_fields=["coins_balance"])
 
         call_command("start_rating_year", stdout=StringIO())
 
         log = RatingLog.objects.get(user=user)
         self.assertEqual(log.value_before, 760)
         self.assertEqual(log.value_after, 300)
-        self.assertIn("Старт учебного года", log.reason)
+        self.assertIn("Старт сезона", log.reason)
+        # п. 2.5: неиспользованные монеты сгорают и не переносятся.
+        self.assertEqual(log.coins_delta, -42)
+        user.refresh_from_db()
+        self.assertEqual(user.coins_balance, 0)
 
     def test_dry_run_changes_nothing(self):
         user = make_agent("veteran3", rating=700)

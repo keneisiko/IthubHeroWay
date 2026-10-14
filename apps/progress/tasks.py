@@ -65,3 +65,50 @@ def monitor_health_and_alert() -> str:
     """Периодическая проверка db/redis/celery/lxp token с алертами."""
     result = monitor_health_and_alert_sync()
     return f"health issues={len(result['issues'])} alerts={result['alerts_sent']}"
+
+
+@shared_task(bind=True, max_retries=3)
+def accrue_polozhenie_week(self, day_iso: str | None = None) -> str:
+    """Недельные начисления по Положению: учёба (раздел 3) и роли (раздел 4).
+
+    Запускается в понедельник за *прошедшую* неделю: данные о посещаемости
+    за пятницу приходят ночной загрузкой отметок, и считать неделю в её
+    последний день значило бы терять последний учебный день.
+
+    Повтор при сбое безопасен: начисление идемпотентно по ключу периода,
+    второй прогон той же недели ничего не удвоит (п. 2.4).
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.progress.services.polozhenie_academic import run_weekly_accrual
+    from apps.progress.services.polozhenie_awards import run_weekly_roles
+
+    if day_iso:
+        day = parse_date(day_iso)
+        if not day:
+            return f"invalid_date:{day_iso}"
+    else:
+        day = timezone.localdate() - timedelta(days=7)
+
+    try:
+        academic = run_weekly_accrual(day)
+        roles = run_weekly_roles(day)
+    except (IntegrityError, DatabaseError) as exc:
+        send_alert_to_admin(
+            title="Сбой недельного начисления по Положению",
+            message=f"Неделя: {day.isoformat()}\n{exc}",
+            error_type="rating",
+            deduplicate_key=f"polozhenie_week:{day.isoformat()}",
+            is_critical=True,
+        )
+        raise self.retry(exc=exc, countdown=30 * 60) from exc
+
+    return (
+        f"polozhenie:{academic.period}"
+        f":considered={academic.users_considered}:paid={academic.users_paid}"
+        f":rating={academic.rating_total}:coins={academic.coins_total}"
+        f":deferred_ct={academic.deferred_ct}:deferred_att={academic.deferred_attendance}"
+        f":roles_paid={roles['paid']}"
+    )

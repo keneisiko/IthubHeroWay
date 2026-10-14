@@ -44,7 +44,9 @@ class Purchase(models.Model):
     item = models.ForeignKey(
         ShopItem, verbose_name="Товар", on_delete=models.PROTECT, related_name="purchases"
     )
-    coins_spent = models.PositiveIntegerField("Потрачено монет")
+    # Баланс монет десятичный (п. 2.4 Положения), поэтому и списание тоже:
+    # иначе покупка на 50 монет при балансе 50,40 оставляла бы 0,40 в воздухе.
+    coins_spent = models.DecimalField("Потрачено монет", max_digits=10, decimal_places=2)
     created_at = models.DateTimeField("Создана", auto_now_add=True)
     applied_at = models.DateTimeField(
         "Применена",

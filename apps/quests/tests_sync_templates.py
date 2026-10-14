@@ -6,6 +6,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
+from apps.quests.management.commands.sync_quest_templates import DEFAULT_TEMPLATES
 from apps.quests.models import Quest, QuestTemplate
 from apps.quests.services.quest_periods import period_key_for
 
@@ -47,7 +48,12 @@ class SyncQuestTemplatesTests(TestCase):
 
         template = QuestTemplate.objects.get(code="daily-hik-on-time")
         self.assertEqual(template.title, "Утренний чек-ин")
-        self.assertEqual(template.reward_coins, 5)
+        # Ставка берётся из каталога шаблонов, а не прибивается в тесте:
+        # иначе тест ловил бы ребаланс, а не поломку --update-existing.
+        expected = next(
+            row["reward_coins"] for row in DEFAULT_TEMPLATES if row["code"] == "daily-hik-on-time"
+        )
+        self.assertEqual(template.reward_coins, expected)
 
     def test_rerun_does_not_duplicate_quests(self):
         call_command("sync_quest_templates", stdout=StringIO())

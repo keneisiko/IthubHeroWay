@@ -3,6 +3,7 @@ from django.urls import path
 from apps.authapp.views import RefreshView
 
 from .characteristics_views import MeCharacteristicsView
+from .policy_views import PolicyStateView
 from .squads_views import (
     SquadJoinView,
     SquadLeaderboardView,
@@ -23,6 +24,8 @@ urlpatterns = [
     path("profile/me/characteristics/", MeCharacteristicsView.as_view(), name="profile-me-characteristics"),
     path("profile/<str:username>/", PublicProfileView.as_view(), name="profile-public"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
+    # п. 2.1 Положения: ознакомление и принятие перед работой с платформой.
+    path("policy/", PolicyStateView.as_view(), name="policy-state"),
     path("agents/search/", AgentSearchView.as_view(), name="agents-search"),
     path("squads/", SquadListCreateView.as_view(), name="squads-list"),
     path("squads/join/", SquadJoinView.as_view(), name="squads-join"),

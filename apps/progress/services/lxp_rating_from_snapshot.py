@@ -1,4 +1,16 @@
-"""Рейтинг из снимка LXP: событийная годовая модель.
+"""Состояние тем LXP и событийная годовая модель рейтинга.
+
+С переходом на Положение (редакция 2.0) рейтинг за учёбу начисляется
+еженедельно по формуле раздела 3 — см. `polozhenie_academic`. Пункт 3.4
+говорит прямо: оплачивается поддерживаемый уровень, а не отдельная сдача КТ,
+поэтому событийные начисления этого модуля выключены настройкой
+`LXP_EVENT_RATING_ENABLED` (по умолчанию выключены).
+
+Отслеживание состояния тем при этом остаётся включённым всегда: по нему
+работают квесты на закрытие КТ и отчёты, и без него они ослепнут.
+
+Ниже — описание событийной модели, которая применяется, только если
+настройку включить обратно.
 
 Раньше сервис каждый день заново оценивал текущее состояние: +20 за каждую
 закрытую тему и −20 за каждую открытую. Одно и то же положение дел
@@ -40,7 +52,9 @@ from apps.progress.services.ct_status import iter_user_topics
 logger = logging.getLogger(__name__)
 
 RATING_FLOOR = 0
-RATING_CEILING = 1000
+# Потолка больше нет: п. 1.3 Положения разрешает рейтингу превышать 1000.
+# Константа оставлена для событийной модели, если её включат обратно.
+RATING_CEILING = 1_000_000
 
 
 @dataclass(frozen=True)
@@ -187,6 +201,10 @@ def _seed_baseline(user, state: LXPTopicState, current: dict[str, bool], snapsho
     )
 
 
+def _event_rating_enabled() -> bool:
+    return bool(getattr(settings, "LXP_EVENT_RATING_ENABLED", False))
+
+
 def apply_rating_from_lxp_snapshot(
     snapshot_date: date,
     *,
@@ -299,6 +317,15 @@ def apply_rating_from_lxp_snapshot(
 
             positive = outcome.delta_positive + outcome.all_closed_bonus
             negative = outcome.delta_negative
+
+            if not _event_rating_enabled():
+                # Рейтинг за учёбу начисляет недельный расчёт по Положению.
+                # Здесь остаётся только учёт состояния тем: его ждут квесты.
+                stale_total = min(outcome.stale_total, 65535)
+                if user.unclosed_ct_count != stale_total:
+                    User.objects.filter(pk=user.pk).update(unclosed_ct_count=stale_total)
+                state.save(update_fields=["topics", "last_snapshot_date", "updated_at"])
+                continue
 
             u = User.objects.select_for_update().get(pk=user.pk)
             before = int(u.rating_current)

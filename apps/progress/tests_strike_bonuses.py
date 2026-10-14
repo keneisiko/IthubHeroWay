@@ -6,6 +6,7 @@
 """
 
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -194,6 +195,29 @@ class StrikeBonusTests(TestCase):
         и «вчера» уезжало на два дня назад."""
         result = apply_strike_bonuses()
         self.assertEqual(result["date"], timezone.localdate().isoformat())
+
+    def test_bonus_goes_to_coins_not_rating(self):
+        """Рейтинг за посещаемость ограничен 13 баллами в неделю (п. 3.4).
+
+        Бонус за серию начислялся рейтингом поверх недельного расчёта: неделя
+        без пропусков приносила 13 + 5 и выходила за тариф Положения. Теперь
+        серии награждаются монетами, которые Положение не ограничивает.
+        """
+        run_date = date(2026, 6, 10)
+        rating_before = self.user.rating_current
+        coins_before = self.user.coins_balance
+        self._hik_day(run_date - timedelta(days=1))
+        self._set_strike(late_days=7, last_late=run_date - timedelta(days=1))
+
+        apply_strike_bonuses(run_date)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.rating_current, rating_before, "рейтинг трогать нельзя")
+        self.assertGreater(self.user.coins_balance, coins_before)
+
+        log = RatingLog.objects.get(user=self.user, source_id__startswith="late_streak:")
+        self.assertEqual(log.delta, Decimal("0.00"))
+        self.assertEqual(log.coins_delta, Decimal("5.00"))
 
 
 class LateLookupTests(TestCase):

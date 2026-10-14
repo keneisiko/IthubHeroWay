@@ -3,6 +3,11 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+# Тарифы Положения попадают в settings целиком: каждое имя в модуле —
+# верхним регистром, то есть настройка. Перечислять их поимённо значило бы
+# держать второй список, который рассинхронизируется с первым.
+from .polozhenie import *  # noqa: F403
+from .polozhenie import POLOZHENIE_PERIOD  # noqa: F401
 from .rating_coefficients import QUESTS_REWARDS, RATING_DRIVE, RATING_KP, RATING_LIMITS, RATING_YEAR
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -393,7 +398,6 @@ _rating_kp_overrides = {
     "LATE_STREAK_7D": _env_int("LATE_STRIKE_7D_BONUS", RATING_KP.get("LATE_STREAK_7D", 5)),
     "LATE_STREAK_14D": _env_int("LATE_STRIKE_14D_BONUS", RATING_KP.get("LATE_STREAK_14D", 10)),
     "LATE_STREAK_21D": _env_int("LATE_STRIKE_21D_BONUS", RATING_KP.get("LATE_STREAK_21D", 15)),
-    "ATTENDANCE_FULL_WEEK": _env_int("ATTENDANCE_FULL_WEEK_BONUS", RATING_KP.get("ATTENDANCE_FULL_WEEK", 15)),
     "ATTENDANCE_STREAK_7D": _env_int("ATTENDANCE_STRIKE_7D_BONUS", RATING_KP.get("ATTENDANCE_STREAK_7D", 5)),
 }
 RATING_KP = {**RATING_KP, **_rating_kp_overrides}
@@ -425,7 +429,23 @@ from celery.schedules import crontab
 # к аудитории, и проход минута в минуту опозданием считать нечестно.
 HIK_LATE_GRACE_MINUTES = int(os.getenv("HIK_LATE_GRACE_MINUTES", "10"))
 
-REQUIRE_TELEGRAM_LINK_FOR_SCORING = os.getenv("REQUIRE_TELEGRAM_LINK_FOR_SCORING", "1") == "1"
+# п. 2.1-2.2 Положения: начисления идут всем студентам с общей даты запуска,
+# а поздняя активация профиля не лишает студента начислений за прошедшие
+# недели. Привязка Telegram остаётся способом входа, но больше не определяет,
+# кому считать: иначе студент, вошедший в ноябре, терял октябрьские недели.
+REQUIRE_TELEGRAM_LINK_FOR_SCORING = os.getenv("REQUIRE_TELEGRAM_LINK_FOR_SCORING", "0") == "1"
+
+# Событийная модель рейтинга из снимка LXP (+балл за каждую закрытую КТ).
+# Выключена: раздел 3 Положения оплачивает поддерживаемый уровень недельным
+# расчётом, и две модели одновременно начисляли бы за одно и то же дважды.
+LXP_EVENT_RATING_ENABLED = os.getenv("LXP_EVENT_RATING_ENABLED", "0") == "1"
+
+POLOZHENIE_PERIOD = {
+    **POLOZHENIE_PERIOD,
+    "SEASON_START_DATE": os.getenv(
+        "SEASON_START_DATE", POLOZHENIE_PERIOD["SEASON_START_DATE"]
+    ),
+}
 
 CELERY_BEAT_SCHEDULE = {
     # Отметки по парам нужны «Неделе без пропусков»: без ежедневной загрузки
@@ -452,6 +472,12 @@ CELERY_BEAT_SCHEDULE = {
     # LXPClient по отдельному URL и конкурировала с настоящим пайплайном
     # (fetch_lxp_snapshot → recalculate_rating_for_date), который и остаётся
     # единственным источником рейтинга из LXP.
+    # Недельный расчёт по Положению: понедельник, после ночной загрузки
+    # отметок за пятницу и снимка LXP. Считается прошедшая неделя.
+    "accrue-polozhenie-week": {
+        "task": "apps.progress.tasks.accrue_polozhenie_week",
+        "schedule": crontab(hour=5, minute=0, day_of_week="mon"),
+    },
     "recalculate_pillars_weekly": {
         "task": "apps.progress.tasks.recalculate_pillars_weekly",
         "schedule": crontab(hour=22, minute=0, day_of_week="sun"),

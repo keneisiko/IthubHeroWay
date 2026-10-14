@@ -8,6 +8,8 @@
 это обычные функции, а не фикстуры pytest.
 """
 
+from decimal import Decimal
+
 from django.test import TestCase
 
 from apps.quests.models import QuestRewardTransaction, UserQuestProgress
@@ -100,4 +102,5 @@ class CompleteQuestIdempotentTests(TestCase):
         complete_quest_idempotent(self.user, self.quest, reason="ж" * 400)
 
         self.user.refresh_from_db()
-        self.assertEqual(self.user.rating_current, 302)
+        # Сезон начинается с нуля (п. 2.2 Положения), квест из фикстуры даёт 2.
+        self.assertEqual(self.user.rating_current, Decimal("2"))

@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -59,10 +62,22 @@ class User(AbstractUser):
         related_name="members",
     )
     role = models.CharField("Роль", max_length=16, choices=Role.choices, default=Role.AGENT)
-    coins_balance = models.PositiveIntegerField("Баланс монет", default=0)
+    # п. 2.4 Положения: рейтинг и монеты учитываются до двух знаков после
+    # запятой. Недельная формула даёт дробные значения (17 × 0,8 = 13,6),
+    # и округление до целого съедало бы до половины балла каждую неделю.
+    coins_balance = models.DecimalField(
+        "Баланс монет", max_digits=10, decimal_places=2, default=Decimal("0")
+    )
     status = models.CharField("Статус", max_length=64, blank=True)
     level = models.PositiveIntegerField("Уровень", default=1)
-    rating_current = models.PositiveIntegerField("Текущий рейтинг", default=300, db_index=True)
+    # п. 2.2: рейтинг на начало сезона равен нулю. п. 1.3: верхней границы нет.
+    rating_current = models.DecimalField(
+        "Текущий рейтинг",
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0"),
+        db_index=True,
+    )
     unclosed_ct_count = models.PositiveSmallIntegerField("Незакрытых КТ", default=0)
     lxp_user_id = models.CharField(
         "ID в LXP",
@@ -104,3 +119,35 @@ class User(AbstractUser):
 
     def __str__(self) -> str:
         return self.username
+
+
+class PolicyAcceptance(models.Model):
+    """Принятие Положения студентом (п. 2.1).
+
+    Студент активирует профиль входом с учебным логином «после ознакомления
+    и принятия настоящего Положения». Храним версию: при смене редакции
+    (п. 12.3 — изменения доводятся до применения) согласие запрашивается
+    заново, а старое остаётся в истории.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Пользователь",
+        on_delete=models.CASCADE,
+        related_name="policy_acceptances",
+    )
+    version = models.CharField("Версия Положения", max_length=16, db_index=True)
+    accepted_at = models.DateTimeField("Принято", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Принятие Положения"
+        verbose_name_plural = "Принятия Положения"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "version"], name="uniq_policy_acceptance_per_version"
+            ),
+        ]
+        ordering = ["-accepted_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user_id}:{self.version}"

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 
@@ -40,7 +43,10 @@ class ResetSquadProgressTests(TestCase):
         call_command("reset_squad_progress", "itr2-24")
 
         self.agent.refresh_from_db()
-        self.assertEqual(self.agent.rating_current, 300)
+        # Стартовое значение берётся из настройки: по Положению сезон
+        # начинается с нуля, и число в тесте ловило бы ребаланс, а не поломку.
+        expected = Decimal(str(settings.RATING_LIMITS["DEFAULT_RATING_START"]))
+        self.assertEqual(self.agent.rating_current, expected)
         self.assertEqual(self.agent.coins_balance, 0)
         self.assertFalse(RatingLog.objects.filter(user=self.agent).exists())
         self.assertFalse(UserQuestProgress.objects.filter(user=self.agent).exists())
