@@ -60,6 +60,21 @@ class WeeklyComponents:
     topics_passed: int = 0
 
 
+def is_pending_topic(status) -> bool:
+    """Тема сдана и ждёт решения преподавателя — в расчёт не входит.
+
+    По живым данным это треть всех тем, с которыми студент что-то делал:
+    3153 из 4878. Считать их несданными значило бы отнимать у студента
+    баллы за то, что преподаватель ещё не проверил работу, — тот же принцип,
+    что в п. 3.6: решения нет, значит расчёт по этой теме отложен.
+    """
+    text = ("" if status is None else str(status)).strip().upper()
+    if not text:
+        return False
+    markers = getattr(settings, "POLOZHENIE_PENDING_TOPIC_MARKERS", ())
+    return any(marker in text for marker in markers)
+
+
 def is_future_topic(status) -> bool:
     """Будущая КТ: в расчёт успеваемости не входит (п. 3.1)."""
     text = ("" if status is None else str(status)).strip().upper()
@@ -97,7 +112,7 @@ def ct_percent_from_snapshot(control_points_for_user: dict) -> tuple[Decimal | N
             if not isinstance(topic, dict):
                 continue
             status = topic.get("status") or topic.get("state")
-            if is_future_topic(status):
+            if is_future_topic(status) or is_pending_topic(status):
                 continue
             actual += 1
             if is_topic_closed(status):

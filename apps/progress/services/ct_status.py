@@ -4,14 +4,39 @@
 квеста сверял точное равенство по своему списку. Один и тот же статус мог
 считаться закрытым для рейтинга и открытым для квеста — студент видел
 «+20 за КТ» и невыполненный квест «закрой КТ» одновременно.
+
+Поиск по подстроке дал свою ошибку, и дорогую: в `NOT_PASSED_YET` есть
+подстрока `PASSED`, поэтому «ещё не сдана» считалось сданной. По живым
+данным это 91,6% всех тем — 120 801 запись из 131 833. Одновременно
+`MASTERED` («освоена») не попадала ни под один маркер и считалась несданной.
+
+Отсюда правило: сначала проверяется отрицание, и только потом — маркеры
+закрытия. Отрицание сильнее: как бы ни был назван статус, `NOT_` в начале
+означает, что тема не закрыта.
+
+Статусы, которые реально приходят из LXP, видно командой
+`probe_topic_statuses`; при появлении незнакомого статус трактуется как
+незакрытый — это безопасная сторона ошибки.
 """
 
 from __future__ import annotations
+
+# Отрицание в статусе. Проверяется до маркеров закрытия, иначе
+# `NOT_PASSED_YET` и `NOT_MASTERED` читались бы как закрытые темы.
+NEGATION_MARKERS = (
+    "NOT_",
+    "NOT ",
+    "NON_",
+    "UN_",
+    "НЕ_",
+    "НЕ ",
+)
 
 # Подстроки, а не точные значения: LXP отдаёт статусы в разном регистре
 # и с разными префиксами (`TOPIC_PASSED`, `passed`, `Зачтено`).
 CLOSED_STATUS_MARKERS = (
     "PASSED",
+    "MASTERED",
     "DONE",
     "SUCCESS",
     "ACCEPTED",
@@ -21,13 +46,21 @@ CLOSED_STATUS_MARKERS = (
     "ЗАЧТ",
     "СДАН",
     "ЗАКРЫТ",
+    "ОСВОЕН",
 )
+
+
+def has_negation(status) -> bool:
+    text = ("" if status is None else str(status)).strip().upper()
+    return any(marker in text for marker in NEGATION_MARKERS)
 
 
 def is_topic_closed(status) -> bool:
     """Закрыта ли тема по её статусу из снимка LXP."""
     text = ("" if status is None else str(status)).strip().upper()
     if not text:
+        return False
+    if has_negation(text):
         return False
     return any(marker in text for marker in CLOSED_STATUS_MARKERS)
 
