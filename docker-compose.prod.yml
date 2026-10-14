@@ -160,7 +160,10 @@ services:
       - ./deploy/certs:/etc/nginx/certs:ro
       - ./deploy/certbot:/var/www/certbot
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/health/ || exit 1"]
+      # Свой эндпоинт, а не /health/ бэкенда: с редиректом на https проверка
+      # по http получала 301 и уходила на https по IP, где не сходится имя
+      # в сертификате. Подробности — в deploy/hero_path_locations.inc.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/nginx-health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
