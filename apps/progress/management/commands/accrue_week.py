@@ -21,6 +21,7 @@ from apps.progress.services.polozhenie_academic import (
     components_for_user,
     run_weekly_accrual,
     snapshot_ct_data,
+    topic_breakdown,
 )
 from apps.progress.services.polozhenie_awards import run_weekly_roles
 from apps.progress.services.polozhenie_period import (
@@ -107,7 +108,10 @@ class Command(BaseCommand):
 
         ct_data = snapshot_ct_data(start, end)
         self.stdout.write(f"\n{key}: {start} – {end} (снимок: {len(ct_data)} студентов)")
-        self.stdout.write(f"{'Студент':<28}{'КТ %':>8}{'Пос. %':>9}{'Б':>8}")
+        self.stdout.write(
+            f"{'Студент':<28}{'КТ %':>8}{'сдано':>7}{'не сдано':>10}"
+            f"{'проверка':>10}{'будущих':>9}{'Пос. %':>9}{'Б':>8}"
+        )
         shown = 0
         audience = agents_for_scoring(User.objects.filter(role=Role.AGENT))
         for user in audience.select_related("squad").order_by("id")[:200]:
@@ -122,8 +126,11 @@ class Command(BaseCommand):
                 total += Decimal(str(academic["ATTENDANCE_WEEKLY_MAX"])) * parts.attendance_percent / 100
             ct_text = "—" if parts.ct_percent is None else f"{parts.ct_percent}"
             att_text = "—" if parts.attendance_percent is None else f"{parts.attendance_percent}"
+            counts = topic_breakdown(ct_data.get((user.lxp_user_id or "").strip()) or {})
+            name = (user.get_full_name() or user.username)[:27]
             self.stdout.write(
-                f"{(user.get_full_name() or user.username)[:27]:<28}{ct_text:>8}{att_text:>9}{round(total, 2):>8}"
+                f"{name:<28}{ct_text:>8}{counts['passed']:>7}{counts['open']:>10}"
+                f"{counts['pending']:>10}{counts['future']:>9}{att_text:>9}{round(total, 2):>8}"
             )
             shown += 1
         if shown == 0:

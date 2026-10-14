@@ -109,7 +109,9 @@ docker compose -p hero_prod -f docker-compose.prod.yml --env-file .env.prod up -
 Миграции и статику контейнер `web` применяет сам.
 
 ```bash
-alias dcp='docker compose -p hero_prod -f docker-compose.prod.yml --env-file .env.prod'
+# Алиас удобно закрепить: иначе он теряется при каждом новом входе по ssh.
+grep -q "alias dcp=" ~/.bashrc || echo "alias dcp='docker compose -p hero_prod -f /opt/hero_path/docker-compose.prod.yml --env-file /opt/hero_path/.env.prod'" >> ~/.bashrc
+. ~/.bashrc
 dcp ps
 curl -i http://localhost/health/
 ```

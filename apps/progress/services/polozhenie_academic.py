@@ -86,6 +86,43 @@ def is_future_topic(status) -> bool:
     return any(marker in text for marker in markers)
 
 
+def topic_breakdown(control_points_for_user: dict) -> dict[str, int]:
+    """Сколько у студента тем каждого вида — для диагностики.
+
+    По одному проценту не видно, почему он такой: 100% получается и у того,
+    кто сдал двадцать тем из двадцати, и у того, кто взялся за одну.
+    Разбивка показывает знаменатель, на котором стоит начисление.
+    """
+    from apps.progress.services.ct_status import is_topic_closed
+
+    counts = {"passed": 0, "open": 0, "pending": 0, "future": 0, "disciplines": 0}
+    if not isinstance(control_points_for_user, dict):
+        return counts
+
+    for discipline in control_points_for_user.values():
+        if not isinstance(discipline, dict):
+            continue
+        counts["disciplines"] += 1
+        topics = discipline.get("topics") or []
+        if isinstance(topics, dict):
+            topics = list(topics.values())
+        if not isinstance(topics, list):
+            continue
+        for topic in topics:
+            if not isinstance(topic, dict):
+                continue
+            status = topic.get("status") or topic.get("state")
+            if is_future_topic(status):
+                counts["future"] += 1
+            elif is_pending_topic(status):
+                counts["pending"] += 1
+            elif is_topic_closed(status):
+                counts["passed"] += 1
+            else:
+                counts["open"] += 1
+    return counts
+
+
 def ct_percent_from_snapshot(control_points_for_user: dict) -> tuple[Decimal | None, int, int]:
     """Средний процент актуальных КТ студента.
 
