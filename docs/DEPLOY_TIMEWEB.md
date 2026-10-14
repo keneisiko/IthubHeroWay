@@ -124,9 +124,13 @@ docker run --rm \
   -d hero.ithub-nalchik.ru --agree-tos -m college@ithub-nalchik.ru --no-eff-email
 ```
 
-Затем в [deploy/nginx.conf](../deploy/nginx.conf) раскомментировать блок для 443
-и строку редиректа в блоке 80, а в `.env.prod` вернуть боевые значения —
-`SECURE_SSL_REDIRECT=1` и `COOKIE_SECURE=1` — и перезапустить:
+В [deploy/nginx.conf](../deploy/nginx.conf) блок 443 и редирект уже включены,
+менять там нечего. В `.env.prod` верните боевые значения —
+`SECURE_SSL_REDIRECT=1` и `COOKIE_SECURE=1`, — проверьте конфиг и перезапустите:
+
+```bash
+dcp exec nginx nginx -t
+```
 
 ```bash
 dcp restart nginx web

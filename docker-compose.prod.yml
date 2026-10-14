@@ -160,9 +160,10 @@ services:
       - ./deploy/certs:/etc/nginx/certs:ro
       - ./deploy/certbot:/var/www/certbot
     healthcheck:
-      # Свой эндпоинт, а не /health/ бэкенда: с редиректом на https проверка
-      # по http получала 301 и уходила на https по IP, где не сходится имя
-      # в сертификате. Подробности — в deploy/hero_path_locations.inc.
+      # Свой эндпоинт, а не /health/ бэкенда: тот проксируется в Django,
+      # а он с SECURE_SSL_REDIRECT=1 отвечает на http редиректом, и
+      # проверка уходила на https по IP, где не сходится имя в
+      # сертификате. Объявлен в блоке 80 — см. deploy/nginx.conf.
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/nginx-health || exit 1"]
       interval: 30s
       timeout: 10s
