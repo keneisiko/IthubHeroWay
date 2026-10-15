@@ -123,17 +123,31 @@ def topic_breakdown(control_points_for_user: dict) -> dict[str, int]:
     return counts
 
 
+def ct_scope() -> str:
+    return str(getattr(settings, "POLOZHENIE_CT_SCOPE", "deferred"))
+
+
 def ct_percent_from_snapshot(control_points_for_user: dict) -> tuple[Decimal | None, int, int]:
     """Средний процент актуальных КТ студента.
 
     Возвращает (процент, сколько актуальных, сколько сданных). Процент равен
-    `None`, если актуальных КТ нет вовсе: п. 3.6 — начисление компонента не
-    производится до появления основания.
+    `None`, когда считать не из чего: п. 3.6 — начисление компонента не
+    производится до появления основания, а откладывается.
+
+    Что считать актуальным, задаёт `POLOZHENIE_CT_SCOPE`. Пока правило не
+    выбрано, компонент откладывается целиком: по проверенному на живых данных
+    правилу «решённые» 15 студентов из 17 получали 100% и полные 17 баллов.
     """
     from apps.progress.services.ct_status import is_topic_closed
 
+    scope = ct_scope()
+    if scope == "deferred":
+        return None, 0, 0
+
     if not isinstance(control_points_for_user, dict):
         return None, 0, 0
+
+    count_pending_as_actual = scope == "decided_with_pending"
 
     actual = 0
     passed = 0
@@ -149,14 +163,19 @@ def ct_percent_from_snapshot(control_points_for_user: dict) -> tuple[Decimal | N
             if not isinstance(topic, dict):
                 continue
             status = topic.get("status") or topic.get("state")
-            if is_future_topic(status) or is_pending_topic(status):
+            if is_future_topic(status):
+                continue
+            if is_pending_topic(status) and not count_pending_as_actual:
                 continue
             actual += 1
             if is_topic_closed(status):
                 passed += 1
 
-    if actual == 0:
-        return None, 0, 0
+    min_actual = int(getattr(settings, "POLOZHENIE_CT_MIN_ACTUAL", 1))
+    if actual < max(1, min_actual):
+        # Слишком мало тем, чтобы процент что-то значил: одна несданная из
+        # одной — это ноль, одна сданная — сотня. Откладываем до данных.
+        return None, actual, passed
 
     # п. 3.1: несданная актуальная КТ учитывается как 0%. Значит средний
     # процент — это доля сданных среди актуальных.

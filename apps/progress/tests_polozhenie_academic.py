@@ -77,7 +77,11 @@ def add_lessons(user: User, day: date, *, total: int, missed: int) -> None:
         )
 
 
-@override_settings(POLOZHENIE_PERIOD=SEASON)
+@override_settings(
+    POLOZHENIE_PERIOD=SEASON,
+    POLOZHENIE_CT_SCOPE="decided",
+    POLOZHENIE_CT_MIN_ACTUAL=1,
+)
 class CtPercentTests(TestCase):
     """Пункт 3.1: средний процент актуальных КТ, несданная актуальная — 0%."""
 
@@ -116,6 +120,8 @@ class CtPercentTests(TestCase):
 @override_settings(
     POLOZHENIE_PERIOD=SEASON,
     POLOZHENIE_ACADEMIC={"CT_WEEKLY_MAX": Decimal("17"), "ATTENDANCE_WEEKLY_MAX": Decimal("13")},
+    POLOZHENIE_CT_SCOPE="decided",
+    POLOZHENIE_CT_MIN_ACTUAL=1,
 )
 class WeeklyAccrualTests(TestCase):
     def setUp(self):
@@ -270,3 +276,86 @@ class WeeklyAccrualTests(TestCase):
         self.assertEqual(second["rating"], Decimal("13.00"))
         self.user.refresh_from_db()
         self.assertEqual(self.user.rating_current, Decimal("26.00"))
+
+
+@override_settings(
+    POLOZHENIE_PERIOD=SEASON,
+    POLOZHENIE_ACADEMIC={"CT_WEEKLY_MAX": Decimal("17"), "ATTENDANCE_WEEKLY_MAX": Decimal("13")},
+)
+class CtScopeTests(TestCase):
+    """Чем считать актуальные КТ — выбор колледжа, а не зашитое поведение."""
+
+    def setUp(self):
+        self.user = make_student()
+
+    def test_default_defers_the_component(self):
+        """По умолчанию компонент не платится, пока правило не выбрано.
+
+        На живых данных правило «решённые» давало 100% пятнадцати студентам
+        из семнадцати. Платить по непроверенному правилу хуже, чем не
+        платить: отложенное доплачивается, а лишнее придётся отбирать.
+        """
+        snapshot_with({"lxp-1": ["PASSED", "PASSED", "IN_PROGRESS"]}, WEEK_MONDAY)
+        add_lessons(self.user, WEEK_MONDAY, total=2, missed=0)
+
+        outcome = accrue_week_for_user(self.user, WEEK_MONDAY)
+
+        self.assertIn("ct", outcome["deferred"])
+        self.assertEqual(outcome["rating"], Decimal("13.00"), "посещаемость платится как обычно")
+
+    @override_settings(POLOZHENIE_CT_SCOPE="decided", POLOZHENIE_CT_MIN_ACTUAL=1)
+    def test_deferred_component_is_paid_after_the_rule_is_chosen(self):
+        """Отложенное начисление доплачивается за прошедшую неделю."""
+        snapshot_with({"lxp-1": ["PASSED", "PASSED", "IN_PROGRESS"]}, WEEK_MONDAY)
+        add_lessons(self.user, WEEK_MONDAY, total=2, missed=0)
+
+        with override_settings(POLOZHENIE_CT_SCOPE="deferred"):
+            accrue_week_for_user(self.user, WEEK_MONDAY)
+
+        second = accrue_week_for_user(self.user, WEEK_MONDAY)
+
+        # Две сданные из трёх решённых: 17 × 0,6667 = 11,33.
+        self.assertEqual(second["rating"], Decimal("11.33"))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.rating_current, Decimal("24.33"))
+
+    @override_settings(POLOZHENIE_CT_SCOPE="decided", POLOZHENIE_CT_MIN_ACTUAL=1)
+    def test_decided_scope_ignores_pending(self):
+        percent, actual, passed = ct_percent_from_snapshot(
+            {"d1": {"topics": [{"status": "PASSED"}, {"status": "IN_REVIEW"}]}}
+        )
+
+        self.assertEqual((actual, passed), (1, 1))
+        self.assertEqual(percent, Decimal("100.00"))
+
+    @override_settings(POLOZHENIE_CT_SCOPE="decided_with_pending", POLOZHENIE_CT_MIN_ACTUAL=1)
+    def test_pending_scope_counts_review_as_unpassed(self):
+        percent, actual, passed = ct_percent_from_snapshot(
+            {"d1": {"topics": [{"status": "PASSED"}, {"status": "IN_REVIEW"}]}}
+        )
+
+        self.assertEqual((actual, passed), (2, 1))
+        self.assertEqual(percent, Decimal("50.00"))
+
+    @override_settings(POLOZHENIE_CT_SCOPE="decided", POLOZHENIE_CT_MIN_ACTUAL=3)
+    def test_too_few_topics_defer_instead_of_giving_full_marks(self):
+        """Две сданные темы из двух — это не отличная успеваемость.
+
+        Именно так Тумов и Хамурзов получали по 17 баллов: у них всего две
+        темы с решением, и обе сданы.
+        """
+        snapshot_with({"lxp-1": ["PASSED", "PASSED"]}, WEEK_MONDAY)
+
+        outcome = accrue_week_for_user(self.user, WEEK_MONDAY)
+
+        self.assertIn("ct", outcome["deferred"])
+        self.assertEqual(outcome["rating"], Decimal("0"))
+
+    @override_settings(POLOZHENIE_CT_SCOPE="decided", POLOZHENIE_CT_MIN_ACTUAL=3)
+    def test_threshold_reached_pays_as_usual(self):
+        snapshot_with({"lxp-1": ["PASSED", "PASSED", "IN_PROGRESS"]}, WEEK_MONDAY)
+
+        outcome = accrue_week_for_user(self.user, WEEK_MONDAY)
+
+        self.assertEqual(outcome["deferred"], ["attendance"])
+        self.assertEqual(outcome["rating"], Decimal("11.33"))
