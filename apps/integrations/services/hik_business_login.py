@@ -1,23 +1,35 @@
-"""Вход в бизнес-систему портала Hik Connect.
+"""Открытие бизнес-системы портала Hik Connect.
 
-Обычный вход на портал больше не открывает бизнес-систему: 16 октября 2026
-портал обновил фронт, и после логина аккаунт попадает на личный кабинет
-(`/common/personal/DeviceManagement`), где раздела контроля доступа нет.
-Запросы к API записей в таком состоянии получают
+Обычный вход на портал не даёт доступа к записям прохода. 16 октября 2026
+портал обновил фронт: после логина аккаунт попадает на личный кабинет
+(`/common/personal/DeviceManagement`), а запросы к API записей отвечают
 `{"errorCode":"VMS002004","message":"You need login first."}` — сессия
-бизнес-системы не установлена.
+бизнес-системы на домене API не установлена.
 
-Сам портал открывает её в два шага, и они восстановлены здесь по его коду:
+Как это делает сам портал (видно в сетевом журнале рабочей сессии): при
+загрузке страницы портала SPA вызывает на домене API
+`POST /hcc/resource/v1/login/loginafter`, и только после этого остальные
+запросы авторизованы. Вызвать `loginafter` напрямую нельзя — он требует
+параметров, которых мы не знаем («params node is not existed»), поэтому мы
+не воспроизводим его, а даём порталу выполнить его сам: открываем страницу
+портала и ждём.
 
-1. `POST /customer/proxy/ccfauth/public/user/v1/account/hcb` — отдаёт
-   `sessionId` бизнес-сессии и список систем аккаунта (`hcbInfoList`);
-2. переход на маршрут `#/freeLogin` с параметрами `sessionId`, `account`
-   и `chooseTenantId` (это `systemId` системы) — после него cookies домена
-   API становятся авторизованными.
+Отсюда устройство модуля: **готовность проверяется делом**, а не ожиданием
+вёрстки. После каждой попытки мы спрашиваем у API одну запись: пришёл
+`errorCode: 0` — сессия готова; пришло «You need login first» — нет.
+Такая проверка не зависит от того, как портал выглядит сегодня, а он
+выглядит по-разному даже между двумя запусками подряд.
 
-Оба адреса вынесены в настройки: портал уже менялся и поменяется снова,
-и тогда их надо будет поправить, а не искать по коду заново. Как искать —
-описано в `docs/HIKCENTRAL.md`.
+Попытки идут по возрастанию сложности:
+
+1. вдруг сессия уже готова (бывает, если портал успел всё сделать сам);
+2. открыть страницу портала — обычный путь, которым идёт человек;
+3. открыть систему явно через маршрут `#/freeLogin` с `sessionId`,
+   `account` и `chooseTenantId` — он нужен, когда у аккаунта несколько
+   организаций и портал не знает, какую открывать.
+
+Адреса и маршруты — в настройках: портал уже менялся и поменяется снова.
+Как искать их заново, описано в `docs/HIKCENTRAL.md`.
 """
 
 from __future__ import annotations
@@ -31,13 +43,14 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Сколько ждать, пока портал отработает переход на freeLogin.
-FREE_LOGIN_SETTLE_MS = 8_000
+SETTLE_MS = 7_000
 REQUEST_TIMEOUT_MS = 30_000
+# Признак того, что сессия бизнес-системы не установлена.
+NOT_LOGGED_IN_CODE = "VMS002004"
 
 
 class HikBusinessLoginError(RuntimeError):
-    """Не удалось войти в бизнес-систему портала."""
+    """Не удалось открыть бизнес-систему портала."""
 
 
 @dataclass(frozen=True)
@@ -48,7 +61,6 @@ class BusinessSystem:
 
 
 def _login_origin() -> str:
-    """Схема и домен страницы входа: к ним относительны оба адреса шага."""
     url = getattr(settings, "HIK_WEB_LOGIN_URL", "") or ""
     parts = urlsplit(url)
     if not parts.scheme or not parts.hostname:
@@ -56,19 +68,24 @@ def _login_origin() -> str:
     return f"{parts.scheme}://{parts.netloc}"
 
 
+def _setting(name: str) -> str:
+    value = (getattr(settings, name, "") or "").strip()
+    if not value:
+        raise HikBusinessLoginError(f"Не задан {name}")
+    return value
+
+
 def hcb_info_url() -> str:
-    path = getattr(settings, "HIK_WEB_HCB_INFO_PATH", "")
-    if not path:
-        raise HikBusinessLoginError("Не задан HIK_WEB_HCB_INFO_PATH")
-    return f"{_login_origin()}{path}"
+    return f"{_login_origin()}{_setting('HIK_WEB_HCB_INFO_PATH')}"
+
+
+def portal_url() -> str:
+    return f"{_login_origin()}{_setting('HIK_WEB_PORTAL_PATH')}"
 
 
 def free_login_url(system: BusinessSystem, session_id: str) -> str:
-    template = getattr(settings, "HIK_WEB_FREE_LOGIN_PATH", "")
-    if not template:
-        raise HikBusinessLoginError("Не задан HIK_WEB_FREE_LOGIN_PATH")
     return (
-        f"{_login_origin()}{template}"
+        f"{_login_origin()}{_setting('HIK_WEB_FREE_LOGIN_PATH')}"
         f"?sessionId={quote(session_id)}"
         f"&account={quote(system.account)}"
         f"&chooseTenantId={quote(system.system_id)}"
@@ -76,12 +93,49 @@ def free_login_url(system: BusinessSystem, session_id: str) -> str:
     )
 
 
-def fetch_business_systems(page) -> tuple[str, list[BusinessSystem]]:
-    """Спросить портал, какие бизнес-системы есть у аккаунта.
+def _records_url() -> str:
+    base = (getattr(settings, "HIK_WEB_API_BASE", "") or "").rstrip("/")
+    path = getattr(settings, "HIK_WEB_API_RECORDS_PATH", "") or ""
+    if not base or not path:
+        raise HikBusinessLoginError("Не заданы HIK_WEB_API_BASE / HIK_WEB_API_RECORDS_PATH")
+    return f"{base}{path}"
 
-    Запрос идёт из браузера: он несёт cookies и заголовки страницы, а
-    собирать их заново значило бы повторять работу портала.
+
+def session_is_ready(page) -> bool:
+    """Отвечает ли API записей делом.
+
+    Единственная надёжная проверка готовности: вёрстка портала меняется, а
+    этот ответ — нет. Запрос нарочно крошечный: одна запись, без фильтров.
     """
+    try:
+        response = page.request.post(
+            _records_url(),
+            data=json.dumps({"pageIndex": 1, "pageSize": 1}),
+            headers={
+                "Accept": "application/json, text/plain, */*",
+                "Content-Type": "application/json",
+                "clientSource": "0",
+            },
+            timeout=REQUEST_TIMEOUT_MS,
+        )
+        body = json.loads(response.text())
+    except Exception as exc:
+        logger.debug("hik_business_login: проверка сессии не удалась: %s", type(exc).__name__)
+        return False
+
+    code = str(body.get("errorCode", "")).strip()
+    if code == "0":
+        return True
+    if code == NOT_LOGGED_IN_CODE:
+        return False
+    logger.warning(
+        "hik_business_login: API ответил кодом %s (%s)", code, body.get("message") or ""
+    )
+    return False
+
+
+def fetch_business_systems(page) -> tuple[str, list[BusinessSystem]]:
+    """Список бизнес-систем аккаунта и `sessionId` бизнес-сессии."""
     response = page.request.post(
         hcb_info_url(),
         data="{}",
@@ -94,10 +148,10 @@ def fetch_business_systems(page) -> tuple[str, list[BusinessSystem]]:
     except ValueError as exc:
         raise HikBusinessLoginError(f"Портал вернул не JSON: {text[:120]}") from exc
 
-    error_code = str(body.get("errorCode", "")).strip()
-    if error_code and error_code != "0":
+    code = str(body.get("errorCode", "")).strip()
+    if code and code != "0":
         raise HikBusinessLoginError(
-            f"Портал отказал в списке систем ({error_code}): {body.get('message') or ''}"
+            f"Портал отказал в списке систем ({code}): {body.get('message') or ''}"
         )
 
     data = body.get("data") or {}
@@ -122,7 +176,6 @@ def fetch_business_systems(page) -> tuple[str, list[BusinessSystem]]:
 
 
 def pick_system(systems: list[BusinessSystem]) -> BusinessSystem:
-    """Какую систему открывать, если их несколько."""
     wanted = (getattr(settings, "HIK_WEB_SYSTEM_NAME", "") or "").strip().lower()
     if wanted:
         for system in systems:
@@ -133,7 +186,7 @@ def pick_system(systems: list[BusinessSystem]) -> BusinessSystem:
             f"Система «{wanted}» у аккаунта не найдена. Доступные: {names}"
         )
     if len(systems) > 1:
-        # Молча брать первую нельзя: у аккаунта может быть доступ к нескольким
+        # Молча взять первую нельзя: у аккаунта может быть доступ к нескольким
         # организациям, и забор пошёл бы по чужим проходам.
         names = ", ".join(s.system_name for s in systems)
         raise HikBusinessLoginError(
@@ -143,19 +196,40 @@ def pick_system(systems: list[BusinessSystem]) -> BusinessSystem:
     return systems[0]
 
 
-def enter_business_system(page) -> BusinessSystem:
-    """Открыть бизнес-систему, чтобы запросы к API стали авторизованными."""
-    session_id, systems = fetch_business_systems(page)
-    system = pick_system(systems)
-
-    logger.info(
-        "hik_business_login: вхожу в систему «%s» (%s)", system.system_name, system.system_id
-    )
-    page.goto(free_login_url(system, session_id), wait_until="domcontentloaded")
-    page.wait_for_timeout(FREE_LOGIN_SETTLE_MS)
+def _open(page, url: str, what: str) -> None:
+    logger.info("hik_business_login: открываю %s", what)
+    page.goto(url, wait_until="domcontentloaded")
+    page.wait_for_timeout(SETTLE_MS)
     try:
         page.wait_for_load_state("networkidle", timeout=25_000)
     except Exception:
         # Портал догружает модули в фоне; для сессии это не обязательно.
         logger.debug("hik_business_login: сеть не успокоилась, продолжаю")
-    return system
+
+
+def ensure_business_session(page) -> None:
+    """Добиться того, чтобы API записей отвечал, или объяснить, почему нет."""
+    if session_is_ready(page):
+        logger.info("hik_business_login: сессия уже готова")
+        return
+
+    # Обычный путь: страница портала, загружаясь, сама вызывает loginafter
+    # на домене API — именно он и открывает сессию.
+    _open(page, portal_url(), "страницу портала")
+    if session_is_ready(page):
+        logger.info("hik_business_login: сессия открыта страницей портала")
+        return
+
+    # Портал мог не понять, какую организацию открывать. Указываем явно.
+    session_id, systems = fetch_business_systems(page)
+    system = pick_system(systems)
+    _open(page, free_login_url(system, session_id), f"систему «{system.system_name}»")
+    if session_is_ready(page):
+        logger.info("hik_business_login: сессия открыта системой «%s»", system.system_name)
+        return
+
+    raise HikBusinessLoginError(
+        "API записей отвечает «нужно войти» даже после открытия системы "
+        f"«{system.system_name}». Портал мог снова поменять вход — как искать "
+        "новые адреса, описано в docs/HIKCENTRAL.md"
+    )

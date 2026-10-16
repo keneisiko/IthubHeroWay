@@ -366,6 +366,12 @@ HIK_WEB_HCB_INFO_PATH = os.getenv(
 HIK_WEB_FREE_LOGIN_PATH = os.getenv(
     "HIK_WEB_FREE_LOGIN_PATH", "/views/login/index.html#/freeLogin"
 ).strip()
+# Страница портала. Загружаясь, она сама вызывает loginafter на домене API —
+# это и открывает сессию бизнес-системы. Обычный путь; freeLogin нужен, когда
+# у аккаунта несколько организаций и портал не знает, какую открывать.
+HIK_WEB_PORTAL_PATH = os.getenv(
+    "HIK_WEB_PORTAL_PATH", "/views/login/index.html#/portal"
+).strip()
 # Какую бизнес-систему открывать, если у аккаунта их несколько. Пусто —
 # открывается единственная, а при нескольких команда остановится и
 # перечислит их: брать первую молча нельзя, забор пошёл бы по чужим проходам.

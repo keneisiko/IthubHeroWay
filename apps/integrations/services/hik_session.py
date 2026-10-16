@@ -34,7 +34,7 @@ from apps.integrations.services.hik_browser_export import (
 from apps.integrations.services.hik_browser_settings import hik_browser_config_from_settings
 from apps.integrations.services.hik_business_login import (
     HikBusinessLoginError,
-    enter_business_system,
+    ensure_business_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,10 +104,9 @@ def login_and_collect_cookies() -> dict[str, str]:
             # бизнес-системе: без этого шага API отвечает «You need login
             # first», сколько бы cookies мы ни собрали.
             try:
-                system = enter_business_system(page)
+                ensure_business_session(page)
             except HikBusinessLoginError as exc:
                 raise HikSessionError(f"Вход в бизнес-систему не удался: {exc}") from exc
-            logger.info("hik_session: открыта система «%s»", system.system_name)
 
             # Дать SPA обратиться к API, чтобы появились его cookies.
             # Фиксированной паузы мало: cookies домена API выставляются при

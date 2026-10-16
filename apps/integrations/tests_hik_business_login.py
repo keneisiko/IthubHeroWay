@@ -1,9 +1,10 @@
-"""Вход в бизнес-систему портала Hik.
+"""Открытие бизнес-системы портала Hik.
 
-Обычный логин с 16.10.2026 открывает личный кабинет, и API записей отвечает
-«You need login first». Портал открывает бизнес-систему двумя шагами:
-спрашивает список систем и переходит на маршрут freeLogin. Здесь проверяется,
-что мы повторяем эти шаги и не угадываем за человека, когда систем несколько.
+С 16.10.2026 обычный логин открывает личный кабинет, и API записей отвечает
+«You need login first». Сессию открывает страница портала: загружаясь, она
+вызывает loginafter на домене API. Поэтому готовность проверяется делом —
+ответом самого API, а не видом страницы: портал выглядит по-разному даже
+между двумя запусками подряд.
 """
 
 from __future__ import annotations
@@ -16,19 +17,27 @@ from django.test import TestCase, override_settings
 from apps.integrations.services.hik_business_login import (
     BusinessSystem,
     HikBusinessLoginError,
-    enter_business_system,
+    ensure_business_session,
     fetch_business_systems,
     free_login_url,
     hcb_info_url,
     pick_system,
+    portal_url,
+    session_is_ready,
 )
 
 SETTINGS = {
     "HIK_WEB_LOGIN_URL": "https://www.hik-connectru.com/views/login/index.html#/login",
     "HIK_WEB_HCB_INFO_PATH": "/customer/proxy/ccfauth/public/user/v1/account/hcb",
     "HIK_WEB_FREE_LOGIN_PATH": "/views/login/index.html#/freeLogin",
+    "HIK_WEB_PORTAL_PATH": "/views/login/index.html#/portal",
+    "HIK_WEB_API_BASE": "https://team.hikcentralconnectru.com",
+    "HIK_WEB_API_RECORDS_PATH": "/hcc/hccacs/v1/event/certificateRecords/search",
+    "HIK_WEB_SYSTEM_NAME": "",
 }
 
+NOT_LOGGED_IN = {"errorCode": "VMS002004", "message": "You need login first."}
+RECORDS_OK = {"errorCode": "0", "message": "Ok", "data": {"totalNum": 1116, "recordList": []}}
 ONE_SYSTEM = {
     "errorCode": "0",
     "data": {
@@ -45,43 +54,59 @@ ONE_SYSTEM = {
 
 
 class FakeResponse:
-    def __init__(self, payload, status: int = 200):
+    def __init__(self, payload):
         self._payload = payload
-        self.status = status
+        self.status = 200
 
     def text(self) -> str:
         return self._payload if isinstance(self._payload, str) else json.dumps(self._payload)
 
 
 class FakePage:
-    """Минимум от страницы Playwright, который нужен коду входа."""
+    """Страница портала, отвечающая по сценарию.
 
-    def __init__(self, payload=ONE_SYSTEM):
+    `records` — очередь ответов API записей: так описывается «сначала не
+    пускало, после открытия портала пустило».
+    """
+
+    def __init__(self, records: list, systems=ONE_SYSTEM):
+        self.records = list(records)
+        self.systems = systems
+        self.opened: list[str] = []
         self.request = mock.Mock()
-        self.request.post.return_value = FakeResponse(payload)
-        self.goto = mock.Mock()
+        self.request.post.side_effect = self._post
         self.wait_for_timeout = mock.Mock()
         self.wait_for_load_state = mock.Mock()
+
+    def goto(self, url, **kwargs):
+        self.opened.append(url)
+
+    def _post(self, url, **kwargs):
+        if "account/hcb" in url:
+            return FakeResponse(self.systems)
+        if self.records:
+            return FakeResponse(self.records.pop(0))
+        return FakeResponse(NOT_LOGGED_IN)
 
 
 @override_settings(**SETTINGS)
 class UrlTests(TestCase):
-    def test_info_url_is_built_from_the_login_origin(self):
+    def test_urls_are_built_from_the_login_origin(self):
         self.assertEqual(
             hcb_info_url(),
             "https://www.hik-connectru.com/customer/proxy/ccfauth/public/user/v1/account/hcb",
         )
+        self.assertEqual(
+            portal_url(), "https://www.hik-connectru.com/views/login/index.html#/portal"
+        )
 
-    def test_free_login_url_carries_all_required_parameters(self):
-        system = BusinessSystem(system_id="sys-1", system_name="IT Hub", account="a@b.ru")
-
-        url = free_login_url(system, "token-123")
+    def test_free_login_url_carries_all_parameters(self):
+        url = free_login_url(BusinessSystem("sys-1", "IT Hub", "a@b.ru"), "token-123")
 
         self.assertIn("#/freeLogin?", url)
         self.assertIn("sessionId=token-123", url)
         self.assertIn("chooseTenantId=sys-1", url)
         self.assertIn("account=a%40b.ru", url, "адрес должен быть закодирован")
-        self.assertIn("isSimpleBusiness=true", url)
 
     @override_settings(HIK_WEB_LOGIN_URL="мусор")
     def test_broken_login_url_is_reported(self):
@@ -90,47 +115,100 @@ class UrlTests(TestCase):
 
 
 @override_settings(**SETTINGS)
+class ReadinessTests(TestCase):
+    def test_zero_error_code_means_ready(self):
+        self.assertTrue(session_is_ready(FakePage([RECORDS_OK])))
+
+    def test_need_login_means_not_ready(self):
+        self.assertFalse(session_is_ready(FakePage([NOT_LOGGED_IN])))
+
+    def test_unexpected_code_is_not_ready(self):
+        page = FakePage([{"errorCode": "VMS000001", "message": "Param Error"}])
+
+        self.assertFalse(session_is_ready(page))
+
+    def test_timeout_is_not_ready(self):
+        page = FakePage([])
+        page.request.post.side_effect = TimeoutError("портал молчит")
+
+        self.assertFalse(session_is_ready(page))
+
+    def test_non_json_is_not_ready(self):
+        self.assertFalse(session_is_ready(FakePage(["<html>502</html>"])))
+
+
+@override_settings(**SETTINGS)
+class EnsureSessionTests(TestCase):
+    def test_ready_session_opens_nothing(self):
+        page = FakePage([RECORDS_OK])
+
+        ensure_business_session(page)
+
+        self.assertEqual(page.opened, [], "лишний раз портал не дёргаем")
+
+    def test_portal_page_opens_the_session(self):
+        """Обычный путь: страница портала сама вызывает loginafter."""
+        page = FakePage([NOT_LOGGED_IN, RECORDS_OK])
+
+        ensure_business_session(page)
+
+        self.assertEqual(len(page.opened), 1)
+        self.assertIn("#/portal", page.opened[0])
+
+    def test_free_login_is_the_fallback(self):
+        page = FakePage([NOT_LOGGED_IN, NOT_LOGGED_IN, RECORDS_OK])
+
+        ensure_business_session(page)
+
+        self.assertEqual(len(page.opened), 2)
+        self.assertIn("#/portal", page.opened[0])
+        self.assertIn("#/freeLogin", page.opened[1])
+        self.assertIn("chooseTenantId=3b784c421c34483282bd292d97c6d31d", page.opened[1])
+
+    def test_failure_names_the_system_and_points_to_the_doc(self):
+        page = FakePage([NOT_LOGGED_IN] * 4)
+
+        with self.assertRaises(HikBusinessLoginError) as ctx:
+            ensure_business_session(page)
+
+        message = str(ctx.exception)
+        self.assertIn("IT Hub", message)
+        self.assertIn("HIKCENTRAL.md", message)
+
+    def test_account_without_session_id_is_reported(self):
+        page = FakePage([NOT_LOGGED_IN, NOT_LOGGED_IN], systems={"errorCode": "0", "data": {}})
+
+        with self.assertRaises(HikBusinessLoginError) as ctx:
+            ensure_business_session(page)
+
+        self.assertIn("sessionId", str(ctx.exception))
+
+
+@override_settings(**SETTINGS)
 class FetchSystemsTests(TestCase):
     def test_reads_session_and_systems(self):
-        page = FakePage()
-
-        session_id, systems = fetch_business_systems(page)
+        session_id, systems = fetch_business_systems(FakePage([]))
 
         self.assertEqual(len(session_id), 64)
         self.assertEqual([s.system_name for s in systems], ["IT Hub"])
-        self.assertEqual(systems[0].account, "ulbashevkv@nalchik.ithub.ru")
 
     def test_portal_error_is_reported(self):
-        page = FakePage({"errorCode": "VMS002004", "message": "You need login first."})
+        page = FakePage([], systems=NOT_LOGGED_IN)
 
         with self.assertRaises(HikBusinessLoginError) as ctx:
             fetch_business_systems(page)
 
         self.assertIn("VMS002004", str(ctx.exception))
 
-    def test_non_json_is_reported(self):
-        page = FakePage("<html>502</html>")
-
-        with self.assertRaises(HikBusinessLoginError) as ctx:
-            fetch_business_systems(page)
-
-        self.assertIn("не JSON", str(ctx.exception))
-
-    def test_account_without_systems_is_reported_clearly(self):
-        page = FakePage({"errorCode": "0", "data": {"sessionId": "x", "hcbInfoList": []}})
+    def test_account_without_systems_is_reported(self):
+        page = FakePage(
+            [], systems={"errorCode": "0", "data": {"sessionId": "x", "hcbInfoList": []}}
+        )
 
         with self.assertRaises(HikBusinessLoginError) as ctx:
             fetch_business_systems(page)
 
         self.assertIn("организацию", str(ctx.exception))
-
-    def test_missing_session_id_is_reported(self):
-        page = FakePage(
-            {"errorCode": "0", "data": {"hcbInfoList": [{"systemId": "s", "systemName": "n"}]}}
-        )
-
-        with self.assertRaises(HikBusinessLoginError):
-            fetch_business_systems(page)
 
 
 @override_settings(**SETTINGS)
@@ -159,25 +237,3 @@ class PickSystemTests(TestCase):
             pick_system([self.first, self.second])
 
         self.assertIn("IT Hub", str(ctx.exception))
-
-
-@override_settings(**SETTINGS)
-class EnterBusinessSystemTests(TestCase):
-    def test_navigates_to_free_login_with_the_session(self):
-        page = FakePage()
-
-        system = enter_business_system(page)
-
-        self.assertEqual(system.system_name, "IT Hub")
-        url = page.goto.call_args[0][0]
-        self.assertIn("#/freeLogin?", url)
-        self.assertIn("chooseTenantId=3b784c421c34483282bd292d97c6d31d", url)
-
-    def test_slow_network_does_not_fail_the_login(self):
-        """Портал догружает модули в фоне — для сессии это не обязательно."""
-        page = FakePage()
-        page.wait_for_load_state.side_effect = RuntimeError("timeout")
-
-        system = enter_business_system(page)
-
-        self.assertEqual(system.system_id, "3b784c421c34483282bd292d97c6d31d")
