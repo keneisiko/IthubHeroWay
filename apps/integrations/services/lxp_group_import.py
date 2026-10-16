@@ -102,10 +102,22 @@ def import_group(
     """Завести отряд по группе LXP и привязать к нему студентов."""
     rows = students if students is not None else group_students(group_id)
 
-    squad, squad_created = Squad.objects.get_or_create(
-        code=squad_code,
-        defaults={"name": squad_name, "course": course, "lxp_group_id": group_id},
-    )
+    # Сначала по группе LXP, и только потом по коду. Отряд пилота был заведён
+    # руками с кодом `itr2-24`, а транслитерация даёт `3itr2.9.24`: поиск
+    # по одному коду создал бы второй отряд на ту же группу, и ночные задачи
+    # грузили бы ей расписание и отметки дважды.
+    squad = None
+    squad_created = False
+    if group_id:
+        squad = Squad.objects.filter(lxp_group_id=group_id).first()
+    if squad is None:
+        squad = Squad.objects.filter(code=squad_code).first()
+    if squad is None:
+        squad = Squad.objects.create(
+            code=squad_code, name=squad_name, course=course, lxp_group_id=group_id
+        )
+        squad_created = True
+
     changed = []
     if squad.name != squad_name:
         squad.name = squad_name

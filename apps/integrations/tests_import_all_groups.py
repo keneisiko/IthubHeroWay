@@ -169,3 +169,51 @@ class ImportAllGroupsTests(TestCase):
         self.assertIn("Не удалось завести", output)
         self.assertIn("портал не ответил", output)
         self.assertTrue(Squad.objects.filter(code="1isp1.9.26").exists())
+
+
+class ExistingSquadTests(TestCase):
+    """Отряд, заведённый руками, не должен раздваиваться при импорте.
+
+    Пилотный отряд создавали с кодом `itr2-24`, а транслитерация названия
+    даёт `3itr2.9.24`. Поиск по одному коду создал бы второй отряд на ту же
+    группу LXP, и ночные задачи грузили бы ей расписание и отметки дважды.
+    """
+
+    def test_squad_is_found_by_lxp_group_id_not_by_code(self):
+        manual = Squad.objects.create(
+            code="itr2-24", name="3ИТР2.9.24", course=3, lxp_group_id="g1"
+        )
+
+        run(only="3ИТР")
+
+        self.assertEqual(Squad.objects.filter(lxp_group_id="g1").count(), 1)
+        self.assertEqual(Squad.objects.get(lxp_group_id="g1").pk, manual.pk)
+
+    def test_existing_squad_keeps_its_code(self):
+        """Код мог попасть в закладки и ссылки — не переименовываем."""
+        Squad.objects.create(code="itr2-24", name="Старое имя", course=2, lxp_group_id="g1")
+
+        run(only="3ИТР")
+
+        squad = Squad.objects.get(lxp_group_id="g1")
+        self.assertEqual(squad.code, "itr2-24")
+        self.assertEqual(squad.name, "3ИТР2.9.24", "название приводится к названию группы")
+        self.assertEqual(squad.course, 3, "курс приводится к названию группы")
+
+    def test_students_land_in_the_existing_squad(self):
+        manual = Squad.objects.create(
+            code="itr2-24", name="3ИТР2.9.24", course=3, lxp_group_id="g1"
+        )
+
+        run(only="3ИТР")
+
+        self.assertEqual(manual.members.count(), 2)
+
+    def test_squad_without_group_id_is_matched_by_code(self):
+        """Старый отряд без связи с LXP подхватывается по коду и получает её."""
+        Squad.objects.create(code="3itr2.9.24", name="3ИТР2.9.24", course=3, lxp_group_id="")
+
+        run(only="3ИТР")
+
+        self.assertEqual(Squad.objects.filter(name="3ИТР2.9.24").count(), 1)
+        self.assertEqual(Squad.objects.get(code="3itr2.9.24").lxp_group_id, "g1")
