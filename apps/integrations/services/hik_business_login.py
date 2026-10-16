@@ -43,8 +43,12 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-SETTLE_MS = 7_000
+SETTLE_MS = 5_000
 REQUEST_TIMEOUT_MS = 30_000
+# Сессия поднимается не мгновенно: портал догружает модули и только потом
+# зовёт loginafter. Одной проверки сразу после загрузки мало.
+READY_ATTEMPTS = 6
+READY_PAUSE_MS = 4_000
 # Признак того, что сессия бизнес-системы не установлена.
 NOT_LOGGED_IN_CODE = "VMS002004"
 
@@ -134,6 +138,30 @@ def session_is_ready(page) -> bool:
     return False
 
 
+def _describe(value, depth: int = 0):
+    """Форма ответа без значений: в нём бывают токены."""
+    if depth > 3:
+        return "..."
+    if isinstance(value, dict):
+        return {k: _describe(v, depth + 1) for k, v in list(value.items())[:12]}
+    if isinstance(value, list):
+        return [_describe(v, depth + 1) for v in value[:3]]
+    if isinstance(value, str):
+        return value if len(value) <= 40 else f"<{len(value)} знаков>"
+    return value
+
+
+def wait_until_ready(page, what: str) -> bool:
+    """Подождать, пока API начнёт отвечать делом."""
+    for attempt in range(1, READY_ATTEMPTS + 1):
+        if session_is_ready(page):
+            logger.info("hik_business_login: сессия открыта (%s, попытка %s)", what, attempt)
+            return True
+        if attempt < READY_ATTEMPTS:
+            page.wait_for_timeout(READY_PAUSE_MS)
+    return False
+
+
 def fetch_business_systems(page) -> tuple[str, list[BusinessSystem]]:
     """Список бизнес-систем аккаунта и `sessionId` бизнес-сессии."""
     response = page.request.post(
@@ -166,7 +194,12 @@ def fetch_business_systems(page) -> tuple[str, list[BusinessSystem]]:
         if row.get("systemId")
     ]
     if not session_id:
-        raise HikBusinessLoginError("В ответе портала нет sessionId бизнес-сессии")
+        # Без текста ответа это тупик: непонятно, портал ли изменил формат,
+        # или сессия входа уже не годится. Значения маскируются.
+        raise HikBusinessLoginError(
+            "В ответе портала нет sessionId бизнес-сессии. "
+            f"Портал ответил: {_describe(body)}"
+        )
     if not systems:
         raise HikBusinessLoginError(
             "У аккаунта нет ни одной бизнес-системы: проверьте, что он добавлен "
@@ -216,16 +249,14 @@ def ensure_business_session(page) -> None:
     # Обычный путь: страница портала, загружаясь, сама вызывает loginafter
     # на домене API — именно он и открывает сессию.
     _open(page, portal_url(), "страницу портала")
-    if session_is_ready(page):
-        logger.info("hik_business_login: сессия открыта страницей портала")
+    if wait_until_ready(page, "страница портала"):
         return
 
     # Портал мог не понять, какую организацию открывать. Указываем явно.
     session_id, systems = fetch_business_systems(page)
     system = pick_system(systems)
     _open(page, free_login_url(system, session_id), f"систему «{system.system_name}»")
-    if session_is_ready(page):
-        logger.info("hik_business_login: сессия открыта системой «%s»", system.system_name)
+    if wait_until_ready(page, f"система «{system.system_name}»"):
         return
 
     raise HikBusinessLoginError(

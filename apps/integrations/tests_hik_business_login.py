@@ -150,13 +150,21 @@ class EnsureSessionTests(TestCase):
         """Обычный путь: страница портала сама вызывает loginafter."""
         page = FakePage([NOT_LOGGED_IN, RECORDS_OK])
 
+
         ensure_business_session(page)
 
         self.assertEqual(len(page.opened), 1)
         self.assertIn("#/portal", page.opened[0])
 
     def test_free_login_is_the_fallback(self):
-        page = FakePage([NOT_LOGGED_IN, NOT_LOGGED_IN, RECORDS_OK])
+        """Запасной путь — когда страница портала не подняла сессию.
+
+        Проверка идёт один раз до открытия портала и затем READY_ATTEMPTS
+        раз после: пока они не исчерпаны, до freeLogin дело не доходит.
+        """
+        from apps.integrations.services.hik_business_login import READY_ATTEMPTS
+
+        page = FakePage([NOT_LOGGED_IN] * (READY_ATTEMPTS + 1) + [RECORDS_OK])
 
         ensure_business_session(page)
 
@@ -166,7 +174,7 @@ class EnsureSessionTests(TestCase):
         self.assertIn("chooseTenantId=3b784c421c34483282bd292d97c6d31d", page.opened[1])
 
     def test_failure_names_the_system_and_points_to_the_doc(self):
-        page = FakePage([NOT_LOGGED_IN] * 4)
+        page = FakePage([NOT_LOGGED_IN] * 40)
 
         with self.assertRaises(HikBusinessLoginError) as ctx:
             ensure_business_session(page)
@@ -237,3 +245,30 @@ class PickSystemTests(TestCase):
             pick_system([self.first, self.second])
 
         self.assertIn("IT Hub", str(ctx.exception))
+
+
+@override_settings(**SETTINGS)
+class DiagnosticsTests(TestCase):
+    """Ошибка должна объяснять, что ответил портал."""
+
+    def test_missing_session_id_shows_what_came_back(self):
+        page = FakePage(
+            [NOT_LOGGED_IN] * 40,
+            systems={"errorCode": "0", "data": {"hcbInfoList": [], "tip": "no tenant"}},
+        )
+
+        with self.assertRaises(HikBusinessLoginError) as ctx:
+            ensure_business_session(page)
+
+        message = str(ctx.exception)
+        self.assertIn("sessionId", message)
+        self.assertIn("Портал ответил", message, "без текста ответа это тупик")
+        self.assertIn("hcbInfoList", message)
+
+    def test_long_values_are_masked(self):
+        from apps.integrations.services.hik_business_login import _describe
+
+        shown = _describe({"sessionId": "x" * 300, "short": "ok"})
+
+        self.assertEqual(shown["short"], "ok")
+        self.assertIn("знаков", shown["sessionId"])
