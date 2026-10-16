@@ -20,6 +20,7 @@ class QuestVerifierKind(models.TextChoices):
     YOUGILE_TASKS = "yougile_tasks", "YouGile: задачи"
     LATE_STREAK = "late_streak", "Серия без опозданий"
     LXP_NO_MISSES = "lxp_no_misses", "LXP: без пропусков занятий"
+    ATTENDANCE_STREAK = "attendance_streak", "Серия без пропусков"
 
 
 class QuestTemplate(models.Model):

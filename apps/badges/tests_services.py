@@ -151,7 +151,7 @@ class ManualBadgeTests(TestCase):
             code="path-internship", title="Стажировка", condition={"manual": True}
         )
 
-        self.assertFalse(_condition_matches(badge, completed_quests=100))
+        self.assertFalse(_condition_matches(badge, {"completed_quests_at_least": 100}))
 
     def test_manual_key_does_not_warn(self):
         from apps.badges.services import _condition_matches
@@ -159,4 +159,4 @@ class ManualBadgeTests(TestCase):
         badge = Badge.objects.create(code="manual-x", title="X", condition={"manual": True})
 
         with self.assertNoLogs("apps.badges.services", level="WARNING"):
-            _condition_matches(badge, completed_quests=0)
+            _condition_matches(badge, {"completed_quests_at_least": 0})

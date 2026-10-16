@@ -438,6 +438,28 @@ def verify_late_streak(user: User, params: dict, target_date: date) -> Verificat
     )
 
 
+def verify_attendance_streak(user: User, params: dict, target_date: date) -> VerificationResult:
+    """Серия учебных дней без пропусков.
+
+    Зеркало `verify_late_streak`: счётчик уже ведётся ежедневной задачей,
+    и собственного источника данных проверке не нужно.
+    """
+    min_days = int(params.get("min_days", 10))
+    strike, _ = UserStrike.objects.get_or_create(user=user)
+    current = strike.attendance_strike
+    progress = min(1.0, current / min_days) if min_days else 0.0
+    return VerificationResult(
+        completed=current >= min_days,
+        progress=progress,
+        evidence={
+            "verifier": QuestVerifierKind.ATTENDANCE_STREAK,
+            "attendance_strike": current,
+            "min_days": min_days,
+        },
+        message=f"Серия без пропусков: {current}/{min_days} дн.",
+    )
+
+
 VERIFIERS = {
     QuestVerifierKind.HIK_ON_TIME: verify_hik_on_time,
     QuestVerifierKind.HIK_NO_LATE: verify_hik_no_late,
@@ -446,6 +468,7 @@ VERIFIERS = {
     QuestVerifierKind.YOUGILE_TASKS: verify_yougile_tasks,
     QuestVerifierKind.LATE_STREAK: verify_late_streak,
     QuestVerifierKind.LXP_NO_MISSES: verify_lxp_no_misses,
+    QuestVerifierKind.ATTENDANCE_STREAK: verify_attendance_streak,
 }
 
 
