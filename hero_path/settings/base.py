@@ -355,6 +355,22 @@ HIK_WEB_API_RECORDS_PATH = os.getenv(
 HIK_WEB_API_PAGE_SIZE = _env_int("HIK_WEB_API_PAGE_SIZE", 100)
 HIK_WEB_API_TIMEOUT = _env_int("HIK_WEB_API_TIMEOUT", 60)
 # TTL кеша сессии портала: cookies живут дольше, но перелогин дешевле разбора ошибок.
+# Вход в бизнес-систему портала. С 16.10.2026 обычный логин открывает
+# личный кабинет, а не бизнес-систему: запросы к API записей отвечают
+# «You need login first», пока не пройден маршрут freeLogin. Адреса взяты
+# из кода фронта; как искать их заново, если портал опять поменяется —
+# в docs/HIKCENTRAL.md.
+HIK_WEB_HCB_INFO_PATH = os.getenv(
+    "HIK_WEB_HCB_INFO_PATH", "/customer/proxy/ccfauth/public/user/v1/account/hcb"
+).strip()
+HIK_WEB_FREE_LOGIN_PATH = os.getenv(
+    "HIK_WEB_FREE_LOGIN_PATH", "/views/login/index.html#/freeLogin"
+).strip()
+# Какую бизнес-систему открывать, если у аккаунта их несколько. Пусто —
+# открывается единственная, а при нескольких команда остановится и
+# перечислит их: брать первую молча нельзя, забор пошёл бы по чужим проходам.
+HIK_WEB_SYSTEM_NAME = os.getenv("HIK_WEB_SYSTEM_NAME", "").strip()
+
 HIK_WEB_SESSION_TTL = _env_int("HIK_WEB_SESSION_TTL", 6 * 60 * 60)
 
 HIK_BROWSER_HEADLESS = _env_bool("HIK_BROWSER_HEADLESS", True)
