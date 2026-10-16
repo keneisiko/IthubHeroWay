@@ -272,3 +272,42 @@ class DiagnosticsTests(TestCase):
 
         self.assertEqual(shown["short"], "ok")
         self.assertIn("знаков", shown["sessionId"])
+
+
+@override_settings(**SETTINGS)
+class ErrorEnvelopeTests(TestCase):
+    """Портал отвечает ошибками в двух разных обёртках.
+
+    Бизнес-сервисы кладут код в errorCode, служба авторизации — в resultCode
+    с текстом в resultDes. Вторую мы не разбирали, и «Unauthorized»
+    выглядел как «в ответе нет sessionId», что уводило в сторону.
+    """
+
+    def test_unauthorized_is_recognised_and_explained(self):
+        page = FakePage([], systems={"resultCode": "-3", "resultDes": "Unauthorized"})
+
+        with self.assertRaises(HikBusinessLoginError) as ctx:
+            fetch_business_systems(page)
+
+        message = str(ctx.exception)
+        self.assertIn("не авторизовал", message)
+        self.assertIn("Unauthorized", message)
+        self.assertIn("одну активную сессию", message, "подсказка про занятую сессию")
+
+    def test_other_result_codes_are_reported_without_the_hint(self):
+        page = FakePage([], systems={"resultCode": "-9", "resultDes": "Server busy"})
+
+        with self.assertRaises(HikBusinessLoginError) as ctx:
+            fetch_business_systems(page)
+
+        message = str(ctx.exception)
+        self.assertIn("Server busy", message)
+        self.assertNotIn("одну активную сессию", message)
+
+    def test_success_envelope_is_not_treated_as_error(self):
+        page = FakePage([], systems={**ONE_SYSTEM, "resultCode": "0"})
+
+        session_id, systems = fetch_business_systems(page)
+
+        self.assertTrue(session_id)
+        self.assertEqual(len(systems), 1)

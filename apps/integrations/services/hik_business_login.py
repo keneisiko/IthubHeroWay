@@ -176,10 +176,30 @@ def fetch_business_systems(page) -> tuple[str, list[BusinessSystem]]:
     except ValueError as exc:
         raise HikBusinessLoginError(f"Портал вернул не JSON: {text[:120]}") from exc
 
+    # Портал отвечает ошибками в двух обёртках: бизнес-сервисы кладут код
+    # в errorCode, а служба авторизации — в resultCode с текстом в resultDes.
+    # Вторую мы не разбирали, и «Unauthorized» выглядел как «нет sessionId».
     code = str(body.get("errorCode", "")).strip()
     if code and code != "0":
         raise HikBusinessLoginError(
             f"Портал отказал в списке систем ({code}): {body.get('message') or ''}"
+        )
+
+    result_code = str(body.get("resultCode", "")).strip()
+    if result_code and result_code not in {"0", "200"}:
+        hint = ""
+        if "unauthoriz" in str(body.get("resultDes", "")).lower():
+            # Портал держит одну активную сессию на аккаунт: вход из браузера
+            # обесценивает сессию бота и наоборот.
+            hint = (
+                " Похоже, сессия входа уже недействительна. Частая причина — "
+                "этим же аккаунтом вошли в портал из браузера: портал держит "
+                "одну активную сессию. Выйдите из портала и повторите, а для "
+                "постоянной работы заведите отдельный сервисный аккаунт."
+            )
+        raise HikBusinessLoginError(
+            f"Портал не авторизовал запрос ({result_code}): "
+            f"{body.get('resultDes') or ''}.{hint}"
         )
 
     data = body.get("data") or {}
