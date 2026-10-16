@@ -226,6 +226,29 @@ cd /opt/hero_path && git pull && dcp up -d --build
 **`telegram-bot` в цикле перезапусков.** Не задан `TELEGRAM_BOT_TOKEN`.
 Остальная платформа при этом работает, но студенты не смогут активироваться.
 
+**`telegram-bot` запустился, но пишет `Network is unreachable` к
+api.telegram.org.** С этого сервера Telegram доступен только по IPv6:
+исходящий IPv4 уходит в таймаут. Проверить:
+
+```bash
+curl -4 -s -o /dev/null -w "IPv4: %{http_code}
+" --max-time 10 https://api.telegram.org/
+curl -6 -s -o /dev/null -w "IPv6: %{http_code}
+" --max-time 10 https://api.telegram.org/
+```
+
+Если IPv4 даёт `000`, а IPv6 — `302`, то дело в том, что у docker-сети нет
+IPv6. В `docker-compose.prod.yml` сеть `default` объявлена с `enable_ipv6`
+и подсетью ULA — убедитесь, что контейнеры пересозданы с этим файлом:
+
+```bash
+dcp up -d
+```
+
+Последствия, если это не сделано: бот не получает обновлений, студенты не
+могут выполнить `/activate` и войти, а алерты администратору не доходят —
+то есть ночные сбои становятся невидимыми.
+
 **Цикл редиректов в браузере.** `SECURE_SSL_REDIRECT=1` без сертификата.
 
 **403 «Ошибка проверки CSRF» при входе в админку по http.** Куки помечены
