@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
@@ -139,8 +140,17 @@ def late_penalty_source_id(user_id: int, event_dt: datetime) -> str:
     return f"hik-late:{user_id}:{local_date.isoformat()}"
 
 
+def late_penalty_enabled() -> bool:
+    return bool(getattr(settings, "HIK_LATE_PENALTY_ENABLED", False))
+
+
 def _apply_late_penalty_if_needed(user, *, event_dt: datetime, late_minutes: int) -> None:
     if late_minutes <= 0:
+        return
+    if not late_penalty_enabled():
+        # Положение не знает штрафа за опоздание: единственное списание —
+        # за подтверждённый пропуск пары. Сам факт опоздания сохраняется
+        # в событии и используется квестами, которые дают только монеты.
         return
 
     source_id = late_penalty_source_id(user.pk, event_dt)
