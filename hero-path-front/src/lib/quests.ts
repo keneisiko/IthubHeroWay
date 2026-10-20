@@ -162,3 +162,27 @@ export function pickSelfReportQuestCode(active: unknown): string | null {
   const candidate = quests.find((q) => q.quest_type === 'self_report' || q.quest_type === 'mixed')
   return candidate?.code ?? quests[0]?.code ?? null
 }
+
+/** Активный квест каждого вида — для вкладок «Ежедневный» и «Еженедельный».
+ *
+ * Дашборд отдаёт один `current_quest`, поэтому вкладка «Еженедельный»
+ * раньше показывала жёстко вписанную строку «Завершить 5 задач» независимо
+ * от того, какие квесты у студента на самом деле. Виды берутся из того же
+ * списка активных квестов, что и на странице квестов, — один источник.
+ */
+export function activeQuestsByType(
+  active: unknown,
+  progressRows: unknown,
+  completedRows?: unknown,
+): { daily: UiQuest | null; weekly: UiQuest | null } {
+  const quests = unwrapList<ApiQuest>(active)
+  const byCode = new Map(unwrapList<ApiQuestProgress>(progressRows).map((p) => [p.quest.code, p]))
+  const completedCodes = new Set(
+    unwrapList<ApiQuestProgress>(completedRows ?? []).map((p) => p.quest.code),
+  )
+  const pick = (type: string): UiQuest | null => {
+    const quest = quests.find((q) => q.quest_type === type && !completedCodes.has(q.code))
+    return quest ? mapActiveQuest(quest, byCode.get(quest.code)) : null
+  }
+  return { daily: pick('daily'), weekly: pick('weekly') }
+}

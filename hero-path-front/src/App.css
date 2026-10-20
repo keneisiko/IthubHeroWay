@@ -1153,6 +1153,28 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Настоящая полоса выполнения квеста. Пришла на смену цепочке из четырёх
+   цветных точек, которая выглядела одинаково при любом прогрессе. */
+.quest__bar {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.quest__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-green, #7ed957);
+  transition: width 400ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quest__bar-fill { transition: none; }
+}
+
 .quest__steps { display: flex; align-items: center; justify-content: center; gap: var(--space-8); }
 /* Шаг может ужиматься: на узкой карточке (планшет, телефон) цепочка
    шагов иначе торчала из неё с обеих сторон. */
@@ -6166,6 +6188,47 @@ body {
     flex-wrap: wrap;
     font-size: 16px;
     row-gap: 6px;
+  }
+
+  /* Шапка профиля задавалась под десктоп: ник шириной ровно 434 px и ФИО
+     с white-space: nowrap. На экране 375 px и то и другое уезжало за край
+     карточки — видно было половину логина. Ширину отдаём контейнеру,
+     длинный логин переносим. */
+  .profile-card__names {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .profile-card__nickname {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 44px;
+    font-size: 20px;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-card__fio {
+    max-width: 100%;
+    font-size: 16px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Высота была фиксированной (137 px) под три строки в одну линию.
+     После переноса строк содержимое вылезало из карточки. */
+  .profile-card__rows {
+    height: auto;
+  }
+
+  /* «Статус: Новобранец  1 ур.» в одну строку не помещается: чипы с
+     white-space: nowrap не сжимаются, и уровень срезало краем экрана. */
+  .rating__line {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 35px;
+    row-gap: 8px;
+    font-size: 18px;
   }
 
   .profile-row__chip {

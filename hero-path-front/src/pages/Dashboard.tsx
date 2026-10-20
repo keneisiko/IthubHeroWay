@@ -13,7 +13,8 @@ import LoadError from '../components/LoadError'
 import api from '../api'
 import { celebrate } from '../lib/celebrate'
 import { useToasts } from '../useToasts'
-import { apiErrorMessage, formatDateTimeRu, progressPercent } from '../lib/apiData'
+import { apiErrorMessage, formatDateTimeRu } from '../lib/apiData'
+import { activeQuestsByType, type UiQuest } from '../lib/quests'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -196,6 +197,8 @@ export default function Dashboard() {
   const [reportText, setReportText] = useState('')
   const [questTab, setQuestTab] = useState<QuestTab>('daily')
   const [data, setData] = useState<DashboardData | null>(null)
+  const [dailyQuest, setDailyQuest] = useState<UiQuest | null>(null)
+  const [weeklyQuest, setWeeklyQuest] = useState<UiQuest | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const tilt = useTilt()
@@ -207,8 +210,18 @@ export default function Dashboard() {
       setLoadError(false)
       setLoading(true)
     }
-    api.get('/api/v1/dashboard/')
-      .then(res => setData(res.data))
+    Promise.all([
+      api.get('/api/v1/dashboard/'),
+      api.get('/api/v1/quests/active/'),
+      api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
+      api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
+    ])
+      .then(([dashRes, activeRes, progressRes, completedRes]) => {
+        setData(dashRes.data)
+        const byType = activeQuestsByType(activeRes.data, progressRes.data, completedRes.data)
+        setDailyQuest(byType.daily)
+        setWeeklyQuest(byType.weekly)
+      })
       .catch(() => {
         if (quiet) {
           addToast('Не удалось обновить главную', 'error')
@@ -229,14 +242,14 @@ export default function Dashboard() {
   const rating = data?.user?.rating_current ?? 0
   const ratingDisplay = useCountUp(rating)
   const level = data?.user?.level ?? 0
-  const questTitle = data?.current_quest?.title ?? 'На сегодня всё. Отдыхай.'
-  // Прогресс приходит долей (0.15), а не процентами: на дашборде он
-  // выводился как «0.15%», хотя в списке квестов — как 15%.
-  const questProgress = progressPercent(data?.current_quest?.progress_value ?? 0)
-  const hasQuest = Boolean(data?.current_quest)
-  const isDaily = data?.current_quest?.quest_type === 'daily'
-  const questAutoVerify = data?.current_quest?.auto_verify ?? false
-  const questManualAllowed = data?.current_quest?.manual_complete_allowed !== false
+  // Карточка показывает квест выбранной вкладки. Дашборд отдаёт только один
+  // current_quest, поэтому вкладки берут данные из списка активных квестов —
+  // того же, что и страница квестов.
+  const tabQuest: UiQuest | null = questTab === 'daily' ? dailyQuest : weeklyQuest
+  const questProgress = tabQuest?.progress ?? 0
+  const hasQuest = Boolean(dailyQuest || weeklyQuest)
+  const questAutoVerify = tabQuest?.autoVerify ?? false
+  const questManualAllowed = tabQuest?.confirm ?? false
 
   if (loadError) {
     return (
@@ -452,14 +465,22 @@ export default function Dashboard() {
           <div className="quest__progress">
             <div className="quest__progress-inner">
               <div className="quest__head">
-                <span>{isDaily ? questTitle : 'Завершить 5 задач'}</span>
+                <span>{tabQuest ? tabQuest.title : 'Такого квеста сегодня нет'}</span>
                 <strong>{questProgress}%</strong>
               </div>
-              <div className="quest__steps">
-                <span className="quest-step"><span className="dot dot--red" /><span className="quest-step__bar quest-step__bar--red" /></span>
-                <span className="quest-step"><span className="dot dot--yellow" /><span className="quest-step__bar quest-step__bar--yellow" /></span>
-                <span className="quest-step"><span className="dot dot--blue" /><span className="quest-step__bar quest-step__bar--blue" /></span>
-                <span className="dot dot--green" />
+              {/* Раньше здесь была цепочка из четырёх разноцветных точек —
+                  украшение, не связанное с прогрессом: она выглядела
+                  одинаково и на 0%, и на 90%. Теперь полоса показывает
+                  настоящую долю выполнения. */}
+              <div
+                className="quest__bar"
+                role="progressbar"
+                aria-valuenow={questProgress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={tabQuest ? `Прогресс: ${tabQuest.title}` : 'Прогресс квеста'}
+              >
+                <span className="quest__bar-fill" style={{ width: `${questProgress}%` }} />
               </div>
             </div>
           </div>
@@ -470,7 +491,11 @@ export default function Dashboard() {
           >
             {questAutoVerify ? 'Проверяется автоматически' : 'Подтвердить'}
           </button>
-          {questAutoVerify && data?.current_quest?.verification_message && (
+          {/* Сообщение проверки приходит в dashboard для одного квеста —
+              показываем его только на вкладке этого же квеста. */}
+          {questAutoVerify
+            && tabQuest?.code === data?.current_quest?.code
+            && data?.current_quest?.verification_message && (
             <p className="loading-text" style={{ marginTop: 8 }}>{data.current_quest.verification_message}</p>
           )}
           <div className="quest__row">
@@ -491,7 +516,7 @@ export default function Dashboard() {
         onChange={setConfirmLink}
         onClose={confirm.hide}
         onSubmit={() => {
-          const code = data?.current_quest?.code
+          const code = tabQuest?.code
           if (!code) {
             addToast('Нет активного квеста', 'error')
             return
@@ -515,7 +540,7 @@ export default function Dashboard() {
         onChange={setReportText}
         onClose={report.hide}
         onSubmit={() => {
-          const code = data?.current_quest?.code
+          const code = tabQuest?.code
           if (!code) {
             addToast('Нет квеста для самоотчёта', 'error')
             return
