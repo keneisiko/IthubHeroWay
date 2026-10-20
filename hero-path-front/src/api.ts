@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type AxiosResponse } from 'axios'
 import toast from 'react-hot-toast'
 import { clearAuthTokens, isAuthApiPath } from './auth'
 
@@ -13,6 +13,65 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+/*
+ * Короткая память GET-ответов. Страницы грузят данные при каждом
+ * открытии, и повторный заход в раздел мигал экраном загрузки ради
+ * тех же самых данных. Теперь ответ младше CACHE_TTL отдаётся сразу,
+ * одинаковые запросы, ушедшие одновременно (шапка и страница просят
+ * профиль), идут на сервер одним.
+ *
+ * Память сбрасывается при любом изменении (POST/PATCH/PUT/DELETE) и
+ * когда человек возвращается во вкладку: там данные могли поменяться
+ * без него — куратор начислил награду.
+ */
+const CACHE_TTL = 15_000
+const responseCache = new Map<string, { at: number; response: AxiosResponse }>()
+const inflight = new Map<string, Promise<AxiosResponse>>()
+const networkAdapter = axios.getAdapter(api.defaults.adapter)
+
+// страницы сортируют полученные списки на месте — каждому достаётся копия
+const copy = <T,>(data: T): T => (typeof data === 'object' && data !== null ? structuredClone(data) : data)
+
+export function clearApiCache(): void {
+  responseCache.clear()
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') clearApiCache()
+  })
+}
+
+api.interceptors.request.use((config) => {
+  const method = (config.method ?? 'get').toLowerCase()
+  if (method !== 'get') {
+    clearApiCache()
+    return config
+  }
+  if (isAuthApiPath(config.url)) return config
+
+  const token = localStorage.getItem('access_token') ?? ''
+  const key = `${token.slice(-16)} ${config.url} ${JSON.stringify(config.params ?? {})}`
+  const hit = responseCache.get(key)
+  if (hit && Date.now() - hit.at < CACHE_TTL) {
+    config.adapter = async () => ({ ...hit.response, data: copy(hit.response.data), config })
+    return config
+  }
+  config.adapter = (cfg) => {
+    let pending = inflight.get(key)
+    if (!pending) {
+      pending = networkAdapter(cfg)
+      inflight.set(key, pending)
+      pending
+        .then((response) => { responseCache.set(key, { at: Date.now(), response }) })
+        .catch(() => {})
+        .finally(() => inflight.delete(key))
+    }
+    return pending.then((response) => ({ ...response, data: copy(response.data), config: cfg }))
   }
   return config
 })

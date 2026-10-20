@@ -86,12 +86,24 @@ export default function Leaderboard() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  // Набор фильтрует то, что уже на экране, — мгновенно и без запросов.
+  // На сервер (поиск за пределами топа) — только когда человек сам нажал
+  // Enter или лупу: раньше запрос уходил после секунды паузы, страница
+  // перезагружалась и поле теряло фокус посреди набора.
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const loadedOnce = useRef(false)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
-    return () => clearTimeout(timer)
-  }, [searchQuery])
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (activeTab === 'agents') setAppliedSearch(searchQuery.trim())
+  }
+
+  const changeSearch = (value: string) => {
+    setSearchQuery(value)
+    // поле очистили — вернуть общий топ, ждать Enter тут незачем
+    if (!value.trim() && appliedSearch) setAppliedSearch('')
+  }
 
   // Анимация чисел
   const animMyRank = useCountUp(myRank.rank, 1200)
@@ -118,11 +130,14 @@ export default function Leaderboard() {
   }
 
   const loadLeaderboard = useCallback(() => {
-    setLoading(true)
+    // экран загрузки — только в первый раз; дальше список обновляется
+    // на месте и не пропадает из-под пальца
+    if (loadedOnce.current) setRefreshing(true)
+    else setLoading(true)
     setLoadError(false)
     const agentsParams: Record<string, string | number> = { page: 1, page_size: 20 }
     if (selectedCourse) agentsParams.course = selectedCourse
-    if (debouncedSearch) agentsParams.search = debouncedSearch
+    if (appliedSearch) agentsParams.search = appliedSearch
 
     Promise.all([
       api.get('/api/v1/leaderboard/agents/', { params: agentsParams }),
@@ -173,11 +188,16 @@ export default function Leaderboard() {
         username: meRes.data?.username ?? '',
       })
     }).catch(() => {
+      if (loadedOnce.current) return
       setAgents([])
       setSquads([])
       setLoadError(true)
-    }).finally(() => setLoading(false))
-  }, [selectedCourse, debouncedSearch])
+    }).finally(() => {
+      loadedOnce.current = true
+      setLoading(false)
+      setRefreshing(false)
+    })
+  }, [selectedCourse, appliedSearch])
 
   useEffect(() => {
     loadLeaderboard()
@@ -193,9 +213,11 @@ export default function Leaderboard() {
   }, [])
 
   const items = activeTab === 'agents' ? agents : squads
-  const filteredItems = activeTab === 'agents'
-    ? items
-    : items.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase()))
+  const needle = searchQuery.trim().toLowerCase()
+  const filteredItems = needle
+    ? items.filter(item => item.title.toLowerCase().includes(needle))
+    : items
+  const canSearchWider = activeTab === 'agents' && needle !== '' && needle !== appliedSearch.toLowerCase()
 
   const navigate = useNavigate()
 
@@ -258,24 +280,29 @@ export default function Leaderboard() {
           <h2>{activeTab === 'agents' ? 'Топ 20 агентов' : 'Топ 10 отрядов'}</h2>
         </div>
 
-        <div className="leaderboard-search">
+        <form className="leaderboard-search" role="search" onSubmit={submitSearch}>
           <input
-            type="text" value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value) }}
+            type="search" value={searchQuery}
+            onChange={e => changeSearch(e.target.value)}
             placeholder={activeTab === 'agents' ? 'Поиск по позывному...' : 'Поиск по названию...'}
+            aria-label={activeTab === 'agents' ? 'Поиск агента по позывному' : 'Поиск отряда по названию'}
+            enterKeyHint="search"
+            autoComplete="off"
             style={{
               border: 'none', outline: 'none', background: 'transparent',
               fontFamily: 'Montserrat, sans-serif', fontSize: '20px',
               fontWeight: 600, color: '#121212', width: '100%',
             }}
           />
-          <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
-            <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
-          </svg>
-        </div>
+          <button type="submit" className="search-submit" aria-label="Найти">
+            <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
+              <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
+            </svg>
+          </button>
+        </form>
 
-        <div className={`leaderboard-panel${transitioning ? ' leaderboard-panel--transitioning' : ''}`}>
+        <div className={`leaderboard-panel${transitioning ? ' leaderboard-panel--transitioning' : ''}${refreshing ? ' leaderboard-panel--refreshing' : ''}`} aria-busy={refreshing}>
           <div className="leaderboard-list">
             {filteredItems.map((item, i) => {
               const isMe = activeTab === 'agents' && item.username === myRank.username
@@ -319,7 +346,16 @@ export default function Leaderboard() {
                 textAlign: 'center', padding: '40px 20px', color: '#848484',
                 fontFamily: 'Montserrat, sans-serif', fontSize: '18px', fontWeight: 600
               }}>
-                <p>Ничего не найдено</p>
+                <p>{canSearchWider ? 'В этом топе таких нет' : 'Ничего не найдено'}</p>
+                {canSearchWider && (
+                  <button
+                    type="button"
+                    className="leaderboard-empty__action btn-press"
+                    onClick={() => setAppliedSearch(searchQuery.trim())}
+                  >
+                    Искать среди всех агентов
+                  </button>
+                )}
               </div>
             )}
           </div>

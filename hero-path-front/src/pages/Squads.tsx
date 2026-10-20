@@ -115,12 +115,6 @@ export default function Squads() {
   const [createName, setCreateName] = useState('')
   const [createCourse, setCreateCourse] = useState('2')
   const [submitting, setSubmitting] = useState(false)
-  const [debouncedMemberQuery, setDebouncedMemberQuery] = useState('')
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedMemberQuery(memberQuery.trim()), 300)
-    return () => clearTimeout(timer)
-  }, [memberQuery])
 
   const mapMembers = (rows: {
     username: string
@@ -206,10 +200,10 @@ export default function Squads() {
 
   useEffect(() => {
     if (!squad?.code || loading) return
-    loadMembers(squad.code, debouncedMemberQuery, sortKey).catch(() => {
+    loadMembers(squad.code, '', sortKey).catch(() => {
       addToast('Не удалось обновить список участников', 'error')
     })
-  }, [squad?.code, debouncedMemberQuery, sortKey, loading, loadMembers, addToast])
+  }, [squad?.code, sortKey, loading, loadMembers, addToast])
 
   const handleJoin = useCallback((code: string) => {
     const trimmed = code.trim()
@@ -249,7 +243,15 @@ export default function Squads() {
       .finally(() => setSubmitting(false))
   }, [addToast, createCourse, createName, loadSquad])
 
-  const visibleMembers = members
+  // Отряд загружен целиком — ищем по нему прямо на экране. Раньше после
+  // секунды паузы в наборе уходил запрос, и список перерисовывался сам,
+  // будто поиск «отправили» за человека.
+  const memberNeedle = memberQuery.trim().toLowerCase()
+  const visibleMembers = memberNeedle
+    ? members.filter((m) =>
+        [m.name, m.track, m.status].some((field) => field.toLowerCase().includes(memberNeedle)),
+      )
+    : members
 
   const handleShare = useCallback(() => {
     const shareUrl = `${window.location.origin}${squad?.share_url ?? '/squads'}`
@@ -533,7 +535,7 @@ export default function Squads() {
             {visibleMembers.length === 0 && (
               <li className="squad-members__empty">Никого не найдено</li>
             )}
-            {visibleMembers.length === 1 && !debouncedMemberQuery && (
+            {visibleMembers.length === 1 && !memberNeedle && (
               <li className="squad-members__empty">В отряде пока только вы</li>
             )}
           </ul>

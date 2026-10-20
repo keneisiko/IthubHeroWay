@@ -259,3 +259,85 @@ textarea.popup__input {
 
 /* «Курс» прилипал к нижнему краю плашки с названием */
 .squad-my__course { margin-top: 6px; }
+
+/* =========================
+   ЗАГРУЗКА БЕЗ МИГАНИЯ
+   Лоадер проявляется, только если ждать дольше 0,4 с. Быстрая загрузка
+   больше не мелькает точками перед содержимым.
+   ========================= */
+
+.loading-spinner,
+.loading-text,
+.brand-loader {
+  animation: loaderLate 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+}
+
+@keyframes loaderLate {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* список обновляется на месте: чуть гаснет, но не пропадает */
+.leaderboard-panel { transition: opacity 0.25s ease, transform 0.25s ease, filter 0.25s ease; }
+
+.leaderboard-panel--refreshing {
+  opacity: 0.55;
+  filter: saturate(0.7);
+  pointer-events: none;
+}
+
+/* лупа — кнопка «Найти»: поиск уходит только по нажатию или Enter */
+.search-submit {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.search-submit svg { width: 24px; height: 26px; margin: 0; }
+.search-submit:active { transform: scale(0.9); }
+.search-submit:focus-visible { outline: 3px solid var(--ithub-black); outline-offset: 0; }
+
+@media (hover: hover) and (pointer: fine) {
+  .search-submit:hover { background: rgba(154, 51, 244, 0.1); }
+}
+
+.leaderboard-search input[type='search']::-webkit-search-decoration,
+.leaderboard-search input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+.leaderboard-empty__action {
+  margin-top: 14px;
+  height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner,
+  .loading-text,
+  .brand-loader { animation-duration: 0.01s; }
+}
+
+/* магазин: при смене вкладки сетка гаснет на месте, страница не пропадает */
+.shop-grid { transition: opacity 0.22s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+
+.shop-grid--switching {
+  opacity: 0.35;
+  transform: translateY(6px);
+  pointer-events: none;
+}

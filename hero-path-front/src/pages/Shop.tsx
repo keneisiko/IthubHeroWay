@@ -76,6 +76,7 @@ function Modal({
 
 export default function Shop() {
   const [activeTab, setActiveTab] = useState(0)
+  const [switching, setSwitching] = useState(false)
   const [showPurchase, setShowPurchase] = useState<number | null>(null)
   const [showPurchases, setShowPurchases] = useState(false)
   const [showDetail, setShowDetail] = useState<number | null>(null)
@@ -97,8 +98,13 @@ export default function Shop() {
 
   // quiet — обновить после покупки без лоадера: иначе сетка товаров
   // пропадает, страница сжимается и прокрутка прыгает вверх.
+  // Экран загрузки — только при первом открытии. Смена вкладки раньше
+  // прятала всю страницу вместе с вкладками и рисовала заново; теперь
+  // сетка товаров гаснет на месте и проявляется с новыми.
+  const loadedOnce = useRef(false)
   const loadShop = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
-    if (!quiet) setLoading(true)
+    if (!loadedOnce.current) setLoading(true)
+    else if (!quiet) setSwitching(true)
     const itemType = SHOP_TAB_TYPES[activeTab]
 
     Promise.all([
@@ -166,7 +172,11 @@ export default function Shop() {
 
       setCoins(String(profileRes.data.coins_balance ?? 0))
     }).catch(() => addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error'))
-      .finally(() => setLoading(false))
+      .finally(() => {
+        loadedOnce.current = true
+        setLoading(false)
+        setSwitching(false)
+      })
   }, [activeTab, addToast])
 
   useEffect(() => {
@@ -356,7 +366,7 @@ export default function Shop() {
         </section>
       </div>
 
-      <div className="shop-grid">
+      <div className={`shop-grid${switching ? ' shop-grid--switching' : ''}`} aria-busy={switching}>
         {products.length === 0 ? (
           <p className="loading-text" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>Товаров в этой категории пока нет</p>
         ) : products.map((item, i) => {

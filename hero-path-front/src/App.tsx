@@ -15,15 +15,37 @@ import './App.css'
 import './styles/atmosphere.css'
 import './styles/interaction.css'
 
+const pages = {
+  dashboard: () => import('./pages/Dashboard'),
+  profile: () => import('./pages/Profile'),
+  leaderboard: () => import('./pages/Leaderboard'),
+  quests: () => import('./pages/Quests'),
+  shop: () => import('./pages/Shop'),
+  squads: () => import('./pages/Squads'),
+  badges: () => import('./pages/Badges'),
+}
+
 const Login = lazy(() => import('./pages/Login'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const Profile = lazy(() => import('./pages/Profile'))
-const Leaderboard = lazy(() => import('./pages/Leaderboard'))
-const Quests = lazy(() => import('./pages/Quests'))
-const Shop = lazy(() => import('./pages/Shop'))
-const Squads = lazy(() => import('./pages/Squads'))
-const Badges = lazy(() => import('./pages/Badges'))
+const Dashboard = lazy(pages.dashboard)
+const Profile = lazy(pages.profile)
+const Leaderboard = lazy(pages.leaderboard)
+const Quests = lazy(pages.quests)
+const Shop = lazy(pages.shop)
+const Squads = lazy(pages.squads)
+const Badges = lazy(pages.badges)
 const NotFound = lazy(() => import('./pages/NotFound'))
+
+/**
+ * Код всех разделов подтягиваем, пока человек смотрит первую страницу:
+ * иначе первый переход в каждый раздел ждал загрузку файла и показывал
+ * лоадер посреди перехода.
+ */
+function prefetchPages() {
+  const run = () => Object.values(pages).forEach((load) => { load().catch(() => {}) })
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+  if (idle) idle(run)
+  else window.setTimeout(run, 1200)
+}
 
 function App() {
   return (
@@ -46,6 +68,10 @@ function AppShell() {
   const isKnownRoute = location.pathname === '/' || KNOWN_PATHS.some(p => location.pathname.startsWith(p))
   // заставку после входа играем один раз: флаг ставит страница входа
   const [entering, setEntering] = useState(hasEnterFlag)
+
+  useEffect(() => {
+    prefetchPages()
+  }, [])
 
   useEffect(() => {
     releaseBoot()
