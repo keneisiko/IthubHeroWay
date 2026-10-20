@@ -291,6 +291,24 @@ def _run_for_linked_squads(command: str, label: str, weeks: int) -> tuple[int, l
     return done, empty, failed
 
 
+def _alert_if_lxp_returned_nothing(title: str, done: int, empty: list[str], failed: list[str]) -> None:
+    """Один отряд без занятий — норма (практика, диплом). Все сразу — нет.
+
+    Пустой ответ по каждой группе скорее значит, что LXP сменил ответ или
+    фильтр перестал совпадать, чем что весь колледж ушёл на каникулы. Без
+    этой проверки такой сбой прошёл бы молча: пустота больше не тревога.
+    """
+    if empty and not done and not failed:
+        send_alert_to_admin(
+            title=title,
+            message=f"LXP не вернул занятий ни по одному из {len(empty)} отрядов — "
+            "похоже на сбой выгрузки, а не на отсутствие пар.",
+            error_type="lxp",
+            deduplicate_key=f"lxp_all_empty:{title}",
+            is_critical=True,
+        )
+
+
 def _lxp_sync_summary(label: str, done: int, empty: list[str], failed: list[str]) -> str:
     return f"{label}: отрядов {done}, без занятий в LXP {len(empty)}, с ошибкой {len(failed)}"
 
@@ -309,6 +327,7 @@ def sync_lxp_class_attendance(weeks: int = 1) -> str:
         return "lxp_attendance: нет отрядов с привязкой к группе LXP"
 
     done, empty, failed = _run_for_linked_squads("pull_lxp_class_attendance", "sync_lxp_class_attendance", weeks)
+    _alert_if_lxp_returned_nothing("Отметки посещения LXP не загрузились", done, empty, failed)
     if failed:
         send_alert_to_admin(
             title="Отметки посещения LXP не загрузились",
@@ -333,6 +352,7 @@ def sync_lxp_schedules(weeks: int = 2) -> str:
         return "lxp_schedule: нет отрядов с привязкой к группе LXP"
 
     done, empty, failed = _run_for_linked_squads("import_lxp_schedule", "sync_lxp_schedules", weeks)
+    _alert_if_lxp_returned_nothing("Расписание из LXP не обновилось", done, empty, failed)
     if failed:
         send_alert_to_admin(
             title="Расписание из LXP не обновилось",
