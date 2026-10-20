@@ -40,25 +40,27 @@ function FilterPanel({
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
   }, [onClose])
 
   return (
     <div ref={ref} className="leaderboard-filters">
-      <div className="leaderboard-filters__group">
-        <h4 className="leaderboard-filters__title">Трек:</h4>
-        <p className="leaderboard-filters__note">
-          Список треков API пока не отдаёт
-        </p>
-      </div>
+      {/* фильтра по треку пока нет на сервере — пустую группу со
+          служебной припиской «API не отдаёт» студенту не показываем */}
       <div className="leaderboard-filters__group">
         <h4 className="leaderboard-filters__title">Курс:</h4>
         {COURSE_OPTIONS.map((option) => (
           <button
             key={option}
             type="button"
-            className="leaderboard-filters__option"
+            aria-pressed={course === option}
+            className={`leaderboard-filters__option${course === option ? ' leaderboard-filters__option--on' : ''}`}
             onClick={() => onCourse(course === option ? null : option)}
           >
             <span

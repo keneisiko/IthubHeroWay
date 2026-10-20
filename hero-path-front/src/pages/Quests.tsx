@@ -452,6 +452,8 @@ export default function Quests() {
           )}
         </section>
 
+        {/* во вкладке «История наград» этот же список уже на экране */}
+        {activeTab !== 2 && (
         <section className="q1__activity">
           <h3 className="q1__activity-title">Список выполненных квестов за последние 30 дней</h3>
           <div className="q1__activity-list">
@@ -467,6 +469,7 @@ export default function Quests() {
           </div>
           <button type="button" className="q1__activity-more btn-press" onClick={() => setActiveTab(2)}>Показать ещё</button>
         </section>
+        )}
       </aside>
 
       {/* Модалка самоотчёта */}
