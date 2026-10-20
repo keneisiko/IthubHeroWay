@@ -601,23 +601,22 @@ export default function Profile() {
         <div className="profile__left">
           <section className="profile-card profile-card--primary card-entrance">
             <div className="profile-card__header">
-              <div 
-                className="profile-card__avatar" 
-                role="img" 
-                aria-label="Аватар"
+              <div
+                className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}`}
+                role={isOwnProfile ? 'button' : 'img'}
+                tabIndex={isOwnProfile ? 0 : undefined}
+                aria-label={isOwnProfile ? 'Сменить аватар' : 'Аватар'}
                 onClick={isOwnProfile ? avatarModal.show : undefined}
-                style={{ cursor: isOwnProfile ? 'pointer' : 'default' }}
-                title={isOwnProfile ? 'Сменить аватар' : undefined}
+                onKeyDown={isOwnProfile ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); avatarModal.show() }
+                } : undefined}
               >
                 {profile.avatar ? (
-                  <img
-                    src={profile.avatar}
-                    alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
-                  />
+                  <img className="profile-card__avatar-img" src={profile.avatar} alt="" />
                 ) : (
                   initials
                 )}
+                {isOwnProfile && <span className="profile-card__avatar-edit" aria-hidden="true">Сменить</span>}
               </div>
               <div className="profile-card__names">
                 <div className="profile-card__nickname">{profile?.callsign ?? '—'}</div>

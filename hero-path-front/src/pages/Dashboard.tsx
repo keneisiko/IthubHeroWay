@@ -13,6 +13,7 @@ import LoadError from '../components/LoadError'
 import api from '../api'
 import { useToasts } from '../useToasts'
 import { formatDateTimeRu } from '../lib/apiData'
+import '../styles/dashboard.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 

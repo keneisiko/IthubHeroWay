@@ -1,0 +1,57 @@
+/* =========================
+   КВЕСТЫ: ЕЖЕНЕДЕЛЬНЫЙ ВЫБОР
+   Девять целей шли по две в ряд разной высоты, последняя висела по
+   центру. Теперь ровная сетка: карточки одной высоты, награда и кнопка
+   прижаты к низу, на широком экране три в ряд.
+   ========================= */
+
+@media (min-width: 901px) {
+  .q1__choice-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .q1__option {
+    width: auto;
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .q1__option-title {
+    font-size: 20px;
+    line-height: 1.12;
+  }
+
+  .q1__option-task {
+    flex: 1 1 auto;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .q1__option-reward {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 17px;
+  }
+
+  .q1__option-pick {
+    height: 48px;
+    font-size: 18px;
+  }
+}
+
+/* выбранная цель заметна сразу, а не только по скруглению углов */
+.q1__option--focused {
+  box-shadow: 0 0 0 4px var(--ithub-black), var(--card-shadow);
+}
+
+.q1__option {
+  transition: border-radius 0.25s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .q1__option:not(.q1__option--focused):hover { transform: translateY(-3px); }
+}

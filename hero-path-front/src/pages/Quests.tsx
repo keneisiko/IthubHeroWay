@@ -14,6 +14,7 @@ import {
   pickSelfReportQuestCode,
   type UiQuest,
 } from '../lib/quests'
+import '../styles/quests.css'
 
 const TABS = ['Активные', 'Выполненные', 'История наград'] as const
 

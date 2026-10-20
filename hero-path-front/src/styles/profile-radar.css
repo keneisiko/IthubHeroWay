@@ -359,3 +359,61 @@
   .skill-history__area,
   .skill-history__dot { animation: none; opacity: 1; }
 }
+
+/* =========================
+   АВАТАР В КАРТОЧКЕ ПРОФИЛЯ
+   Рядом с длинным ником блок сжимался по ширине и становился узким
+   прямоугольником, а картинка со скруглением рамки вылезала углами
+   на обводку. Теперь размер держится, картинку обрезает сама рамка.
+   ========================= */
+
+.profile-card__avatar {
+  position: relative;
+  flex: 0 0 auto;
+  aspect-ratio: 1;
+  overflow: hidden;
+  isolation: isolate;
+  user-select: none;
+}
+
+.profile-card__avatar-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.profile-card__avatar--editable { cursor: pointer; }
+
+.profile-card__avatar--editable:focus-visible {
+  outline: 3px solid var(--ithub-black);
+  outline-offset: 3px;
+}
+
+.profile-card__avatar-edit {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  place-items: center;
+  height: 26px;
+  background: rgba(18, 18, 18, 0.72);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 700;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-card__avatar--editable:focus-visible .profile-card__avatar-edit { transform: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile-card__avatar--editable:hover .profile-card__avatar-edit { transform: none; }
+}
+
+/* без наведения подсказка видна всегда — иначе не догадаться, что фото
+   меняется нажатием */
+@media (hover: none) {
+  .profile-card__avatar-edit { transform: none; height: 22px; font-size: 10px; }
+}

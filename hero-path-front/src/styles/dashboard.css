@@ -1,0 +1,35 @@
+/* =========================
+   ГЛАВНАЯ
+   Блок «Активный квест» убран, и лента активности осталась узкой
+   колонкой слева под пустым местом. Теперь она на всю ширину страницы,
+   записи — в две колонки.
+   ========================= */
+
+@media (min-width: 981px) {
+  .dashboard--home .dashboard__bottom {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 1002px;
+  }
+
+  .dashboard--home .activity-card { max-width: none; }
+
+  .dashboard--home .activity {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .dashboard--home .activity__item {
+    min-height: 0;
+    justify-content: space-between;
+    font-size: 19px;
+    line-height: 1.2;
+  }
+
+  /* нечётная последняя запись — на всю ширину, без дыры справа */
+  .dashboard--home .activity__item:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* верх больше не держит высоту под второй ряд блоков */
+  .dashboard--home .dashboard__top { min-height: 0; }
+}
