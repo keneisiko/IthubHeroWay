@@ -1,0 +1,7 @@
+{% extends "admin/change_list.html" %}
+{% block content %}
+  <div class="alert alert-info" style="margin-bottom: 1rem;">
+    Отметки загружаются из журнала LXP каждую ночь. <b>Исправлять — в LXP</b>: правка здесь к утру вернулась бы к значению из журнала, поэтому раздел только для просмотра.
+  </div>
+  {{ block.super }}
+{% endblock %}

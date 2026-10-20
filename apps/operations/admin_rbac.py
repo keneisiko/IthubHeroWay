@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 
 from apps.accounts.models import Role, User
 
@@ -46,3 +47,18 @@ class ManagedRoleAdminMixin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return is_superadmin(request.user) or is_admin(request.user)
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        """Убрать «удалить» и «изменить» связанную запись из чужих форм.
+
+        Рядом с полем «Отряд» в карточке студента стоял красный крестик —
+        удаление самого отряда, а не отвязка студента. Новичок нажимал его,
+        чтобы убрать студента из отряда. Связанные записи правятся в своих
+        разделах; добавление и просмотр остаются.
+        """
+        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+        widget = getattr(formfield, "widget", None)
+        if isinstance(widget, RelatedFieldWidgetWrapper):
+            widget.can_delete_related = False
+            widget.can_change_related = False
+        return formfield

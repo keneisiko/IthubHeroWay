@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
 from datetime import timedelta
 
 from django import forms
@@ -9,8 +10,9 @@ from django.contrib.admin.models import ADDITION, CHANGE, LogEntry
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.text import slugify
 
 from apps.operations.admin_actions import action_form
@@ -22,11 +24,13 @@ from apps.operations.admin_rbac import (
     is_superadmin,
     is_tutor,
 )
+from apps.progress.models import RatingChangeSource
 from apps.progress.services.polozhenie_awards import (
     UnknownTariff,
     award_bulk_by_tariff_code,
     tariff_choices,
 )
+from apps.progress.services.polozhenie_ledger import grant
 from apps.progress.services.rating_zones import ZONE_COLORS, ZONE_NAMES_RU
 from apps.progress.services.rating_zones import rating_zone as zone_of
 from apps.quests.models import Quest, QuestType, UserQuestProgress
@@ -62,7 +66,9 @@ class PolozhenieAwardForm(forms.Form):
     activity_date = forms.DateField(
         label="Дата мероприятия",
         initial=timezone.localdate,
-        widget=forms.DateInput(attrs={"type": "date"}),
+        # Календарь браузера понимает только ISO-дату; в русском формате
+        # «20.10.2026» поле оставалось пустым вместо сегодняшней даты.
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
         help_text="Одно мероприятие в один день засчитывается студенту один раз, даже если нажать дважды.",
     )
     note = forms.CharField(
@@ -81,6 +87,36 @@ class RecoveryQuestForm(forms.Form):
         initial=5,
         help_text="От 3 до 7 дней.",
     )
+
+
+class CorrectionForm(forms.Form):
+    rating = forms.DecimalField(
+        label="Рейтинг: изменить на",
+        max_digits=8,
+        decimal_places=2,
+        initial=0,
+        help_text="Со знаком: −5 снимет пять баллов, 5 добавит.",
+    )
+    coins = forms.DecimalField(
+        label="Монеты: изменить на",
+        max_digits=8,
+        decimal_places=2,
+        initial=0,
+        help_text="Со знаком, как и рейтинг.",
+    )
+    reason = forms.CharField(
+        label="Основание",
+        min_length=10,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Обязательно: п. 10.1 Положения требует основание по каждому изменению. "
+        "Например: «ошибочно начислено за хакатон 14.10, обращение № 3».",
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get("rating") and not cleaned.get("coins"):
+            raise forms.ValidationError("Укажите, на сколько изменить рейтинг или монеты.")
+        return cleaned
 
 
 def activity_key_for(title: str, day) -> str:
@@ -105,7 +141,9 @@ class TrackAdmin(ManagedRoleAdminMixin):
 
 @admin.register(Squad)
 class SquadAdmin(ManagedRoleAdminMixin):
-    list_display = ("code", "name", "course", "capacity")
+    """Отряды заводит импорт групп из LXP; руками обычно ничего добавлять не нужно."""
+
+    list_display = ("name", "code", "course", "capacity")
     list_filter = ("course",)
     search_fields = ("code", "name")
 
@@ -133,29 +171,45 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
     autocomplete_fields = ("squad", "track",)
     list_select_related = ("squad", "track",)
     ordering = ("-rating_current", "username")
-    actions = ("grant_polozhenie_award", "create_recovery_quest")
-    fieldsets = BaseUserAdmin.fieldsets + (
-        (
-            "Путь героя",
-            {
-                "fields": (
-                    "callsign",
-                    "avatar",
-                    "track",
-                    "squad",
-                    "role",
-                    "coins_balance",
-                    "status",
-                    "level",
-                    "rating_current",
-                    "unclosed_ct_count",
-                    "lxp_user_id",
-                    "hik_card_code",
-                    "hik_person_id",
-                )
-            },
-        ),
-    )
+    actions = ("grant_polozhenie_award", "create_recovery_quest", "correct_balance")
+    # Показатели меняются только через журнал начислений. Раньше рейтинг и
+    # монеты были обычными полями формы: администратор, куратор и тьютор
+    # могли переписать их руками — без основания, периода и ответственного,
+    # которых п. 10.1 Положения требует по каждому изменению.
+    LEDGER_FIELDS = ("rating_current", "coins_balance", "level", "unclosed_ct_count")
+
+    def get_fieldsets(self, request, obj=None):
+        if obj is None:
+            return super().get_fieldsets(request, obj)
+        fieldsets = [
+            ("Студент", {"fields": ("first_name", "last_name", "callsign", "avatar", "squad", "track", "role", "is_active")}),
+            (
+                "Показатели — меняются только начислениями",
+                {"fields": (*self.LEDGER_FIELDS, "status", "history_links")},
+            ),
+            ("Связь с LXP и Hik", {"fields": ("lxp_user_id", "hik_card_code", "hik_person_id", "email")}),
+            ("Вход", {"fields": ("username", "password", "is_staff", "last_login", "date_joined")}),
+        ]
+        if is_superadmin(request.user):
+            # Группы и права Django доступ не решают — его решает роль.
+            fieldsets.append(("Права Django", {"fields": ("is_superuser", "groups", "user_permissions")}))
+        return fieldsets
+
+    @admin.display(description="История")
+    def history_links(self, obj: User) -> str:
+        if not obj or not obj.pk:
+            return "—"
+        links = (
+            ("Журнал рейтинга", "admin:progress_ratinglog_changelist"),
+            ("Начисления по Положению", "admin:progress_polozhenieaward_changelist"),
+            ("Нашивки", "admin:badges_userbadge_changelist"),
+            ("Посещения пар", "admin:progress_lessonattendance_changelist"),
+        )
+        return format_html_join(
+            " · ",
+            '<a href="{}?user__id__exact={}">{}</a>',
+            ((reverse(name), obj.pk, label) for label, name in links),
+        )
 
     @admin.display(description="Зона")
     def rating_zone(self, obj: User) -> str:
@@ -187,6 +241,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
+        readonly.extend([*self.LEDGER_FIELDS, "history_links", "last_login", "date_joined"])
         if is_admin(request.user) and not is_superadmin(request.user):
             readonly.extend(["is_superuser", "user_permissions", "groups"])
         if is_curator(request.user) or is_tutor(request.user):
@@ -211,7 +266,46 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
             actions.pop("grant_polozhenie_award", None)
         if not (is_superadmin(user) or is_tutor(user)):
             actions.pop("create_recovery_quest", None)
+        if not (is_superadmin(user) or is_admin(user)):
+            actions.pop("correct_balance", None)
         return actions
+
+    @admin.action(description="Корректировка рейтинга и монет с основанием…")
+    def correct_balance(self, request, queryset):
+        """Единственный способ исправить ошибку в показателях.
+
+        Пишет в журнал начислений с основанием и именем сотрудника, поэтому
+        исправление видно студенту и проверяемо при обращении (раздел 10).
+        """
+        form, response = action_form(
+            self,
+            request,
+            queryset,
+            CorrectionForm,
+            title="Корректировка рейтинга и монет",
+            intro="Изменение попадёт в журнал рейтинга каждого выбранного с основанием и вашим именем. "
+            "Рейтинг ниже нуля не опускается.",
+            submit_label="Провести корректировку",
+        )
+        if response is not None:
+            return response
+
+        data = form.cleaned_data
+        batch = uuid.uuid4().hex[:10]
+        applied = 0
+        for user in queryset:
+            result = grant(
+                user,
+                rating=data["rating"],
+                coins=data["coins"],
+                source=RatingChangeSource.CORRECTION,
+                source_id=f"correction:{batch}:{user.pk}",
+                reason=f"Корректировка: {data['reason'].strip()}"[:250],
+                confirmed_by=request.user,
+            )
+            applied += int(result.applied)
+        self.message_user(request, f"Корректировка проведена: {applied} из {queryset.count()}.")
+        return None
 
     @admin.action(description="Начислить по Положению: мероприятие, олимпиада, проект…")
     def grant_polozhenie_award(self, request, queryset):

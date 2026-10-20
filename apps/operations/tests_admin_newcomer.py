@@ -252,3 +252,117 @@ class NotificationQueueTests(TestCase):
             self.assertTrue(telegram.enqueue_message(123, "Привет"))
 
         delay.assert_called_once_with(123, "Привет")
+
+
+class StudentCardTests(AdminTestCase):
+    """Показатели студента меняются только через журнал начислений."""
+
+    def setUp(self):
+        super().setUp()
+        self.alice = self.student("alice")
+        self.url = reverse("admin:accounts_user_change", args=[self.alice.pk])
+
+    def test_rating_cannot_be_typed_in(self):
+        """Раньше рейтинг был обычным полем: правка без основания и следа."""
+        page = self.client.get(self.url)
+        data = {
+            k: v for k, v in page.context["adminform"].form.initial.items()
+            if v is not None and not isinstance(v, (list, tuple)) and k != "avatar"
+        }
+        data.update({"rating_current": "999", "coins_balance": "999", "squad": self.squad.pk, "role": Role.AGENT})
+
+        self.client.post(self.url, data)
+
+        self.alice.refresh_from_db()
+        self.assertNotEqual(self.alice.rating_current, 999)
+        self.assertNotEqual(self.alice.coins_balance, 999)
+
+    def test_history_links_open_filtered_lists(self):
+        for name in (
+            "admin:progress_ratinglog_changelist",
+            "admin:progress_polozhenieaward_changelist",
+            "admin:badges_userbadge_changelist",
+            "admin:progress_lessonattendance_changelist",
+        ):
+            response = self.client.get(f"{reverse(name)}?user__id__exact={self.alice.pk}")
+            self.assertEqual(response.status_code, 200, name)
+            self.assertNotIn("e=1", response.url if hasattr(response, "url") else "", name)
+
+    def test_correction_goes_through_the_ledger_with_reason(self):
+        from apps.progress.models import RatingLog
+
+        self.client.post(
+            reverse("admin:accounts_user_changelist"),
+            {
+                "action": "correct_balance",
+                ACTION_CHECKBOX_NAME: [self.alice.pk],
+                "apply": "1",
+                "rating": "5",
+                "coins": "0",
+                "reason": "Не засчитали хакатон 14.10, обращение № 3",
+            },
+        )
+
+        log = RatingLog.objects.filter(user=self.alice).latest("created_at")
+        self.assertIn("хакатон", log.reason)
+        self.assertEqual(log.confirmed_by, self.admin_user)
+
+    def test_correction_needs_a_reason(self):
+        response = self.client.post(
+            reverse("admin:accounts_user_changelist"),
+            {"action": "correct_balance", ACTION_CHECKBOX_NAME: [self.alice.pk], "apply": "1",
+             "rating": "5", "coins": "0", "reason": ""},
+        )
+
+        self.assertContains(response, "Основание")
+        self.alice.refresh_from_db()
+        self.assertEqual(self.alice.rating_current, 0)
+
+
+class ShopItemFormTests(AdminTestCase):
+    url = reverse("admin:shop_shopitem_add")
+
+    def post(self, item_type):
+        return self.client.post(
+            self.url,
+            {"title": "Кружка IThub", "description": "", "item_type": item_type, "price_coins": "50",
+             "is_active": "on", "code": ""},
+        )
+
+    def test_boost_without_mechanics_is_refused(self):
+        """Купленное усиление нигде не читается — монеты ушли бы в никуда."""
+        from apps.shop.models import ShopItem, ShopItemType
+
+        response = self.post(ShopItemType.BOOST)
+
+        self.assertFalse(ShopItem.objects.filter(title="Кружка IThub").exists())
+        self.assertContains(response, "нет механики")
+
+    def test_code_is_made_from_the_title(self):
+        from apps.shop.models import ShopItem, ShopItemType
+
+        self.post(ShopItemType.OTHER)
+
+        self.assertEqual(ShopItem.objects.get(title="Кружка IThub").code, "kruzhka-ithub")
+
+
+class RelatedWidgetTests(AdminTestCase):
+    def test_squad_cannot_be_deleted_from_a_student_card(self):
+        """Красный крестик у «Отряда» удалял сам отряд, а не отвязывал студента."""
+        alice = self.student("alice")
+
+        response = self.client.get(reverse("admin:accounts_user_change", args=[alice.pk]))
+
+        self.assertNotContains(response, 'id="delete_id_squad"')
+        self.assertNotContains(response, 'id="change_id_squad"')
+
+
+class AwardFormDefaultsTests(TestCase):
+    def test_date_field_renders_today_for_the_browser_calendar(self):
+        from django.utils import timezone
+
+        from apps.accounts.admin import PolozhenieAwardForm
+
+        html = str(PolozhenieAwardForm()["activity_date"])
+
+        self.assertIn(f'value="{timezone.localdate().isoformat()}"', html)

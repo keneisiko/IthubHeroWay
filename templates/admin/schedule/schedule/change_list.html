@@ -1,0 +1,7 @@
+{% extends "admin/change_list.html" %}
+{% block content %}
+  <div class="alert alert-info" style="margin-bottom: 1rem;">
+    Расписание загружается из LXP каждый понедельник ночью. <b>Время пары правьте в LXP</b>: если изменить его здесь, LXP через неделю вернёт старый слот, и пар станет две. Здесь можно отключить слот (снять «Активно») или добавить пару, которой в LXP нет.
+  </div>
+  {{ block.super }}
+{% endblock %}
