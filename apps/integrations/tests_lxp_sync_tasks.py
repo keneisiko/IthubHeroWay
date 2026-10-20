@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from unittest import mock
 
+from django.core.management.base import CommandError
 from django.test import TestCase
 
 from apps.accounts.models import Squad
+from apps.integrations.services.lxp_groups import LXPNoClassesError
 from apps.integrations.tasks import sync_lxp_class_attendance, sync_lxp_schedules
 
 
@@ -58,3 +60,31 @@ class SyncTasksTests(TestCase):
 
         call.assert_not_called()
         self.assertIn("нет отрядов", result)
+
+
+class NoClassesAndAlertTextTests(TestCase):
+    """Отряд без занятий в LXP (практика, диплом) — не сбой и не тревога."""
+
+    def setUp(self):
+        Squad.objects.create(code="graduates", name="4ИТР2", course=4, lxp_group_id="g-grad")
+
+    def test_squad_without_classes_does_not_raise_alert(self):
+        with mock.patch(
+            "django.core.management.call_command", side_effect=LXPNoClassesError("нет занятий")
+        ):
+            with mock.patch("apps.integrations.tasks.send_alert_to_admin") as alert:
+                schedule = sync_lxp_schedules()
+                attendance = sync_lxp_class_attendance()
+
+        alert.assert_not_called()
+        self.assertIn("без занятий в LXP 1", schedule)
+        self.assertIn("без занятий в LXP 1", attendance)
+
+    def test_alert_names_squad_and_reason(self):
+        with mock.patch("django.core.management.call_command", side_effect=CommandError("LXP: таймаут")):
+            with mock.patch("apps.integrations.tasks.send_alert_to_admin") as alert:
+                sync_lxp_schedules()
+
+        message = alert.call_args.kwargs["message"]
+        self.assertIn("graduates", message)
+        self.assertIn("LXP: таймаут", message)

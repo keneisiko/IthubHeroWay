@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, Squad, User
 from apps.integrations.services.lxp_graphql_client import LXPAuthError, LXPRequestError
-from apps.integrations.services.lxp_groups import group_class_attendance
+from apps.integrations.services.lxp_groups import LXPNoClassesError, group_class_attendance
 from apps.progress.models import LessonAttendance, LessonAttendanceStatus
 
 # Что приходит из LXP: EXIST — был, EXIST_ONLINE — был онлайн,
@@ -76,7 +76,7 @@ class Command(BaseCommand):
         except (LXPAuthError, LXPRequestError) as e:
             raise CommandError(f"LXP: {e}") from e
         if not classes:
-            raise CommandError("Занятий за период не нашлось")
+            raise LXPNoClassesError("Занятий за период не нашлось")
 
         rows = []
         statuses: Counter[str] = Counter()
