@@ -452,7 +452,11 @@ export default function Badges() {
           <span>из {total}</span>
         </div>
         {total > 0 && total <= 48 ? (
-          <div className="bd-summary__cells" aria-hidden="true">
+          <div
+            className="bd-summary__cells"
+            aria-hidden="true"
+            style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}
+          >
             {catalog.map((badge, i) => (
               <i
                 key={badge.code}

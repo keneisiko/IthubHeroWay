@@ -341,3 +341,40 @@ textarea.popup__input {
   transform: translateY(6px);
   pointer-events: none;
 }
+
+/* крестик у окон магазина */
+.popup--closable { position: relative; }
+.popup--closable .popup__title { padding-right: 44px; }
+
+.popup__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(154, 51, 244, 0.12);
+  color: var(--purple-500);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.popup__close path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.popup__close:active { transform: scale(0.9); }
+.popup__close:focus-visible { outline: 3px solid var(--ithub-black); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .popup__close:hover { background: var(--purple-500); color: var(--ithub-white); }
+}
+
+/* длинная история операций прокручивается внутри окна, а не уезжает
+   за нижний край экрана */
+.popup--closable {
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

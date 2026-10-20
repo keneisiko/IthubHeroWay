@@ -55,3 +55,10 @@
 @media (hover: hover) and (pointer: fine) {
   .q1__option:not(.q1__option--focused):hover { transform: translateY(-3px); }
 }
+
+/* планшет: вкладки по центру ленты, а не разнесены по краям */
+@media (min-width: 601px) and (max-width: 900px) {
+  .q1__tabs-row { justify-content: center; gap: var(--space-32); }
+  .q1__tab { font-size: 18px; }
+  .q1__tab--active { font-size: 19px; }
+}

@@ -788,6 +788,12 @@
   }
 }
 
+/* --- планшет: три в ряд, вкладки по центру, а не по краям --- */
+@media (min-width: 601px) and (max-width: 900px) {
+  .bd__grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .bd__tabs .q1__tabs-row { justify-content: center; gap: var(--space-32); }
+}
+
 /* --- телефон --- */
 @media (max-width: 900px) {
   .bd {

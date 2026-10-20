@@ -58,15 +58,30 @@ function Modal({
     }
   }, [open])
 
+  // Esc закрывает окно, как и тап мимо него
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!visible && !open) return null
 
   return (
     <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose}>
       <div
-        className={`popup${closing ? ' popup--closing' : ''}`}
+        className={`popup popup--closable${closing ? ' popup--closing' : ''}`}
         onClick={e => e.stopPropagation()}
         style={{ width, maxWidth: '90vw' }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
       >
+        {/* на телефоне окно почти во весь экран — мимо него не попасть */}
+        <button type="button" className="popup__close" onClick={onClose} aria-label="Закрыть">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
         {title && <h3 className="popup__title">{title}</h3>}
         {children}
       </div>
