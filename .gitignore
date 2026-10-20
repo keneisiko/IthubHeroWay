@@ -87,3 +87,6 @@ hero-path-front/*.local
 hik_exports/
 figma-frames-css-values.css
 login-forms-css-values.css
+
+# Рабочие копии агентов Claude Code — временные, в репозиторий не идут.
+.claude/worktrees/
