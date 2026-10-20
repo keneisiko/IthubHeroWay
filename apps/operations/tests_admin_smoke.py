@@ -42,7 +42,8 @@ class AdminSmokeTests(TestCase):
         broken = []
         for model, _ in self._registered():
             url = reverse(f"admin:{model._meta.app_label}_{model._meta.model_name}_changelist")
-            response = self.client.get(url)
+            # follow: у «Настроек платформы» нет списка — сразу единственная запись.
+            response = self.client.get(url, follow=True)
             if response.status_code != 200:
                 broken.append(f"{model.__name__}: {response.status_code}")
         self.assertEqual(broken, [], "списки, которые не открываются")

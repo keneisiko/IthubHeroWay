@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from django.conf import settings
 from django.utils import timezone
 
 from apps.schedule.models import Schedule
+from apps.operations.services.platform_settings import platform_setting
 
 
 def classify_entrance_against_schedule(
@@ -40,7 +40,7 @@ def classify_entrance_against_schedule(
     # Турникет срабатывает, пока студент идёт к аудитории: проход ровно
     # в минуту начала пары опозданием считать нечестно.
     if grace_minutes is None:
-        grace_minutes = int(getattr(settings, "HIK_LATE_GRACE_MINUTES", 10))
+        grace_minutes = int(platform_setting("hik_late_grace_minutes"))
     start_dt = timezone.make_aware(
         datetime.combine(local.date(), first.start_time), timezone.get_current_timezone()
     )

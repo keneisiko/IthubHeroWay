@@ -33,6 +33,7 @@ from apps.integrations.services.lxp_snapshot_format import unwrap_category
 from apps.progress.models import LessonAttendance, LessonAttendanceStatus, RatingChangeSource
 from apps.progress.services.polozhenie_ledger import grant
 from apps.progress.services.polozhenie_period import (
+from apps.operations.services.platform_settings import platform_setting
     is_payable_week,
     period_key,
     quantize_money,
@@ -124,7 +125,7 @@ def topic_breakdown(control_points_for_user: dict) -> dict[str, int]:
 
 
 def ct_scope() -> str:
-    return str(getattr(settings, "POLOZHENIE_CT_SCOPE", "deferred"))
+    return str(platform_setting("ct_scope"))
 
 
 def ct_percent_from_snapshot(control_points_for_user: dict) -> tuple[Decimal | None, int, int]:
@@ -171,7 +172,7 @@ def ct_percent_from_snapshot(control_points_for_user: dict) -> tuple[Decimal | N
             if is_topic_closed(status):
                 passed += 1
 
-    min_actual = int(getattr(settings, "POLOZHENIE_CT_MIN_ACTUAL", 1))
+    min_actual = int(platform_setting("ct_min_actual"))
     if actual < max(1, min_actual):
         # Слишком мало тем, чтобы процент что-то значил: одна несданная из
         # одной — это ноль, одна сданная — сотня. Откладываем до данных.

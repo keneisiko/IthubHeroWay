@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from apps.accounts.permissions import IsKnownRole
 from apps.notifications.services import events
 from apps.progress.services.rewards import local_day_start
+from apps.operations.services.platform_settings import platform_setting
 
 from .models import (
     Quest,
@@ -192,9 +193,7 @@ class SelfReportCreateView(views.APIView):
         if progress.is_completed:
             return Response({"detail": "Quest is already completed."}, status=status.HTTP_400_BAD_REQUEST)
 
-        from django.conf import settings
-
-        max_daily = int(getattr(settings, "RATING_LIMITS", {}).get("MAX_DAILY_SELF_REPORTS", 3))
+        max_daily = int(platform_setting("max_daily_self_reports"))
         # Полночь по Москве, а не по UTC: иначе лимит самоотчётов сбрасывается
         # в 03:00 местного времени.
         day_start = local_day_start(now)

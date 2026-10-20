@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
 from apps.notifications.services import events
+from apps.operations.services.platform_settings import platform_setting
 
 from .models import Duel, DuelStatus, Mentorship, Respect
 from .serializers import (
@@ -44,7 +45,7 @@ class RespectCreateView(views.APIView):
         if to_user.pk == request.user.pk:
             return Response({"detail": "Cannot send respect to yourself."}, status=status.HTTP_400_BAD_REQUEST)
         limits = getattr(settings, "RATING_LIMITS", {})
-        respect_weekly = int(limits.get("RESPECT_WEEKLY_LIMIT", 1))
+        respect_weekly = int(platform_setting("respect_weekly_limit"))
         same_user_cooldown_days = int(limits.get("RESPECT_SAME_USER_COOLDOWN", 14))
         now = timezone.now()
         # Проверка лимитов и создание респекта — одна транзакция с блокировкой
@@ -101,7 +102,7 @@ class DuelCreateView(views.APIView):
             return Response({"detail": "You already have an active duel."}, status=status.HTTP_400_BAD_REQUEST)
         if Duel.objects.filter(active_q).filter(Q(challenger=opponent) | Q(opponent=opponent)).exists():
             return Response({"detail": "Opponent already has an active duel."}, status=status.HTTP_400_BAD_REQUEST)
-        max_diff = int(getattr(settings, "RATING_LIMITS", {}).get("DUEL_MAX_RATING_DIFF", 150))
+        max_diff = int(platform_setting("duel_max_rating_diff"))
         if abs(request.user.rating_current - opponent.rating_current) > max_diff:
             return Response(
                 {"detail": f"Rating difference must be {max_diff} or less."},
@@ -131,9 +132,7 @@ class DuelListView(views.APIView):
                 "duration_days": duel_duration_days(),
                 # Порог разницы рейтинга: интерфейс подсвечивает по нему,
                 # кого можно вызвать, вместо отказа уже после нажатия.
-                "max_rating_diff": int(
-                    getattr(settings, "RATING_LIMITS", {}).get("DUEL_MAX_RATING_DIFF", 150)
-                ),
+                "max_rating_diff": int(platform_setting("duel_max_rating_diff")),
                 "my_rating": request.user.rating_current,
             }
         )

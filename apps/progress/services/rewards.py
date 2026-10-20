@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from django.conf import settings
 from django.db.models import Sum
 from django.utils import timezone
 
@@ -9,14 +8,11 @@ from apps.operations.services.anticheat import apply_unclosed_tests_rule
 from apps.operations.services.cache import invalidate_rating_views
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.quests.models import QuestRewardTransaction
-
-
-def get_rating_limits() -> dict:
-    return getattr(settings, "RATING_LIMITS", {})
+from apps.operations.services.platform_settings import platform_setting
 
 
 def max_daily_coins() -> int:
-    return int(get_rating_limits().get("MAX_DAILY_COINS", 20))
+    return int(platform_setting("max_daily_coins"))
 
 
 def apply_rating_delta_with_cap(user: User, delta: int, source: str, reason: str = "", source_id: str = "") -> int:

@@ -11,6 +11,7 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 
 from apps.accounts.models import Role
+from apps.operations.services.platform_settings import platform_setting
 
 
 def deactivate_unlinked_agents() -> int:
@@ -42,10 +43,8 @@ def agents_for_scoring(queryset=None):
     Настройка `REQUIRE_TELEGRAM_LINK_FOR_SCORING` возвращает прежнее
     поведение, если колледж решит считать только активированным.
     """
-    from django.conf import settings
-
     User = get_user_model()
     qs = User.objects.all() if queryset is None else queryset
-    if getattr(settings, "REQUIRE_TELEGRAM_LINK_FOR_SCORING", True):
+    if platform_setting("require_telegram_link_for_scoring"):
         return qs.filter(telegram_link__is_active=True)
     return qs

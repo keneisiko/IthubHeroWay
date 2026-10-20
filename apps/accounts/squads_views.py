@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from apps.operations.services.cache import invalidate_squad_leaderboard
 from apps.progress.models import RatingLog
 from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
+from apps.operations.services.platform_settings import platform_setting
 
 from .models import Role, Squad, User
 from .permissions import IsKnownRole
@@ -234,9 +235,8 @@ class SquadMeView(views.APIView):
             weekly_completed = UserQuestProgress.objects.filter(
                 quest=weekly_quest, is_completed=True, user__in=agents_qs
             ).count()
-        limits = getattr(settings, "RATING_LIMITS", {})
-        bonus_percent = int(limits.get("SQUAD_WEEKLY_BONUS_PERCENT", 80))
-        bonus_coins = int(limits.get("SQUAD_WEEKLY_BONUS_COINS", 5))
+        bonus_percent = int(platform_setting("squad_weekly_bonus_percent"))
+        bonus_coins = int(platform_setting("squad_weekly_bonus_coins"))
         bonus_share = bonus_percent / 100
 
         weekly_percent = (weekly_completed / agents_count) if agents_count else 0

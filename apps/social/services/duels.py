@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -22,26 +21,23 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.notifications.services import events
 from apps.social.models import Duel, DuelStatus
+from apps.operations.services.platform_settings import platform_setting
 
 
 class DuelNotAllowed(ValueError):
     pass
 
 
-def _limits() -> dict:
-    return getattr(settings, "RATING_LIMITS", {})
-
-
 def duel_bet() -> int:
-    return int(_limits().get("DUEL_BET", 5))
+    return int(platform_setting("duel_bet"))
 
 
 def duel_duration_days() -> int:
-    return int(_limits().get("DUEL_DURATION_DAYS", 7))
+    return int(platform_setting("duel_duration_days"))
 
 
 def invite_ttl_days() -> int:
-    return int(_limits().get("DUEL_INVITE_TTL_DAYS", 3))
+    return int(platform_setting("duel_invite_ttl_days"))
 
 
 def active_duels_q() -> Q:
