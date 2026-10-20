@@ -18,15 +18,19 @@ export default function PageTransition({ children }: { children: React.ReactNode
   const [phase, setPhase] = useState<'idle' | 'cover' | 'uncover'>('idle')
   const prevPath = useRef(location.pathname)
   const pendingChildren = useRef(children)
+  // таймеры прошлого перехода: быстрый второй тап по навигации не должен
+  // снять шторку посреди нового перехода
+  const timers = useRef<number[]>([])
 
   useEffect(() => {
     if (location.pathname === prevPath.current) return
     prevPath.current = location.pathname
     pendingChildren.current = children
 
+    timers.current.forEach(window.clearTimeout)
     setPhase('cover')
 
-    setTimeout(() => {
+    timers.current = [window.setTimeout(() => {
       setDisplayed(pendingChildren.current)
       setPhase('uncover')
       // Новая страница открывается сверху. Без этого после длинного списка
@@ -35,11 +39,9 @@ export default function PageTransition({ children }: { children: React.ReactNode
       // вместо { behavior: 'instant' }: старый Safari на ней бросает
       // исключение, и страница осталась бы под шторкой.
       window.scrollTo(0, 0)
-    }, 350)
-
-    setTimeout(() => {
+    }, 280), window.setTimeout(() => {
       setPhase('idle')
-    }, 700)
+    }, 620)]
   }, [location.pathname, children])
 
   return (
@@ -73,7 +75,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
           ? 'scaleX(1) translateX(0%)'
           : 'scaleX(1) translateX(100%)',
         transition: phase === 'cover'
-          ? 'transform 0.35s cubic-bezier(0.76, 0, 0.24, 1)'
+          ? 'transform 0.28s cubic-bezier(0.76, 0, 0.24, 1)'
           : phase === 'uncover'
           ? 'transform 0.35s cubic-bezier(0.76, 0, 0.24, 1)'
           : 'none',
@@ -91,7 +93,6 @@ export default function PageTransition({ children }: { children: React.ReactNode
           ? 'opacity 0.2s ease'
           : 'opacity 0.35s ease',
         pointerEvents: 'none',
-        backdropFilter: phase === 'cover' ? 'blur(4px)' : 'blur(0px)',
       }} />
 
       {/* Ambient */}

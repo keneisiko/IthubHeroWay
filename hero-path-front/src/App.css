@@ -157,10 +157,10 @@
 }
 
 /* Glassmorphism header */
+/* шапка не липкая — размывать под ней нечего, а blur на телефоне
+   стоил перерисовки на каждый кадр прокрутки */
 .top-header {
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  background: rgba(154, 51, 244, 0.85) !important;
+  background: rgba(154, 51, 244, 0.92) !important;
   border-bottom: 1px solid rgba(255,255,255,0.15);
   box-shadow: 0 4px 32px rgba(154, 51, 244, 0.3);
 }
@@ -176,14 +176,12 @@
 }
 
 /* Свечение кнопок при hover */
-.login-submit-button,
 .quest__confirm,
 .q1__card-confirm,
 .shop-card__buy {
   transition: box-shadow 0.3s ease, transform 0.2s ease !important;
 }
 
-.login-submit-button:hover,
 .quest__confirm:hover,
 .q1__card-confirm:hover,
 .shop-card__buy:hover {
@@ -632,136 +630,6 @@ body {
 /* маркер активного пункта рисует скользящий индикатор в Sidebar.tsx */
 
 /* =========================
-   LOGIN
-   ========================= */
-
-.login-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f5f5;
-}
-
-.login-container {
-  background: #f5f5f5;
-  border-radius: 24px;
-  border: 4px solid #9a33f4;
-  box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
-  width: 460px;
-  max-width: 90vw;
-}
-
-.login-inner {
-  padding: 28px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.login-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.login-title {
-  font-family: 'TT Firs Neue', sans-serif;
-  font-weight: 700;
-  font-size: 36px;
-  color: #9a33f4;
-  text-align: center;
-  line-height: normal;
-  font-style: normal;
-  margin: 0;
-}
-
-.login-brand {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.login-logo-wrap {
-  width: 200px;
-  height: 72px;
-  border-radius: 16px;
-  background: #121212;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 16px;
-}
-
-.login-logo {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  filter: brightness(1.1);
-}
-
-.login-form-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.login-input-field {
-  background: white;
-  height: 52px;
-  border-radius: 12px;
-  border: 4px solid #848484;
-  position: relative;
-  transition: border-color 0.25s ease;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-}
-
-.login-input-field:focus-within {
-  border-color: #9a33f4;
-}
-
-.login-input {
-  width: 100%;
-  height: 100%;
-  border: none;
-  outline: none;
-  caret-color: var(--purple-500);
-  background: transparent;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: #121212;
-}
-
-.login-submit-button {
-  background: #9a33f4;
-  height: 63px;
-  border-radius: 16px;
-  border: 4px solid #f5f5f5;
-  box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
-  padding: 17px 20px;
-  transition: opacity 0.2s ease, transform 0.15s ease;
-}
-
-.login-submit-button:hover {
-  opacity: 0.9;
-}
-
-.login-submit-button:active {
-  transform: scale(0.97);
-}
-
-.login-submit-text {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 700;
-  font-size: 24px;
-  color: #f5f5f5;
-  line-height: normal;
-}
-
-/* =========================
    DASHBOARD
    ========================= */
 
@@ -774,8 +642,7 @@ body {
    лидеров, магазина и отрядов. */
 .dashboard,
 .profile,
-.q1,
-.badges-page {
+.q1 {
   padding-right: var(--sidebar-gutter);
 }
 
@@ -1032,7 +899,7 @@ body {
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.rating__chip { height: 35px; padding: 4px 16px; }
+.rating__chip { height: 35px; padding: 4px 16px; white-space: nowrap; }
 .chip--light { background: var(--ithub-white); color: var(--ithub-black); font-family: var(--font-text); }
 .chip--dark { background: var(--ithub-black); color: var(--ithub-white); font-family: var(--font-text); }
 .rating__chip--leader { padding: 3px 16px; }
@@ -2152,24 +2019,6 @@ body {
   background: #f5f5f5;
 }
 
-.ach__glyph {
-  width: 54px;
-  height: 54px;
-  position: relative;
-  border: 9px solid #9a33f4;
-}
-
-.ach__glyph::before {
-  content: '';
-  position: absolute;
-  width: 15px;
-  height: 15px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  background: #9a33f4;
-}
-
 .ach__name {
   font-family: 'Montserrat', sans-serif;
   font-size: 20px;
@@ -2304,29 +2153,20 @@ body {
   background: #f5f5f5;
 }
 
+/* Внутри рамки из макета — эмблема нашивки, та же, что в разделе
+   «Нашивки». На узком экране рамка сжимается, эмблема — вместе с ней. */
+.ach__icon .emblem,
+.path-card__icon .emblem {
+  width: 64%;
+  height: auto;
+  filter: drop-shadow(3px 4px 0 rgba(18, 18, 18, 0.14));
+}
+
+.path-card__icon--locked .emblem { filter: none; }
+
 .path-card__icon--rare { border-color: #38dddd; }
 .path-card__icon--epic { border-color: #ff00ee; }
 .path-card__icon--legendary { border-color: #ffd900; }
-
-.path-card__glyph {
-  width: 42px;
-  height: 42px;
-  position: relative;
-  border: 9px solid #9a33f4;
-}
-
-.path-card__glyph::after {
-  content: '';
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  background: #9a33f4;
-}
-
-/* Цвет редкости живёт только в обводке карточки: сам квадрат всегда фиолетовый */
 
 .path-card__name {
   max-width: 100%;
@@ -2370,8 +2210,6 @@ body {
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
 }
 
-.path-card__glyph--locked { border-color: #b1b1b1; }
-.path-card__glyph--locked::after { background: #b1b1b1; }
 
 .path-card__locked {
   font-family: 'Montserrat', sans-serif;
@@ -4810,13 +4648,6 @@ body {
   outline-offset: 2px;
 }
 
-/* У полей входа индикатор фокуса — рамка самого поля, как в макете,
-   поэтому общая обводка внутри поля не нужна: она рисовалась полоской
-   вдоль края. Доступность не страдает — фокус по-прежнему виден. */
-.login-input:focus-visible {
-  outline: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .card-entrance,
   .loading-spinner-dot,
@@ -5592,41 +5423,6 @@ body {
   box-shadow: var(--card-shadow);
 }
 
-/* Вход: подпись, футер и ошибка */
-.login-subtitle {
-  margin: 0 0 var(--space-16);
-  font-family: var(--font-text);
-  font-size: 20px;
-  font-weight: 500;
-  color: var(--ithub-black);
-  text-align: center;
-}
-
-.login-footer {
-  margin-top: var(--space-12);
-  text-align: center;
-}
-
-.login-hint {
-  font-family: var(--font-text);
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--ithub-black);
-}
-
-.login-hint__accent { color: var(--purple-500); }
-
-.login-error {
-  padding: var(--space-8) var(--space-16);
-  border-radius: var(--radius-12);
-  background: rgba(253, 78, 78, 0.12);
-  font-family: var(--font-text);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--sys-red);
-  text-align: center;
-}
-
 /* Подтверждение выполнения — в самой карточке квеста.
    Общая кнопка внизу блока целилась в первый попавшийся подтверждаемый
    квест, а их может быть несколько: студент не понимал, что именно
@@ -5822,204 +5618,6 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: #848484;
-}
-
-/* ---------- Страница нашивок ---------- */
-.badges-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-  /* только по вертикали: сокращённая запись padding обнуляла правое поле
-     под боковую панель, и карточки уезжали под неё */
-  padding-block: var(--space-20);
-}
-
-.badges-toasts {
-  position: fixed;
-  top: 90px;
-  right: 24px;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.badges-head {
-  background: var(--purple-500);
-  border-radius: var(--radius-24);
-  padding: var(--space-20);
-  color: var(--ithub-white);
-  box-shadow: var(--card-shadow);
-}
-
-.badges-head__title {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0 0 var(--space-8);
-}
-
-.badges-head__count {
-  font-family: var(--font-text);
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 var(--space-12);
-}
-
-.badges-head__bar {
-  height: 12px;
-  border-radius: 6px;
-  background: rgba(18, 18, 18, 0.35);
-  overflow: hidden;
-}
-
-.badges-head__fill {
-  height: 100%;
-  border-radius: 6px;
-  background: #6cd63e;
-  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.badges-filters {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.badges-filters__group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
-}
-
-.badges-chip {
-  padding: 6px var(--space-16);
-  border: var(--stroke-4) solid var(--ithub-black);
-  border-radius: var(--radius-12);
-  background: var(--ithub-white);
-  font-family: var(--font-text);
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.badges-chip--active {
-  background: var(--ithub-black);
-  color: var(--ithub-white);
-}
-
-.badges-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-16);
-}
-
-.badge-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-20);
-  background: var(--ithub-white);
-  border: var(--stroke-4) solid var(--purple-500);
-  border-radius: var(--radius-16);
-  box-shadow: var(--card-shadow);
-}
-
-/* Неполученные приглушены, но читаемы: это цель, а не мусор. */
-.badge-card--locked {
-  border-color: #d0d0d0;
-  background: #fafafa;
-}
-
-.badge-card--locked .badge-card__icon {
-  filter: grayscale(1);
-  opacity: 0.45;
-}
-
-.badge-card__icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--purple-500);
-}
-
-.badge-card__icon--rare { background: #1976d2; }
-.badge-card__icon--epic { background: #9A33F4; }
-.badge-card__icon--legendary { background: linear-gradient(135deg, #ffd900, #ff9f00); }
-
-.badge-card__title {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.badge-card__desc {
-  font-family: var(--font-text);
-  font-size: 14px;
-  font-weight: 500;
-  color: #5c5c5c;
-  margin: 0;
-  flex-grow: 1;
-}
-
-.badge-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
-}
-
-.badge-card__rarity,
-.badge-card__coins {
-  padding: 2px var(--space-8);
-  border-radius: var(--radius-8);
-  font-family: var(--font-text);
-  font-size: 13px;
-  font-weight: 700;
-  background: #f0f0f0;
-}
-
-.badge-card__rarity--rare { background: #d6e9ff; }
-.badge-card__rarity--epic { background: #f3e8ff; }
-.badge-card__rarity--legendary { background: #fff2cc; }
-.badge-card__coins { background: #121212; color: #ffd900; }
-
-.badge-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-8);
-  padding-top: var(--space-8);
-  border-top: 2px solid #ececec;
-}
-
-.badge-card__date {
-  font-family: var(--font-text);
-  font-size: 13px;
-  font-weight: 600;
-  color: #5c5c5c;
-}
-
-.badge-card__date--locked { color: #9a9a9a; }
-
-.badge-card__pin {
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--purple-500);
-  font-family: var(--font-text);
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.badges-empty {
-  padding: 40px;
-  text-align: center;
-  color: #848484;
-  font-family: var(--font-text);
-  font-weight: 600;
 }
 
 /* Недоступный для выбора студент: причина видна прямо в строке. */
@@ -6878,12 +6476,31 @@ body {
     overflow-wrap: break-word;
   }
 
+  /* девять целей столбиком растягивали страницу на два экрана —
+     на телефоне они идут лентой, листаются пальцем */
   .q1__choice-options {
-    flex-direction: column;
+    flex-direction: row;
     align-items: stretch;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    align-self: stretch;
+    width: auto;
+    margin: 0 calc(-1 * var(--space-16));
+    padding: 4px var(--space-16) 24px;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--space-16);
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
   }
 
-  .q1__option { width: 100%; }
+  .q1__choice-options::-webkit-scrollbar { display: none; }
+
+  .q1__option {
+    flex: 0 0 78%;
+    width: auto;
+    scroll-snap-align: start;
+  }
 
   /* --- магазин --- */
   .shop-page__band--split { flex-direction: column; }
@@ -6993,9 +6610,6 @@ body {
     width: 100%;
     height: 44px;
   }
-
-  /* --- вход --- */
-  .login-container { width: calc(100vw - 24px); }
 
   /* --- 404 --- */
   .error-page__code { width: min(240px, 70vw); }
