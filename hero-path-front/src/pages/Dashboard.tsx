@@ -11,10 +11,8 @@ import {
 import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
 import api from '../api'
-import { celebrate } from '../lib/celebrate'
 import { useToasts } from '../useToasts'
-import { apiErrorMessage, formatDateTimeRu } from '../lib/apiData'
-import { activeQuestsByType, type UiQuest } from '../lib/quests'
+import { formatDateTimeRu } from '../lib/apiData'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -39,8 +37,6 @@ const radarOptions = {
   animation: { duration: 1100, easing: 'easeOutExpo' as const },
   plugins: { legend: { display: false } },
 }
-
-type QuestTab = 'daily' | 'weekly'
 
 interface DashboardData {
   user: {
@@ -96,18 +92,6 @@ function useCountUp(target: number, duration = 1100) {
   return value
 }
 
-// модалка с нормальным закрытием — фейд-аут, а не мгновенное исчезновение
-function useDismissable() {
-  const [open, setOpen] = useState(false)
-  const [closing, setClosing] = useState(false)
-  const show = () => { setClosing(false); setOpen(true) }
-  const hide = () => {
-    setClosing(true)
-    setTimeout(() => { setOpen(false); setClosing(false) }, 220)
-  }
-  return { open, closing, show, hide }
-}
-
 // лёгкий 3D-tilt по курсору на карточке радара
 function useTilt(maxDeg = 7) {
   const ref = useRef<HTMLDivElement>(null)
@@ -151,54 +135,9 @@ function FeedText({ text }: { text: string }) {
   )
 }
 
-/* ---------- общая модалка вместо двух дублей ---------- */
-
-function LinkModal({
-  open, closing, label, value, placeholder, onChange, onClose, onSubmit,
-}: {
-  open: boolean
-  closing: boolean
-  label: string
-  value: string
-  placeholder: string
-  onChange: (v: string) => void
-  onClose: () => void
-  onSubmit: () => void
-}) {
-  if (!open) return null
-  return (
-    <div className={`overlay${closing ? ' overlay--closing' : ''}`} onClick={onClose}>
-      <div
-        className={`popup popup--link${closing ? ' popup--closing' : ''}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <label className="popup__label">{label}</label>
-        <input
-          type="url"
-          autoFocus
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="popup__input"
-        />
-        <button type="button" className="popup__submit btn-press" onClick={onSubmit}>
-          Отправить
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const [hoveredRadar, setHoveredRadar] = useState<string | null>(null)
-  const confirm = useDismissable()
-  const report = useDismissable()
-  const [confirmLink, setConfirmLink] = useState('')
-  const [reportText, setReportText] = useState('')
-  const [questTab, setQuestTab] = useState<QuestTab>('daily')
   const [data, setData] = useState<DashboardData | null>(null)
-  const [dailyQuest, setDailyQuest] = useState<UiQuest | null>(null)
-  const [weeklyQuest, setWeeklyQuest] = useState<UiQuest | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const tilt = useTilt()
@@ -210,18 +149,8 @@ export default function Dashboard() {
       setLoadError(false)
       setLoading(true)
     }
-    Promise.all([
-      api.get('/api/v1/dashboard/'),
-      api.get('/api/v1/quests/active/'),
-      api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
-      api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
-    ])
-      .then(([dashRes, activeRes, progressRes, completedRes]) => {
-        setData(dashRes.data)
-        const byType = activeQuestsByType(activeRes.data, progressRes.data, completedRes.data)
-        setDailyQuest(byType.daily)
-        setWeeklyQuest(byType.weekly)
-      })
+    api.get('/api/v1/dashboard/')
+      .then(res => setData(res.data))
       .catch(() => {
         if (quiet) {
           addToast('Не удалось обновить главную', 'error')
@@ -242,14 +171,6 @@ export default function Dashboard() {
   const rating = data?.user?.rating_current ?? 0
   const ratingDisplay = useCountUp(rating)
   const level = data?.user?.level ?? 0
-  // Карточка показывает квест выбранной вкладки. Дашборд отдаёт только один
-  // current_quest, поэтому вкладки берут данные из списка активных квестов —
-  // того же, что и страница квестов.
-  const tabQuest: UiQuest | null = questTab === 'daily' ? dailyQuest : weeklyQuest
-  const questProgress = tabQuest?.progress ?? 0
-  const hasQuest = Boolean(dailyQuest || weeklyQuest)
-  const questAutoVerify = tabQuest?.autoVerify ?? false
-  const questManualAllowed = tabQuest?.confirm ?? false
 
   if (loadError) {
     return (
@@ -446,115 +367,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="quest dash-in" style={{ animationDelay: '320ms' }}>
-          <h3>Активный квест</h3>
-          {!hasQuest ? (
-            <p className="loading-text" style={{ padding: '16px 0' }}>На сегодня всё. Отдыхай.</p>
-          ) : (
-          <>
-          <div className="quest__tabs">
-            <button
-              className={`quest__tab${questTab === 'daily' ? ' quest__tab--active' : ''}`}
-              onClick={() => setQuestTab('daily')}
-            >Ежедневный</button>
-            <button
-              className={`quest__tab${questTab === 'weekly' ? ' quest__tab--active' : ''}`}
-              onClick={() => setQuestTab('weekly')}
-            >Еженедельный</button>
-          </div>
-          <div className="quest__progress">
-            <div className="quest__progress-inner">
-              <div className="quest__head">
-                <span>{tabQuest ? tabQuest.title : 'Такого квеста сегодня нет'}</span>
-                <strong>{questProgress}%</strong>
-              </div>
-              {/* Раньше здесь была цепочка из четырёх разноцветных точек —
-                  украшение, не связанное с прогрессом: она выглядела
-                  одинаково и на 0%, и на 90%. Теперь полоса показывает
-                  настоящую долю выполнения. */}
-              <div
-                className="quest__bar"
-                role="progressbar"
-                aria-valuenow={questProgress}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={tabQuest ? `Прогресс: ${tabQuest.title}` : 'Прогресс квеста'}
-              >
-                <span className="quest__bar-fill" style={{ width: `${questProgress}%` }} />
-              </div>
-            </div>
-          </div>
-          <button
-            className="quest__confirm btn-press"
-            onClick={confirm.show}
-            disabled={questAutoVerify || !questManualAllowed}
-          >
-            {questAutoVerify ? 'Проверяется автоматически' : 'Подтвердить'}
-          </button>
-          {/* Сообщение проверки приходит в dashboard для одного квеста —
-              показываем его только на вкладке этого же квеста. */}
-          {questAutoVerify
-            && tabQuest?.code === data?.current_quest?.code
-            && data?.current_quest?.verification_message && (
-            <p className="loading-text" style={{ marginTop: 8 }}>{data.current_quest.verification_message}</p>
-          )}
-          <div className="quest__row">
-            <span>Текст</span><span>+</span>
-          </div>
-          <button className="quest__self btn-press" onClick={report.show}>Самоотчёт</button>
-          </>
-          )}
-        </section>
       </div>
-
-      <LinkModal
-        open={confirm.open}
-        closing={confirm.closing}
-        label="Прикрепите подтверждение выполнения"
-        value={confirmLink}
-        placeholder="Ссылка на доказательство"
-        onChange={setConfirmLink}
-        onClose={confirm.hide}
-        onSubmit={() => {
-          const code = tabQuest?.code
-          if (!code) {
-            addToast('Нет активного квеста', 'error')
-            return
-          }
-          const proof = confirmLink.trim() ? { link: confirmLink.trim() } : {}
-          api.post(`/api/v1/quests/${code}/complete/`, { proof_payload: proof })
-            // Это заявка куратору, а не зачёт: награда придёт после одобрения
-            // (apps/quests/views.py, QuestCompleteView). «Квест подтверждён!»
-            // обещал то, чего ещё не случилось.
-            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Отправлено куратору на проверку', 'success'); celebrate('small'); loadDashboard({ quiet: true }) })
-            .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
-        }}
-      />
-
-      <LinkModal
-        open={report.open}
-        closing={report.closing}
-        label="Ссылка на работу"
-        value={reportText}
-        placeholder="https://..."
-        onChange={setReportText}
-        onClose={report.hide}
-        onSubmit={() => {
-          const code = tabQuest?.code
-          if (!code) {
-            addToast('Нет квеста для самоотчёта', 'error')
-            return
-          }
-          const comment = reportText.trim()
-          if (comment.length < 10) {
-            addToast('Комментарий минимум 10 символов', 'error')
-            return
-          }
-          api.post(`/api/v1/quests/${code}/self-report/`, { comment })
-            .then(() => { report.hide(); setReportText(''); addToast('Самоотчёт отправлен!', 'success') })
-            .catch(() => addToast('Ошибка отправки', 'error'))
-        }}
-      />
 
       {/* Тосты */}
       <div className="toast-container toast-container--fixed-right">

@@ -176,13 +176,11 @@
 }
 
 /* Свечение кнопок при hover */
-.quest__confirm,
 .q1__card-confirm,
 .shop-card__buy {
   transition: box-shadow 0.3s ease, transform 0.2s ease !important;
 }
 
-.quest__confirm:hover,
 .q1__card-confirm:hover,
 .shop-card__buy:hover {
   box-shadow: 0 0 24px rgba(154, 51, 244, 0.6), 0 4px 12px rgba(0,0,0,0.2) !important;
@@ -1048,237 +1046,6 @@ body {
   z-index: 1;
 }
 
-.quest {
-  background: var(--purple-500);
-  border-radius: var(--radius-24);
-  padding: var(--space-20);
-  box-shadow: var(--card-shadow);
-  width: 100%;
-  max-width: 580px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.quest:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--card-shadow-hover);
-}
-
-.quest h3 {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--ithub-white);
-  margin: 0;
-}
-
-.quest__tabs {
-  display: flex;
-  gap: var(--space-12);
-  filter: drop-shadow(10px 10px 10px rgba(0, 0, 0, 0.45));
-}
-
-.quest__tab {
-  flex: 1 0 0;
-  min-width: 0;
-  height: 48px;
-  border-radius: var(--radius-48);
-  border: var(--stroke-4) solid transparent;
-  background: var(--ithub-black);
-  color: var(--ithub-white);
-  font-family: var(--font-text);
-  font-size: 24px;
-  font-weight: 700;
-  padding: 3px var(--space-16);
-  cursor: pointer;
-  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
-}
-
-/* Карточка квеста подстраивает вкладки и шаги под собственную ширину,
-   а не под экран: она бывает узкой и на планшете, и в колонке на
-   десктопе. Стоит после базовых правил — иначе те перебивали бы запрос. */
-.quest { container: quest / inline-size; }
-
-@container quest (max-width: 520px) {
-  .quest__tab { font-size: 18px; height: 42px; padding: 3px var(--space-12); }
-}
-
-@container quest (max-width: 400px) {
-  .quest__tab { font-size: 15px; height: 40px; padding: 3px var(--space-8); }
-  .quest .dot { width: 24px; height: 24px; border-width: 6px; }
-  .quest .quest__steps,
-  .quest .quest-step { gap: var(--space-4); }
-}
-
-.quest__tab:active { transform: scale(0.96); }
-.quest__tab--active { border-color: var(--ithub-white); }
-
-/* Белая карточка прогресса внутри фиолетового блока */
-.quest__progress {
-  background: var(--ithub-white);
-  border-radius: var(--radius-16);
-  padding: var(--space-8);
-  box-shadow: var(--card-shadow);
-}
-
-.quest__progress-inner {
-  border: var(--stroke-4) solid var(--purple-500);
-  border-radius: var(--radius-8);
-  background: var(--ithub-white);
-  padding: var(--space-20);
-  box-shadow: var(--card-shadow);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.quest__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--font-text);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--grey-2);
-}
-
-.quest__head strong {
-  font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 700;
-  color: #5d33f4;
-  opacity: 0.8;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Настоящая полоса выполнения квеста. Пришла на смену цепочке из четырёх
-   цветных точек, которая выглядела одинаково при любом прогрессе. */
-.quest__bar {
-  position: relative;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.18);
-  overflow: hidden;
-}
-
-.quest__bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent-green, #7ed957);
-  transition: width 400ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .quest__bar-fill { transition: none; }
-}
-
-.quest__steps { display: flex; align-items: center; justify-content: center; gap: var(--space-8); }
-/* Шаг может ужиматься: на узкой карточке (планшет, телефон) цепочка
-   шагов иначе торчала из неё с обеих сторон. */
-.quest-step { display: flex; align-items: center; gap: var(--space-8); min-width: 0; }
-
-.dot {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 7px solid var(--ithub-black);
-  flex-shrink: 0;
-  animation: dashIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.dot--red { background: #fd4e4e; }
-.dot--yellow { background: #ffd900; animation-delay: 0.08s; }
-.dot--blue { background: #5f3ed6; animation-delay: 0.16s; }
-.dot--green { background: transparent; border-color: #6cd63e; animation-delay: 0.24s; }
-
-.quest-step__bar {
-  /* 80px из макета; на узкой карточке полоска сжимается. Ширину задаём
-     через width, а не flex-basis: пустой элемент с одной лишь базой
-     браузер считает нулевым, и шаг сжимался до минимума даже при
-     свободном месте. */
-  width: 80px;
-  flex-shrink: 1;
-  min-width: 16px;
-  height: 12px;
-  border-radius: 6px;
-  background: var(--ithub-black);
-  position: relative;
-  overflow: hidden;
-}
-
-.quest-step__bar--red::after,
-.quest-step__bar--yellow::after,
-.quest-step__bar--blue::after {
-  content: '';
-  position: absolute;
-  left: 3px; top: 3px;
-  height: 6px;
-  border-radius: 5px;
-  transform-origin: left;
-  animation: barGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.quest-step__bar--red::after { width: calc(100% - 4px); background: #fd4e4e; animation-delay: 0.25s; }
-.quest-step__bar--yellow::after { width: calc(100% - 4px); background: #ffd900; animation-delay: 0.35s; }
-.quest-step__bar--blue::after { width: 60%; background: #5f3ed6; animation-delay: 0.45s; }
-
-.quest__confirm {
-  width: 100%;
-  border-radius: var(--radius-16);
-  border: var(--stroke-4) solid var(--ithub-black);
-  background: var(--ithub-white);
-  color: var(--ithub-black);
-  font-family: var(--font-text);
-  font-size: 24px;
-  font-weight: 700;
-  padding: 17px var(--space-16);
-  cursor: pointer;
-  filter: drop-shadow(10px 10px 10px rgba(0, 0, 0, 0.45));
-  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
-}
-
-.quest__confirm:hover:not(:disabled) {
-  background: var(--ithub-black);
-  color: var(--ithub-white);
-}
-
-.quest__confirm:disabled { opacity: 0.6; cursor: not-allowed; }
-
-/* Строка «Текст +» — подчёркнутая линия под ней, как в макете */
-.quest__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 6px;
-  border-bottom: var(--stroke-4) solid var(--ithub-white);
-  font-family: var(--font-text);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--ithub-white);
-}
-
-.quest__self {
-  width: 100%;
-  height: 63px;
-  border-radius: var(--radius-16);
-  border: var(--stroke-4) solid var(--ithub-white);
-  background: var(--ithub-black);
-  color: var(--ithub-white);
-  font-family: var(--font-text);
-  font-size: 24px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.quest__self:hover {
-  background: var(--ithub-white);
-  color: var(--ithub-black);
-}
-
 .activity-card {
   width: 100%;
   max-width: 580px;
@@ -1423,12 +1190,13 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .dash-glow, .dash-in, .dash-in-item, .series__progress-fill, .rating__progress-fill,
-  .quest-step__bar--red::after, .quest-step__bar--yellow::after, .quest-step__bar--blue::after,
   .dot, .live-dot, .radar-card__canvas::before {
     animation: none !important;
   }
-  .card, .quest, .activity-card, .activity__item, .radar-card__tilt {
+
+  .card, .activity-card, .activity__item, .radar-card__tilt {
     transition: none !important;
   }
 }
@@ -2232,7 +2000,6 @@ body {
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
 }
 
-
 .path-card__locked {
   font-family: 'Montserrat', sans-serif;
   font-size: 16px;
@@ -2330,7 +2097,6 @@ body {
   line-height: 1;
   box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
 }
-
 
 /* =========================
    QUESTS (новая вёрстка q1)
@@ -3967,7 +3733,6 @@ body {
   cursor: pointer;
 }
 
-
 /* =========================
    SHOP CARD ACTIONS
    ========================= */
@@ -5060,7 +4825,6 @@ body {
   box-shadow: var(--card-shadow);
 }
 
-
 /* Экран товара: колонка миниатюр и крупная картинка слева,
    справа название, цена, описание и покупка */
 .shop-detail {
@@ -5752,7 +5516,6 @@ body {
    состояние открытой страницы. */
 .bottom-nav { display: none; }
 
-
 @media (max-width: 900px) {
   /* панель уехала вниз — поле справа больше не нужно */
   :root { --sidebar-gutter: 0px; }
@@ -5903,7 +5666,6 @@ body {
     pointer-events: none;
   }
 
-
   .bottom-nav__icon {
     display: flex;
     align-items: center;
@@ -5966,7 +5728,6 @@ body {
   .dashboard__bottom { display: contents; }
 
   .dashboard--home .card--purple { order: 1; }
-  .dashboard--home .quest { order: 2; }
   .dashboard--home .card--light { order: 3; }
   .dashboard--home .activity-card { order: 4; }
   .dashboard--home .radar-card { order: 5; }
@@ -5975,7 +5736,6 @@ body {
   .card--light,
   .card--purple,
   .activity-card,
-  .quest,
   .profile-card--primary,
   .profile-card--map,
   .profile-card--aside {
@@ -6507,7 +6267,6 @@ body {
     height: 40px;
     flex-shrink: 0;
   }
-
 
   .squad-member-row__rating {
     min-width: 0;
