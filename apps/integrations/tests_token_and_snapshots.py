@@ -162,3 +162,16 @@ class FailedEventQuarantineTests(TestCase):
         event = HikEvent.objects.get(event_id="broken-1")
         self.assertEqual(event.process_attempts, 1)
         self.assertFalse(event.processed, "одной неудачи недостаточно для карантина")
+
+    @patch("apps.integrations.services.telegram_alert.send_alert_to_admin")
+    @patch("apps.integrations.services.hik_attendance_processor.classify_entrance_against_schedule")
+    def test_alert_contains_event_and_reason(self, classify, alert):
+        """Оповещение «не удалось обработать 1 из 1» не называло ни событие,
+        ни причину: приходилось искать в логах."""
+        classify.side_effect = RuntimeError("boom")
+
+        process_unprocessed_hik_events(limit=10)
+
+        message = alert.call_args.kwargs["message"]
+        self.assertIn("broken-1", message)
+        self.assertIn("RuntimeError: boom", message)

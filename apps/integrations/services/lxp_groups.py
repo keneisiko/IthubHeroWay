@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import time
 
+from django.core.management.base import CommandError
+
 from apps.integrations.services.lxp_graphql_client import (
     LXPAuthError,
     LXPGraphQLClient,
@@ -18,6 +20,18 @@ from apps.integrations.services.lxp_graphql_client import (
 # Сеть колледжа рвёт часть TLS-соединений к api.newlxp.ru (SSL EOF): один
 # запрос проходит, следующий обрывается. Импорт группы из-за этого падал
 # на середине, и его приходилось запускать заново вручную.
+
+
+class LXPNoClassesError(CommandError):
+    """В LXP у группы нет занятий за период.
+
+    Это не сбой синхронизации: у выпускных групп бывают недели и целые
+    месяцы без пар (практика, диплом). Ночная задача пропускает такой отряд
+    без тревоги в Telegram, а ручной запуск команды по-прежнему сообщает
+    об этом ошибкой.
+    """
+
+
 ATTEMPTS = 4
 RETRY_PAUSE_SECONDS = 3
 

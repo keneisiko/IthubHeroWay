@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 # Сколько раз пытаемся обработать событие, прежде чем увести его в карантин.
 MAX_PROCESS_ATTEMPTS = 3
 
+# Сколько событий с причиной показываем в Telegram-оповещении.
+ALERT_ERROR_SAMPLES = 3
+
 
 def parse_hik_event_time(value) -> datetime:
     if value is None:
@@ -176,6 +179,17 @@ def _apply_late_penalty_if_needed(user, *, event_dt: datetime, late_minutes: int
     user.rating_current = locked_user.rating_current
 
 
+def format_hik_error_message(errors: int, seen: int, quarantined: int, samples: list[str]) -> str:
+    """Текст оповещения: сколько событий упало и почему, без похода в логи."""
+    lines = [f"Не удалось обработать {errors} из {seen} событий."]
+    if quarantined:
+        lines.append(f"В карантин ушло: {quarantined} (после {MAX_PROCESS_ATTEMPTS} попыток).")
+    lines.extend(samples)
+    if errors > len(samples):
+        lines.append(f"...и ещё {errors - len(samples)}. Причина каждого — в HikEvent.last_error.")
+    return "\n".join(lines)
+
+
 def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]:
     """
     Для необработанных HikEvent с известным пользователем создаёт ExternalEvent (source=hik)
@@ -191,6 +205,8 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
     ext_created = 0
     skipped_no_user = 0
     process_errors = 0
+    error_samples: list[str] = []
+    quarantined_count = 0
 
     code_to_user: dict[str, User] = {}
     email_to_user: dict[str, User] = {}
@@ -315,6 +331,12 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
             # чтобы оно не блокировало очередь на каждом прогоне.
             attempts = he.process_attempts + 1
             quarantined = attempts >= MAX_PROCESS_ATTEMPTS
+            quarantined_count += int(quarantined)
+            if len(error_samples) < ALERT_ERROR_SAMPLES:
+                error_samples.append(
+                    f"id={he.pk} {str(he.event_id)[:24]} (попытка {attempts}/{MAX_PROCESS_ATTEMPTS}): "
+                    f"{type(exc).__name__}: {str(exc)[:200]}"
+                )
             HikEvent.objects.filter(pk=he.pk).update(
                 process_attempts=attempts,
                 last_error=f"{type(exc).__name__}: {exc}"[:1000],
@@ -332,7 +354,7 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
 
         send_alert_to_admin(
             title="Ошибки обработки событий Hik-Connect",
-            message=f"Не удалось обработать {process_errors} из {seen} событий (см. логи приложения).",
+            message=format_hik_error_message(process_errors, seen, quarantined_count, error_samples),
             error_type="hik",
             deduplicate_key="hik_process_errors",
             is_critical=False,

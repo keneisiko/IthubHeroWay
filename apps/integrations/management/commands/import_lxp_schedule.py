@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Squad
 from apps.integrations.services.lxp_graphql_client import LXPAuthError, LXPRequestError
-from apps.integrations.services.lxp_groups import group_classes
+from apps.integrations.services.lxp_groups import LXPNoClassesError, group_classes
 from apps.schedule.models import Schedule
 
 WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
@@ -64,7 +64,7 @@ class Command(BaseCommand):
         except (LXPAuthError, LXPRequestError) as e:
             raise CommandError(f"LXP: {e}") from e
         if not classes:
-            raise CommandError("Занятий за период не нашлось — проверьте --group-id и --weeks")
+            raise LXPNoClassesError("Занятий за период не нашлось — проверьте --group-id и --weeks")
 
         # Пара повторяется каждую неделю, поэтому слоты складываются в набор:
         # день недели + начало + конец. Дисциплина берётся первой встреченной.
