@@ -33,7 +33,7 @@ class Command(BaseCommand):
             # не принесло: только такие и имеет смысл трогать повторно.
             queryset = queryset.filter(student_code="")
 
-        reset = queryset.update(processed=False, last_error="")
+        reset = queryset.update(processed=False, unmatched=False, last_error="")
         self.stdout.write(f"Снята отметка обработки: {reset}")
 
         seen, created, skipped = process_unprocessed_hik_events(limit=int(options["limit"]))

@@ -46,8 +46,8 @@ class ExternalEventAdmin(ManagedRoleAdminMixin):
 
 @admin.register(HikEvent)
 class HikEventAdmin(ManagedRoleAdminMixin):
-    list_display = ("event_time", "student_code", "event_type", "door_name", "processed")
-    list_filter = ("processed",)
+    list_display = ("event_time", "student_code", "event_type", "door_name", "processed", "unmatched")
+    list_filter = ("processed", "unmatched")
     search_fields = ("event_id", "student_code", "door_name")
     readonly_fields = (
         "event_id",
@@ -69,7 +69,7 @@ class HikEventAdmin(ManagedRoleAdminMixin):
 
     @admin.action(description="Снять признак «обработано» (повторная обработка)")
     def mark_unprocessed(self, request, queryset):
-        queryset.update(processed=False)
+        queryset.update(processed=False, unmatched=False)
         self.message_user(request, f"Снят признак «обработано» для {queryset.count()} записей.", level=messages.WARNING)
 
 

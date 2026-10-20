@@ -14,6 +14,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
+from django.db.models.fields.json import KT
+from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -190,6 +192,27 @@ def format_hik_error_message(errors: int, seen: int, quarantined: int, samples: 
     return "\n".join(lines)
 
 
+def _revive_events_of_known_people(codes, emails) -> int:
+    """Вернуть в очередь ничьи события, владелец которых теперь известен.
+
+    Студенту выдали пропуск или связали его с Hik уже после прохода —
+    прошлые проходы должны засчитаться, а не остаться помеченными навсегда.
+    Почту сравниваем без учёта регистра: портал отдаёт её как есть.
+    """
+    codes, emails = list(codes), list(emails)
+    if not codes and not emails:
+        return 0
+    ids = list(
+        HikEvent.objects.filter(unmatched=True)
+        .annotate(person_email=Lower(KT("raw_data__personEmail")))
+        .filter(Q(student_code__in=codes) | Q(person_email__in=emails))
+        .values_list("pk", flat=True)
+    )
+    if not ids:
+        return 0
+    return HikEvent.objects.filter(pk__in=ids).update(unmatched=False)
+
+
 def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]:
     """
     Для необработанных HikEvent с известным пользователем создаёт ExternalEvent (source=hik)
@@ -198,9 +221,6 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
     Возвращает (рассмотрено, создано external, пропущено без карты).
     """
     User = get_user_model()
-    pending = list(
-        HikEvent.objects.filter(processed=False).order_by("event_time")[:limit]
-    )
     seen = 0
     ext_created = 0
     skipped_no_user = 0
@@ -235,6 +255,17 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
         if u.email:
             email_to_user.setdefault(u.email.strip().lower(), u)
 
+    revived = _revive_events_of_known_people(code_to_user.keys(), email_to_user.keys())
+    if revived:
+        logger.info("Hik: %s событий без студента теперь сопоставимы — вернул в очередь", revived)
+
+    # Ничьи события в очередь не берём: при лимите 5000 их было 4931, и на
+    # свежие проходы оставалось 69 мест за прогон.
+    pending = list(
+        HikEvent.objects.filter(processed=False, unmatched=False).order_by("event_time")[:limit]
+    )
+    unmatched_ids: list[int] = []
+
     # Первый вход за день решает, опоздал студент или нет. Прежде опозданием
     # считался каждый проход после начала пары: вернулся с обеда — «опоздание
     # 233 минуты». За две недели так набралось 114 опозданий на 8 обычных
@@ -260,6 +291,7 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
             user = email_to_user.get(email)
         if user is None:
             skipped_no_user += 1
+            unmatched_ids.append(he.pk)
             continue
         # direction: 1 — вход, 2 — выход (проверено на данных портала).
         # У старых выгрузок XLSX поля нет — там считаем проход входом,
@@ -348,6 +380,9 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
                     he.pk,
                     attempts,
                 )
+
+    if unmatched_ids:
+        HikEvent.objects.filter(pk__in=unmatched_ids).update(unmatched=True)
 
     if process_errors > 0:
         from apps.integrations.services.telegram_alert import send_alert_to_admin
