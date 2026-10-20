@@ -12,9 +12,9 @@ from rest_framework import generics, status, views
 from rest_framework.response import Response
 
 from apps.operations.services.cache import invalidate_squad_leaderboard
+from apps.operations.services.platform_settings import platform_setting
 from apps.progress.models import RatingLog
 from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
-from apps.operations.services.platform_settings import platform_setting
 
 from .models import Role, Squad, User
 from .permissions import IsKnownRole

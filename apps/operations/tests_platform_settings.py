@@ -77,10 +77,10 @@ class AdminScreenTests(PlatformSettingsTestCase):
     def setUp(self):
         super().setUp()
         self.admin_user = User.objects.create_user(
-            username="boss", password="x", role=Role.ADMIN, is_staff=True
+            username="boss", password="x", callsign="boss", role=Role.ADMIN, is_staff=True
         )
         self.curator = User.objects.create_user(
-            username="curator_ro", password="x", role=Role.CURATOR, is_staff=True
+            username="curator_ro", password="x", callsign="curator_ro", role=Role.CURATOR, is_staff=True
         )
         self.model_admin = PlatformSettingsAdmin(PlatformSettings, AdminSite())
 

@@ -6,8 +6,8 @@ from rest_framework.response import Response
 
 from apps.accounts.permissions import IsKnownRole
 from apps.notifications.services import events
-from apps.progress.services.rewards import local_day_start
 from apps.operations.services.platform_settings import platform_setting
+from apps.progress.services.rewards import local_day_start
 
 from .models import (
     Quest,

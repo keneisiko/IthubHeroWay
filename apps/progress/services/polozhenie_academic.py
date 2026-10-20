@@ -30,10 +30,10 @@ from apps.accounts.models import Role, User
 from apps.integrations.models import LXPSnapshot
 from apps.integrations.services.account_gate import agents_for_scoring
 from apps.integrations.services.lxp_snapshot_format import unwrap_category
+from apps.operations.services.platform_settings import platform_setting
 from apps.progress.models import LessonAttendance, LessonAttendanceStatus, RatingChangeSource
 from apps.progress.services.polozhenie_ledger import grant
 from apps.progress.services.polozhenie_period import (
-from apps.operations.services.platform_settings import platform_setting
     is_payable_week,
     period_key,
     quantize_money,

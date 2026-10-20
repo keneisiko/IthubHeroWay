@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 from django.utils import timezone
 
-from apps.schedule.models import Schedule
 from apps.operations.services.platform_settings import platform_setting
+from apps.schedule.models import Schedule
 
 
 def classify_entrance_against_schedule(

@@ -20,8 +20,8 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.notifications.services import events
-from apps.social.models import Duel, DuelStatus
 from apps.operations.services.platform_settings import platform_setting
+from apps.social.models import Duel, DuelStatus
 
 
 class DuelNotAllowed(ValueError):

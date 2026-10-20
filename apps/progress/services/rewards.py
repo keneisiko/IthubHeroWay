@@ -6,9 +6,9 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.operations.services.anticheat import apply_unclosed_tests_rule
 from apps.operations.services.cache import invalidate_rating_views
+from apps.operations.services.platform_settings import platform_setting
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.quests.models import QuestRewardTransaction
-from apps.operations.services.platform_settings import platform_setting
 
 
 def max_daily_coins() -> int:
