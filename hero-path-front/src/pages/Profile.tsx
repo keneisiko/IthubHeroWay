@@ -1006,7 +1006,9 @@ export default function Profile() {
               <span className="path-card__icon path-card__icon--locked" aria-hidden="true">
                 <BadgeEmblem code={badge.code} rarity={badge.rarity} locked size={58} />
               </span>
-              <span className="path-card__locked">Условие не выполнено</span>
+              {/* название вместо одинакового «Условие не выполнено» у всех
+                  закрытых: видно, что именно предстоит получить */}
+              <span className="path-card__locked">{badge.title}</span>
             </span>
           ))}
           {filteredBadges.length === 0 && lockedBadges.length === 0 && (
