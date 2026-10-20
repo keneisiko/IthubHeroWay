@@ -62,3 +62,35 @@
   .q1__tab { font-size: 18px; }
   .q1__tab--active { font-size: 19px; }
 }
+
+/* прогресс квеста полоской и на десктопе — процент в углу читался
+   хуже, чем заполненная шкала; полоска набегает при появлении */
+.q1__card-bar {
+  display: block;
+  height: 8px;
+  margin: 2px 0 4px;
+  border-radius: 8px;
+  background: rgba(18, 18, 18, 0.12);
+  overflow: hidden;
+}
+
+.q1__card-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 8px;
+  background: var(--purple-500);
+  transform-origin: left center;
+  animation: questBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+}
+
+.q1__card--completed .q1__card-bar span { background: var(--sys-green, #6cd63e); }
+
+@keyframes questBar { from { transform: scaleX(0); } }
+
+@media (max-width: 900px) {
+  .q1__card-bar { background: var(--ithub-black); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q1__card-bar span { animation: none; }
+}
