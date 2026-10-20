@@ -499,3 +499,59 @@ textarea.popup__input {
 @media (hover: hover) and (pointer: fine) {
   .leaderboard-filters__option:not(.leaderboard-filters__option--on):hover { background: rgba(154, 51, 244, 0.1); }
 }
+
+/* =========================
+   БЛИК НА ГЛАВНЫХ КНОПКАХ
+   Тот же, что у «Войти»: при наведении по кнопке один раз проходит
+   световая полоса. Только там, где есть курсор.
+   ========================= */
+
+.shop-card__buy,
+.q1__card-confirm,
+.popup__submit,
+.shop-modal__btn--primary,
+.q1__option-pick,
+.bd-sheet__action,
+.error-page__btn,
+.shop-purchases-btn,
+.squad-actions__btn--invite,
+.leaderboard-empty__action {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.shop-card__buy::after,
+.q1__card-confirm::after,
+.popup__submit::after,
+.shop-modal__btn--primary::after,
+.q1__option-pick::after,
+.bd-sheet__action::after,
+.error-page__btn::after,
+.shop-purchases-btn::after,
+.squad-actions__btn--invite::after,
+.leaderboard-empty__action::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
+  transform: translateX(-110%);
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .shop-card__buy:hover:not(:disabled)::after,
+  .q1__card-confirm:hover:not(:disabled)::after,
+  .popup__submit:hover:not(:disabled)::after,
+  .shop-modal__btn--primary:hover:not(:disabled)::after,
+  .q1__option-pick:hover:not(:disabled)::after,
+  .bd-sheet__action:hover:not(:disabled)::after,
+  .error-page__btn:hover::after,
+  .shop-purchases-btn:hover::after,
+  .squad-actions__btn--invite:hover::after,
+  .leaderboard-empty__action:hover::after {
+    transform: translateX(110%);
+  }
+}

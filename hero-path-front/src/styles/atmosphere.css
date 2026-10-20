@@ -202,3 +202,91 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* =========================
+   ПЕРЕХОД МЕЖДУ РАЗДЕЛАМИ
+   По верху экрана пробегает знак IThub с пиксельным следом — тот же
+   герой, что ходит по сетке на странице входа. Направление — по ходу
+   в меню: дальше по списку — вправо, назад — влево.
+   ========================= */
+
+.route-runner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 14px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.route-runner__head,
+.route-runner__trail {
+  position: absolute;
+  top: 3px;
+  left: 0;
+}
+
+.route-runner__head {
+  width: 10px;
+  height: 10px;
+  border: 2.5px solid var(--runner, var(--purple-500));
+  background: var(--ithub-white);
+  box-shadow: inset 0 0 0 1.5px var(--ithub-white), inset 0 0 0 5px var(--runner, var(--purple-500));
+  animation: runnerGo 0.62s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* след — ряд квадратиков, гаснущий к хвосту */
+.route-runner__trail {
+  width: 34vw;
+  height: 10px;
+  margin-left: -34vw;
+  background: repeating-linear-gradient(90deg, var(--runner, var(--purple-500)) 0 8px, transparent 8px 13px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000);
+  mask-image: linear-gradient(90deg, transparent, #000);
+  animation: runnerGo 0.62s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.route-runner--back { transform: scaleX(-1); }
+
+@keyframes runnerGo {
+  from { transform: translateX(-12px); }
+  to { transform: translateX(calc(100vw + 34vw)); }
+}
+
+.route-in { animation: routeIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes routeIn {
+  from { opacity: 0; transform: translateX(var(--route-dx, 18px)); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-runner { display: none; }
+  .route-in { animation-duration: 0.01s; }
+}
+
+/* сдвиг страницы при переходе не должен давать прокрутку вбок */
+.page-content { overflow-x: clip; }
+
+/* монеты в полёте (lib/coinFly.ts) */
+.coin-fly {
+  position: fixed;
+  inset: 0;
+  z-index: 10003;
+  pointer-events: none;
+}
+
+.coin-fly__px {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--sys-yellow);
+  box-shadow: inset 0 0 0 2px #c9a800, 0 0 0 2px var(--ithub-black);
+  opacity: 0;
+  will-change: transform, opacity;
+}
