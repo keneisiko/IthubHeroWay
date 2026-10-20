@@ -1,0 +1,361 @@
+/* =========================
+   РАДАР ПРОФИЛЯ И ИСТОРИЯ ХАРАКТЕРИСТИКИ
+   ========================= */
+
+/* подпись оси — кнопка-пилюля. Раньше выбранная ось красилась фоном
+   прямо под буквами и выглядела как выделенный мышью текст */
+.profile-radar { padding-bottom: 48px; }
+
+.profile-radar__axis {
+  padding: 6px 12px;
+  border-radius: 999px;
+  user-select: none;
+  -webkit-user-select: none;
+  font: inherit;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  transition:
+    background 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    scale 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-radar__axis:focus-visible {
+  outline: 3px solid var(--ithub-black);
+  outline-offset: 2px;
+}
+
+.profile-radar__axis:active { scale: 0.95; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile-radar__axis:not(.profile-radar__axis--active):hover {
+    background: rgba(154, 51, 244, 0.1);
+  }
+}
+
+.profile-radar__axis--active {
+  background: var(--purple-500) !important;
+  color: var(--ithub-white) !important;
+  box-shadow: 8px 10px 18px -8px rgba(154, 51, 244, 0.8);
+}
+
+.profile-radar__axis--active .profile-radar__axis-icon {
+  background-image: linear-gradient(var(--ithub-white), var(--ithub-white));
+}
+
+.profile-radar__axis--active .profile-radar__axis-icon::before,
+.profile-radar__axis--active .profile-radar__axis-icon::after {
+  background: var(--ithub-white);
+}
+
+/* --- подписи значений --- */
+.profile-radar__value {
+  transition:
+    opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.3s ease,
+    color 0.3s ease;
+}
+
+.profile-radar__value--hidden {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+}
+
+.profile-radar__value--dim { opacity: 0.45; }
+
+.profile-radar__value--focus {
+  z-index: 2;
+  transform: translate(-50%, -50%) scale(1.12);
+}
+
+.profile-radar__value--inner.profile-radar__value--focus {
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+}
+
+/* --- луч к выбранной оси --- */
+.profile-radar__beam {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.profile-radar__beam line {
+  stroke: var(--ithub-black);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 6px rgba(154, 51, 244, 0.6));
+  animation: beamDraw 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes beamDraw { to { stroke-dashoffset: 0; } }
+
+/* =========================
+   КАРТОЧКА ИСТОРИИ
+   ========================= */
+
+.skill-history {
+  position: absolute;
+  left: 24px;
+  bottom: 110px;
+  z-index: 5;
+  width: 300px;
+  padding: 18px 18px 14px;
+  border-radius: var(--radius-24);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+  transform-origin: left bottom;
+  pointer-events: none;
+  transition:
+    opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.skill-history--visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.skill-history__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.skill-history__axis {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.skill-history__close {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  margin: -6px -6px 0 0;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(18, 18, 18, 0.22);
+  color: var(--ithub-white);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.skill-history__close path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.skill-history__close:active { transform: scale(0.9); }
+.skill-history__close:focus-visible { outline: 3px solid var(--ithub-white); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .skill-history__close:hover { background: var(--ithub-black); }
+}
+
+.skill-history__now {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 12px;
+}
+
+.skill-history__now strong {
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+}
+
+.skill-history__of {
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(245, 245, 245, 0.7);
+}
+
+.skill-history__delta {
+  margin-left: auto;
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(18, 18, 18, 0.25);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.skill-history__delta.is-up { background: var(--ithub-white); color: var(--purple-500); }
+.skill-history__delta.is-down { background: var(--ithub-black); color: var(--ithub-white); }
+
+.skill-history__peak {
+  margin: 6px 0 0;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(245, 245, 245, 0.75);
+}
+
+.skill-history__chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 10px;
+  overflow: visible;
+}
+
+.skill-history__grid {
+  stroke: rgba(245, 245, 245, 0.22);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.skill-history__base {
+  stroke: rgba(245, 245, 245, 0.45);
+  stroke-width: 1.5;
+}
+
+.skill-history__area {
+  opacity: 0;
+  animation: histFade 0.6s ease 0.35s forwards;
+}
+
+.skill-history__line {
+  fill: none;
+  stroke: var(--ithub-white);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: histDraw 0.8s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.skill-history__guide {
+  stroke: rgba(245, 245, 245, 0.5);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+  transition: all 0.25s ease;
+}
+
+.skill-history__pt { cursor: pointer; }
+
+.skill-history__hit { fill: transparent; }
+
+.skill-history__dot {
+  fill: var(--purple-500);
+  stroke: var(--ithub-white);
+  stroke-width: 2.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: histDot 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: calc(0.25s + var(--i) * 0.07s);
+  transition: fill 0.2s ease;
+}
+
+.skill-history__pt.is-focus .skill-history__dot { fill: var(--ithub-white); }
+
+/* текущая неделя — точка с ровным «пульсом» */
+.skill-history__pt.is-last .skill-history__dot {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
+}
+
+.skill-history__tip rect { fill: var(--ithub-black); }
+
+.skill-history__tip text {
+  fill: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.skill-history__tip { transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+
+.skill-history__weeks {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px calc(10 / 240 * 100%) 0;
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(245, 245, 245, 0.6);
+}
+
+.skill-history__weeks span {
+  width: 0;
+  display: flex;
+  justify-content: center;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.skill-history__weeks span.is-focus { color: var(--ithub-white); font-weight: 800; }
+
+@keyframes histDraw { to { stroke-dashoffset: 0; } }
+@keyframes histFade { to { opacity: 1; } }
+@keyframes histDot {
+  from { opacity: 0; transform: scale(0.2); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* --- планшет и телефон: радар маленький, карточка поверх закрыла бы
+   его целиком — она раскрывается под ним, в потоке страницы --- */
+@media (max-width: 980px) {
+  .profile-radar__axis { font-size: 12px; padding: 6px 10px; }
+
+  .profile-radar { flex-direction: column; }
+
+  .skill-history {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    width: min(420px, 100%);
+    max-height: 0;
+    margin: 0 auto;
+    padding-block: 0;
+    overflow: hidden;
+    transform: translateY(-8px);
+    transition:
+      max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      padding 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      margin 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.3s ease,
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* подписи нижних осей вынесены под холст — карточка встаёт ниже них */
+  .skill-history--visible {
+    max-height: 420px;
+    margin-top: 54px;
+    padding-block: 18px 14px;
+    overflow: visible;
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .profile-radar__axis { font-size: 11px; padding: 4px 8px; }
+  .skill-history__now strong { font-size: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-radar__beam line,
+  .skill-history__line { animation: none; stroke-dashoffset: 0; }
+  .skill-history__area,
+  .skill-history__dot { animation: none; opacity: 1; }
+}

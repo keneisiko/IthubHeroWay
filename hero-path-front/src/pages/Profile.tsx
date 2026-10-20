@@ -19,6 +19,8 @@ import { RARITY_LABELS, apiErrorMessage, formatDayMonth, unwrapList } from '../l
 import { plural } from '../lib/plural'
 import { useTabIndicator } from '../useTabIndicator'
 import BadgeEmblem from '../components/BadgeEmblem'
+import SkillHistory from '../components/SkillHistory'
+import '../styles/profile-radar.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -358,7 +360,7 @@ export default function Profile() {
   // Подписи значений стоят ровно на вершинах графика, поэтому координаты
   // берём у самого чарта после отрисовки и после каждого ресайза.
   const chartRef = useRef<ChartType<'radar'> | null>(null)
-  const [vertices, setVertices] = useState<{ current: Point[]; peak: Point[] }>({ current: [], peak: [] })
+  const [vertices, setVertices] = useState<{ current: Point[]; peak: Point[]; center: Point | null }>({ current: [], peak: [], center: null })
   const [axisAnchors, setAxisAnchors] = useState<AxisAnchor[]>([])
 
   const syncVertices = useCallback(() => {
@@ -377,6 +379,7 @@ export default function Profile() {
     setVertices({
       current: AXES.map((_, i) => scale.getPointPosition(i, scale.drawingArea)),
       peak: chart.getDatasetMeta(1).data.map((point) => ({ x: point.x, y: point.y })),
+      center: { x: scale.xCenter, y: scale.yCenter },
     })
 
     // Подпись оси уводим за пилюлю: считаем, насколько та выступает
@@ -402,6 +405,7 @@ export default function Profile() {
 
   const selectedAxis = activeAxis ?? 'Мощность'
   const activeHistory = getSkill(selectedAxis).history
+  const closeHistory = useCallback(() => setActiveAxis(null), [])
 
 
   const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? '??'
@@ -410,16 +414,6 @@ export default function Profile() {
   const animQuests = useCountUp(questsCompleted, 1100, 200)
   const animBadges = useCountUp(badges.length, 1100, 350)
 
-  const historyPoints = useMemo(() => {
-    const max = 20
-    return activeHistory.map((v, i) => ({
-      x: (i / (activeHistory.length - 1)) * 100,
-      y: 100 - (v / max) * 100,
-      value: v
-    }))
-  }, [activeHistory])
-
-  const polylinePoints = historyPoints.map(p => `${p.x},${p.y}`).join(' ')
 
   const handleSaveProfile = () => {
     api.patch('/api/v1/profile/me/', { callsign: editForm.callsign.trim() })
@@ -846,20 +840,46 @@ export default function Profile() {
         <div className="profile-radar__chart">
           <Radar ref={chartRef} data={radarData} options={radarOptions} />
 
-          {showCharacteristics && vertices.peak.map((point, i) => (
-            <span
-              key={`peak-${i}`}
-              className="profile-radar__value profile-radar__value--inner"
-              style={{ left: point.x, top: point.y }}
-            >
-              {getSkill(AXES[i].key).peak}
-            </span>
-          ))}
+          {/* луч к выбранной оси: видно, о какой характеристике история */}
+          {showCharacteristics && activeAxis && vertices.center && (() => {
+            const i = AXES.findIndex((a) => a.key === activeAxis)
+            const end = vertices.current[i]
+            if (!end) return null
+            return (
+              <svg className="profile-radar__beam" aria-hidden="true">
+                <line key={activeAxis} x1={vertices.center.x} y1={vertices.center.y} x2={end.x} y2={end.y} pathLength={1} />
+              </svg>
+            )
+          })()}
+
+          {/* Пик подписываем, только когда он читается: у выбранной оси или
+              если вершина отошла от центра. Иначе подписи с маленькими
+              значениями слипались в одну кучу посередине. */}
+          {showCharacteristics && vertices.peak.map((point, i) => {
+            const key = AXES[i].key
+            const skill = getSkill(key)
+            const center = vertices.center
+            const far = center ? Math.hypot(point.x - center.x, point.y - center.y) > 64 : true
+            // у самой вершины пик лёг бы на подпись текущего значения
+            const corner = vertices.current[i]
+            const clear = corner ? Math.hypot(point.x - corner.x, point.y - corner.y) > 46 : true
+            const show = (activeAxis === key && clear) || (far && clear && skill.peak !== skill.current)
+            return (
+              <span
+                key={`peak-${i}`}
+                className={`profile-radar__value profile-radar__value--inner${show ? '' : ' profile-radar__value--hidden'}${activeAxis === key ? ' profile-radar__value--focus' : ''}`}
+                style={{ left: point.x, top: point.y }}
+                aria-hidden={!show}
+              >
+                {skill.peak}
+              </span>
+            )
+          })}
 
           {showCharacteristics && vertices.current.map((point, i) => (
             <span
               key={`current-${i}`}
-              className="profile-radar__value"
+              className={`profile-radar__value${activeAxis === AXES[i].key ? ' profile-radar__value--focus' : ''}${activeAxis && activeAxis !== AXES[i].key ? ' profile-radar__value--dim' : ''}`}
               style={{ left: point.x, top: point.y }}
             >
               {getSkill(AXES[i].key).current}
@@ -872,8 +892,10 @@ export default function Profile() {
             const isActive = activeAxis === key
             const isHovered = hoveredAxis === key
             return (
-              <div
+              <button
+                type="button"
                 key={key}
+                aria-pressed={isActive}
                 className={`profile-radar__axis${isActive ? ' profile-radar__axis--active' : ''}`}
                 style={{
                   left: anchor.x,
@@ -887,43 +909,27 @@ export default function Profile() {
               >
                 <span className="profile-radar__axis-icon" aria-hidden="true" />
                 <span>{key}</span>
-                {(isHovered || isActive) && showCharacteristics && (
+                {/* у выбранной оси всё это уже есть в карточке истории */}
+                {isHovered && !isActive && showCharacteristics && (
                   <span className="profile-radar__tooltip">
-                    {key}: {skill.current} / 20 (пик: {skill.peak})
+                    Сейчас {skill.current} из 20, лучшее {skill.peak}
                   </span>
                 )}
-              </div>
+              </button>
             )
           })}
         </div>
 
         {showCharacteristics && (
-        <section className={`profile-history${activeAxis ? ' profile-history--visible' : ''}`} aria-hidden={!activeAxis}>
-          <span className="profile-history__title">История: {selectedAxis}</span>
-          <div className="profile-history__chart">
-            <div className="profile-history__grid" aria-hidden="true">
-              {Array.from({ length: 5 }).map((_, i) => <span key={i} className="profile-history__grid-line" />)}
-            </div>
-            <div className="profile-history__y"><span>20</span><span>15</span><span>10</span><span>5</span><span>0</span></div>
-            <div className="profile-history__plot">
-              {historyPoints.map((p, i) => (
-                <span
-                  key={i}
-                  className="profile-history__dot"
-                  style={{ left: `${p.x}%`, bottom: `${100 - p.y}%` }}
-                  title={`Неделя ${i + 1}: ${p.value}`}
-                />
-              ))}
-              <svg className="profile-history__line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                <polyline points={polylinePoints} />
-              </svg>
-            </div>
-            <div className="profile-history__x">
-              {activeHistory.map((_, i) => <span key={i}>{i + 1}</span>)}
-            </div>
-            <span className="profile-history__x-label">Недели</span>
-          </div>
-        </section>
+          <SkillHistory
+            axis={selectedAxis}
+            values={activeHistory}
+            current={getSkill(selectedAxis).current}
+            peak={getSkill(selectedAxis).peak}
+            max={20}
+            visible={Boolean(activeAxis)}
+            onClose={closeHistory}
+          />
         )}
       </section>
 

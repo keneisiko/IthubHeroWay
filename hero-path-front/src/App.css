@@ -1668,132 +1668,6 @@ body {
   background: var(--ithub-white);
 }
 
-.profile-history {
-  position: absolute;
-  left: 24px;
-  bottom: 120px;
-  width: 283px;
-  min-height: 261px;
-  border-radius: 12px;
-  border: 0;
-  background: #9a33f4;
-  box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
-  color: #f5f5f5;
-  padding: 20px 28px;
-  text-align: left;
-  opacity: 0;
-  transform: translateY(10px) scale(0.98);
-  pointer-events: none;
-  transition: opacity 260ms ease, transform 260ms ease;
-}
-
-.profile-history--visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-.profile-history__title {
-  display: block;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1;
-  margin-bottom: 24px;
-}
-
-.profile-history__chart {
-  position: relative;
-  height: 185px;
-}
-
-.profile-history__grid {
-  position: absolute;
-  left: 28px;
-  right: 0;
-  top: 0;
-  bottom: 34px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  opacity: 0.45;
-}
-
-.profile-history__grid-line {
-  display: block;
-  width: 100%;
-  border-top: 1px solid rgba(245, 245, 245, 0.75);
-}
-
-.profile-history__y {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 34px;
-  width: 22px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.profile-history__plot {
-  position: absolute;
-  left: 28px;
-  right: 0;
-  top: 0;
-  bottom: 34px;
-}
-
-.profile-history__line {
-  width: 100%;
-  height: 100%;
-}
-
-.profile-history__line polyline {
-  fill: none;
-  stroke: #f5f5f5;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.profile-history__dot {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  transform: translate(-50%, 50%);
-  border-radius: 50%;
-  background: #f5f5f5;
-}
-
-.profile-history__x {
-  position: absolute;
-  left: 28px;
-  right: 0;
-  bottom: 14px;
-  display: flex;
-  justify-content: space-between;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.profile-history__x-label {
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
-}
-
 .profile-achievements__title {
   margin: 0;
   text-align: center;
@@ -6255,22 +6129,6 @@ body {
     min-width: 0;
   }
 
-  /* --- график истории в профиле --- */
-  /* всплывает над радаром: на узком экране якорь слева снизу выводил
-     его за блок, поэтому ставим по центру и внутрь */
-  .profile-history {
-    left: 50%;
-    margin-left: -141px;
-    bottom: 8px;
-    max-width: calc(100% - 16px);
-  }
-
-  .profile-history__chart,
-  .profile-history__plot {
-    max-width: 100%;
-    min-width: 0;
-  }
-
   /* иконка плитки тянется по колонке, а не держит 90px */
   .path-card__icon {
     width: 100%;
@@ -6284,9 +6142,6 @@ body {
     flex-wrap: wrap;
     row-gap: 4px;
   }
-
-  /* --- график истории --- */
-  .profile-history__chart { min-width: 0; }
 
   /* --- отряды --- */
   .squad-member-row__main {
