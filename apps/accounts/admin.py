@@ -31,7 +31,7 @@ from apps.progress.services.rating_zones import rating_zone as zone_of
 from apps.progress.services.rewards import grant_coins_with_daily_cap
 from apps.quests.models import Quest, QuestType, UserQuestProgress
 
-from .models import Role, Squad, Track, User
+from .models import PolicyAcceptance, Role, Squad, Track, User
 
 
 def _tariff_choices():
@@ -92,6 +92,8 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
     )
     list_filter = ("role", "squad", "is_active", "date_joined")
     search_fields = ("username", "callsign", "first_name", "last_name", "email", "hik_card_code")
+    autocomplete_fields = ("squad", "track",)
+    list_select_related = ("squad", "track",)
     ordering = ("-rating_current", "username")
     actions = ("grant_event_bonus", "create_recovery_quest", "grant_polozhenie_award")
     fieldsets = BaseUserAdmin.fieldsets + (
@@ -295,3 +297,24 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
                 change_message=f"Создан восстановительный квест для {created} студентов.",
             )
         self.message_user(request, f"Создан восстановительный квест для {created} студентов.", level=messages.SUCCESS)
+
+
+@admin.register(PolicyAcceptance)
+class PolicyAcceptanceAdmin(ManagedRoleAdminMixin):
+    """Кто и когда принял Положение.
+
+    Запись — юридический факт согласия, поэтому только просмотр: создаёт её
+    сам студент, а правка задним числом лишила бы её смысла.
+    """
+
+    list_display = ("user", "version", "accepted_at")
+    list_filter = ("version", "accepted_at", "user__squad")
+    search_fields = ("user__username", "user__callsign", "user__last_name")
+    list_select_related = ("user",)
+    date_hierarchy = "accepted_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

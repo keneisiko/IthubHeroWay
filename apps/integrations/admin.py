@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
 
-from .models import ExternalEvent, HikEvent, HikImportRun, HikSnapshot, LXPSnapshot
+from .models import ExternalEvent, HikEvent, HikImportRun, HikSnapshot, LXPSnapshot, TelegramAccountLink
 
 
 class ExternalEventTypeFilter(admin.SimpleListFilter):
@@ -171,3 +171,35 @@ class HikImportRunAdmin(ManagedRoleAdminMixin):
 
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
+
+
+@admin.register(TelegramAccountLink)
+class TelegramAccountLinkAdmin(ManagedRoleAdminMixin):
+    """Кто из студентов привязал Telegram.
+
+    Раньше этого экрана не было: на вопрос «почему я не вижу себя в отряде»
+    (видимость в отряде зависит от активной привязки) ответить можно было
+    только из базы. Идентификаторы Telegram руками не правятся — их пишет
+    бот при /activate; персонал может только отвязать.
+    """
+
+    list_display = ("user", "telegram_username", "is_active", "created_at", "updated_at")
+    list_filter = ("is_active", "created_at")
+    search_fields = ("user__username", "user__callsign", "user__last_name", "telegram_username")
+    list_select_related = ("user",)
+    readonly_fields = ("user", "telegram_user_id", "telegram_chat_id", "telegram_username", "created_at", "updated_at")
+    actions = ("unlink",)
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.action(description="Отвязать Telegram (студент сможет привязать заново)", permissions=("delete",))
+    def unlink(self, request, queryset):
+        # Удаление, а не is_active=False: сменивший телефон студент иначе
+        # упирался бы в «этот Telegram уже привязан» на новом аккаунте.
+        count = queryset.count()
+        queryset.delete()
+        self.message_user(request, f"Отвязано: {count}. Студенты могут снова отправить боту /activate.")
+
+    def has_module_permission(self, request):
+        return super().has_module_permission(request) and not is_hq(request.user)

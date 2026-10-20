@@ -19,6 +19,7 @@ from .models import (
     SelfReportProofStatus,
     SquadLeaderboardSnapshot,
     UserQuestProgress,
+    WeeklyFocus,
 )
 
 
@@ -65,6 +66,8 @@ class UserQuestProgressAdmin(ManagedRoleAdminMixin):
     list_display = ("user", "quest", "progress_value", "is_completed", "updated_at")
     list_filter = ("is_completed", "quest__quest_type", "updated_at")
     search_fields = ("user__callsign", "user__username", "quest__code", "quest__title")
+    autocomplete_fields = ("user", "quest",)
+    list_select_related = ("user", "quest",)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related("user", "user__squad", "quest")
@@ -85,6 +88,8 @@ class QuestRewardTransactionAdmin(ManagedRoleAdminMixin):
     list_display = ("user", "quest", "coins_delta", "rating_delta", "granted_at")
     list_filter = ("granted_at",)
     search_fields = ("user__callsign", "quest__code")
+    autocomplete_fields = ("user", "quest", "progress",)
+    list_select_related = ("user", "quest",)
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) and not is_hq(request.user)
@@ -140,6 +145,8 @@ class SquadLeaderboardSnapshotAdmin(ManagedRoleAdminMixin):
     list_display = ("squad", "avg_rating", "agents_count", "captured_at")
     list_filter = ("captured_at", "squad")
     search_fields = ("squad__code", "squad__name")
+    autocomplete_fields = ("squad",)
+    list_select_related = ("squad",)
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) and not is_hq(request.user)
@@ -153,6 +160,8 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
     list_display = ("user", "quest", "status_badge", "proof_link", "created_at", "reviewed_at")
     list_filter = ("status", "created_at", "quest__quest_type")
     search_fields = ("user__username", "user__email", "comment", "attachment_link")
+    autocomplete_fields = ("quest", "user", "quest_progress", "reviewed_by",)
+    list_select_related = ("user", "quest", "reviewed_by",)
     readonly_fields = ("created_at", "reviewed_at", "reviewed_by", "proof_link")
     actions = ("approve_proofs", "reject_proofs")
 
@@ -229,3 +238,17 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
         for proof in rejected:
             events.proof_reviewed(proof, approved=False)
         self.message_user(request, f"Отклонено: {updated}", level=messages.SUCCESS)
+
+
+@admin.register(WeeklyFocus)
+class WeeklyFocusAdmin(ManagedRoleAdminMixin):
+    """Какой квест студент выбрал целью недели (за него идёт надбавка)."""
+
+    list_display = ("user", "quest", "period_key", "updated_at")
+    list_filter = ("period_key",)
+    search_fields = ("user__username", "user__callsign", "user__last_name", "quest__title")
+    list_select_related = ("user", "quest")
+    autocomplete_fields = ("user", "quest")
+
+    def has_module_permission(self, request):
+        return super().has_module_permission(request) and not is_hq(request.user)

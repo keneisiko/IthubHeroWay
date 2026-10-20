@@ -31,6 +31,7 @@ class UserBadgeAdmin(ManagedRoleAdminMixin):
     list_display = ("user", "badge", "source", "is_pinned", "acquired_at")
     list_filter = ("is_pinned", "acquired_at", "badge__category", "source")
     search_fields = ("user__callsign", "user__username", "badge__code", "badge__title")
+    list_select_related = ("user", "badge",)
     autocomplete_fields = ("user", "badge")
 
     def save_model(self, request, obj, form, change):

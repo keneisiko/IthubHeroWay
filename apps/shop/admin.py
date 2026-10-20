@@ -20,6 +20,8 @@ class PurchaseAdmin(ManagedRoleAdminMixin):
     list_display = ("user", "item", "coins_spent", "created_at")
     list_filter = ("created_at", "item__item_type")
     search_fields = ("user__callsign", "user__username", "item__code", "item__title")
+    autocomplete_fields = ("user", "item",)
+    list_select_related = ("user", "item",)
 
     def has_add_permission(self, request):
         return False

@@ -10,6 +10,8 @@ class RespectAdmin(ManagedRoleAdminMixin):
     list_display = ("from_user", "to_user", "message", "created_at")
     list_filter = ("created_at",)
     search_fields = ("from_user__callsign", "to_user__callsign", "message")
+    autocomplete_fields = ("from_user", "to_user",)
+    list_select_related = ("from_user", "to_user",)
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) and not is_hq(request.user)
@@ -20,6 +22,8 @@ class DuelAdmin(ManagedRoleAdminMixin):
     list_display = ("challenger", "opponent", "status", "created_at", "resolved_at")
     list_filter = ("status", "created_at")
     search_fields = ("challenger__callsign", "opponent__callsign")
+    autocomplete_fields = ("challenger", "opponent", "winner",)
+    list_select_related = ("challenger", "opponent", "winner",)
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) and not is_hq(request.user)
@@ -30,6 +34,8 @@ class MentorshipAdmin(ManagedRoleAdminMixin):
     list_display = ("mentor", "mentee", "started_at", "ended_at")
     list_filter = ("started_at", "ended_at")
     search_fields = ("mentor__callsign", "mentee__callsign")
+    autocomplete_fields = ("mentor", "mentee",)
+    list_select_related = ("mentor", "mentee",)
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) and not is_hq(request.user)
