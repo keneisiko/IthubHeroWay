@@ -555,3 +555,40 @@ textarea.popup__input {
     transform: translateX(110%);
   }
 }
+
+/* =========================
+   КАРТОЧКА ОТРЯДА
+   Растягивалась по высоте соседней колонки и оставляла пустой низ, а
+   значения стояли вразнобой: подпись слева, значение — где кончилась
+   подпись. Теперь строки делят высоту поровну, значения — у правого
+   края, разделены тонкой линией.
+   ========================= */
+
+.squad-my {
+  display: flex;
+  flex-direction: column;
+}
+
+.squad-my__stats {
+  flex: 1 1 auto;
+  justify-content: space-around;
+  gap: 0;
+  margin-top: 12px;
+}
+
+.squad-my__row {
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 2px solid rgba(245, 245, 245, 0.18);
+}
+
+.squad-my__row:first-child { border-top: 0; }
+
+.squad-my__row dd {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.squad-my__label { min-width: 0; }
+
+.squad-my__row dd { margin-left: auto; }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
-import { apiErrorMessage, unwrapList } from '../lib/apiData'
+import { apiErrorMessage, unwrapList, formatRating } from '../lib/apiData'
 
 type SortKey = 'name' | 'track' | 'status'
 
@@ -428,7 +428,7 @@ export default function Squads() {
 
         <div className="squad-page__right">
           <section className="squad-bonus" aria-label="Прогресс командного бонуса">
-            <p className="squad-bonus__lead">{squad.bonus_progress}% отряда выполнили еженедельный квест</p>
+            <p className="squad-bonus__lead">{Math.round(squad.bonus_progress)}% отряда выполнили еженедельный квест</p>
             <div className="squad-bonus__chip squad-bonus__chip--purple">
               При {squad.bonus_threshold}% — +{squad.bonus_coins} монет в пятницу
             </div>
@@ -527,7 +527,7 @@ export default function Squads() {
                   className="squad-member-row__rating btn-press"
                   onClick={() => navigate(`/profile/${m.username}`)}
                 >
-                  {m.rating != null ? m.rating : 'Рейтинг'}
+                  {m.rating != null ? formatRating(m.rating) : 'Рейтинг'}
                 </button>
               </li>
             ))}
