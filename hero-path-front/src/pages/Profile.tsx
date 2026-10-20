@@ -18,6 +18,7 @@ import AgentPicker from '../components/AgentPicker'
 import { RARITY_LABELS, apiErrorMessage, formatDayMonth, unwrapList } from '../lib/apiData'
 import { plural } from '../lib/plural'
 import { useTabIndicator } from '../useTabIndicator'
+import BadgeEmblem from '../components/BadgeEmblem'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -934,7 +935,9 @@ export default function Profile() {
             <p className="loading-text">Пока нет закреплённых нашивок</p>
           ) : pinnedBadges.map((item) => (
             <button key={item.id} className="ach btn-press" type="button">
-              <span className="ach__icon" aria-hidden="true"><span className="ach__glyph" /></span>
+              <span className="ach__icon" aria-hidden="true">
+                <BadgeEmblem code={item.badge.code} rarity={item.badge.rarity} size={72} />
+              </span>
               <span className="ach__name">{item.badge.title}</span>
               <span className={`ach__rarity ${rarityClass(item.badge.rarity)}`}>
                 {RARITY_LABELS[item.badge.rarity] ?? item.badge.rarity}
@@ -971,7 +974,7 @@ export default function Profile() {
           {filteredBadges.map((card) => (
             <button key={card.id} className="path-card btn-press" type="button">
               <span className={`path-card__icon path-card__icon--${card.badge.rarity}`} aria-hidden="true">
-                <span className="path-card__glyph" />
+                <BadgeEmblem code={card.badge.code} rarity={card.badge.rarity} size={58} />
               </span>
               <span className="path-card__name">{card.badge.title}</span>
               <span className={`path-card__chip path-card__chip--${card.badge.rarity}`}>
@@ -992,7 +995,7 @@ export default function Profile() {
           {lockedBadges.map((badge) => (
             <span key={badge.code} className="path-card path-card--locked" title={badge.title}>
               <span className="path-card__icon path-card__icon--locked" aria-hidden="true">
-                <span className="path-card__glyph path-card__glyph--locked" />
+                <BadgeEmblem code={badge.code} rarity={badge.rarity} locked size={58} />
               </span>
               <span className="path-card__locked">Условие не выполнено</span>
             </span>
