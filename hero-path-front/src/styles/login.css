@@ -1,0 +1,660 @@
+/* =========================
+   ВХОД — «пиксельная тропа»
+   Тёмный фиолетовый из бренда (--purple-dark), по нему идёт сетка
+   пикселей IThub. Карточка формы — та же светлая карточка из макета.
+   ========================= */
+
+.lp {
+  --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --lp-ease-io: cubic-bezier(0.76, 0, 0.24, 1);
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(90% 70% at 85% 110%, rgba(154, 51, 244, 0.85) 0%, rgba(154, 51, 244, 0) 60%),
+    radial-gradient(60% 50% at 0% 0%, rgba(154, 51, 244, 0.45) 0%, rgba(154, 51, 244, 0) 70%),
+    linear-gradient(160deg, #3d0f6e 0%, #2a0a4d 55%, #1c0636 100%);
+  color: var(--ithub-white);
+}
+
+.pixel-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lp__field {
+  z-index: -2;
+  opacity: 0;
+  animation: lpFade 1.2s var(--lp-ease) 0.1s forwards;
+}
+
+/* затемнение под формой: сетка живёт по краям, у полей спокойно */
+.lp__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(42% 60% at 74% 50%, rgba(28, 6, 54, 0.75) 0%, rgba(28, 6, 54, 0) 100%);
+}
+
+.lp__layout {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  width: min(1180px, calc(100% - 64px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+  align-items: center;
+  gap: 64px;
+  padding: 48px 0;
+  pointer-events: none;
+}
+
+.lp__layout > * { pointer-events: auto; }
+
+/* --- левая колонка: название --- */
+.lp__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  align-self: stretch;
+  justify-content: space-between;
+  padding: 8px 0;
+  pointer-events: none;
+}
+
+.lp__logo {
+  width: 140px;
+  height: auto;
+  opacity: 0;
+  animation: lpFade 0.8s var(--lp-ease) 0.15s forwards;
+}
+
+.lp__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(64px, 10.5vw, 148px);
+  line-height: 0.88;
+  letter-spacing: -0.035em;
+  color: var(--ithub-white);
+  display: flex;
+  flex-direction: column;
+}
+
+.lp__line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+}
+
+.lp__line > span {
+  display: inline-block;
+  transform: translateY(105%);
+  animation: lpRise 1s var(--lp-ease) forwards;
+}
+
+.lp__line:nth-child(1) > span { animation-delay: 0.2s; }
+.lp__line:nth-child(2) > span { animation-delay: 0.3s; }
+
+.lp__lead {
+  max-width: 34ch;
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: rgba(245, 245, 245, 0.72);
+  opacity: 0;
+  animation: lpFade 0.9s var(--lp-ease) 0.55s forwards;
+}
+
+/* --- карточка формы --- */
+.lp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px 28px 26px;
+  background: var(--ithub-white);
+  color: var(--ithub-black);
+  border-radius: var(--radius-24);
+  box-shadow:
+    25px 25px 20px -20px rgba(0, 0, 0, 0.45),
+    0 40px 80px -30px rgba(10, 0, 30, 0.7);
+}
+
+/* появление и тряска — на разных элементах: снятый класс тряски
+   иначе заново запускал появление, и карточка мигала */
+.lp__card-slot {
+  opacity: 0;
+  transform: translateY(28px);
+  animation: lpCardIn 0.9s var(--lp-ease) 0.35s forwards;
+}
+
+.lp-card--shake { animation: lpShake 0.42s var(--lp-ease-io); }
+
+.lp-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-card__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--purple-500);
+}
+
+/* знак IThub — квадрат в квадрате; при успехе заливается */
+.lp-card__mark {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border: 4px solid var(--ithub-black);
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  transition: border-color 0.4s var(--lp-ease), transform 0.6s var(--lp-ease);
+}
+
+.lp-card__mark i {
+  width: 8px;
+  height: 8px;
+  background: var(--ithub-black);
+  transition: transform 0.6s var(--lp-ease), background 0.4s var(--lp-ease);
+}
+
+.lp-card:focus-within .lp-card__mark { border-color: var(--purple-500); }
+.lp-card:focus-within .lp-card__mark i { background: var(--purple-500); }
+
+.lp-card--done .lp-card__mark {
+  border-color: var(--purple-500);
+  transform: rotate(90deg);
+}
+
+.lp-card--done .lp-card__mark i {
+  background: var(--purple-500);
+  transform: scale(2.2);
+}
+
+.lp-card__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --- поле с плавающей подписью --- */
+.lp-field {
+  position: relative;
+  height: 64px;
+  border-radius: var(--radius-12);
+  border: var(--stroke-4) solid #cfcfcf;
+  background: #fff;
+  transition: border-color 0.25s var(--lp-ease), box-shadow 0.35s var(--lp-ease);
+  opacity: 0;
+  animation: lpFieldIn 0.7s var(--lp-ease) forwards;
+}
+
+.lp-field:nth-child(1) { animation-delay: 0.55s; }
+.lp-field:nth-child(2) { animation-delay: 0.63s; }
+
+.lp-field:hover { border-color: #a9a9a9; }
+
+.lp-field:focus-within {
+  border-color: var(--purple-500);
+  box-shadow: 0 10px 24px -14px rgba(154, 51, 244, 0.9);
+}
+
+.lp-field--invalid,
+.lp-field--invalid:hover {
+  border-color: var(--sys-red);
+}
+
+.lp-field__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 24px 16px 6px;
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ithub-black);
+  caret-color: var(--purple-500);
+  border-radius: 8px;
+}
+
+.lp-field--password .lp-field__input { padding-right: 56px; }
+
+/* точки пароля — квадратами, как пиксели знака */
+.lp-field__input[type='password'] {
+  -webkit-text-security: square;
+  letter-spacing: 0.18em;
+}
+
+.lp-field__input:-webkit-autofill,
+.lp-field__input:-webkit-autofill:hover,
+.lp-field__input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ithub-black);
+  -webkit-box-shadow: 0 0 0 40px #fff inset;
+  transition: background-color 9999s;
+}
+
+.lp-field__label {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 600;
+  color: #848484;
+  pointer-events: none;
+  transition: transform 0.35s var(--lp-ease), color 0.25s var(--lp-ease);
+}
+
+.lp-field__input:focus + .lp-field__label,
+.lp-field__input:not(:placeholder-shown) + .lp-field__label,
+.lp-field__input:-webkit-autofill + .lp-field__label {
+  transform: translateY(-112%) scale(0.72);
+  color: var(--purple-500);
+}
+
+.lp-field--invalid .lp-field__label { color: var(--sys-red); }
+
+/* подсказка видна, пока поле в фокусе и пустое */
+.lp-field__hint {
+  position: absolute;
+  left: 16px;
+  top: 33px;
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 500;
+  color: #b3b3b3;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.25s var(--lp-ease), transform 0.35s var(--lp-ease);
+}
+
+.lp-field__input:focus:placeholder-shown ~ .lp-field__hint {
+  opacity: 1;
+  transform: none;
+}
+
+/* дорожка из пикселей: по символу на клетку — видно, что ввод идёт */
+.lp-field__track {
+  position: absolute;
+  right: 14px;
+  bottom: 9px;
+  display: flex;
+  gap: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s var(--lp-ease);
+}
+
+.lp-field--filled .lp-field__track { opacity: 1; }
+
+.lp-field--password .lp-field__track { right: 58px; }
+
+.lp-field__track i {
+  width: 4px;
+  height: 4px;
+  background: #e2e2e2;
+  transition: background 0.2s var(--lp-ease), transform 0.3s var(--lp-ease);
+}
+
+.lp-field__track i.is-on {
+  background: var(--purple-500);
+  transform: translateY(-2px);
+}
+
+.lp-field__track i.is-on:nth-child(n + 9) { background: var(--ithub-black); }
+
+.lp-field__eye {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: #848484;
+  cursor: pointer;
+  transition: background 0.2s var(--lp-ease), color 0.2s var(--lp-ease);
+}
+
+.lp-field__eye:hover { background: #f1e6fe; color: var(--purple-500); }
+.lp-field__eye:focus-visible { outline: 3px solid var(--purple-500); outline-offset: 1px; }
+
+.lp-field__eye svg { overflow: visible; }
+
+.lp-eye__lid {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.lp-eye__pupil {
+  fill: currentColor;
+  transform-origin: 12px 12px;
+  transition: transform 0.3s var(--lp-ease);
+}
+
+.lp-eye__slash {
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 23;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.35s var(--lp-ease);
+}
+
+.lp-field__eye--open .lp-eye__slash { stroke-dashoffset: 23; }
+.lp-field__eye:not(.lp-field__eye--open) .lp-eye__pupil { transform: scale(0.5); }
+
+/* --- ошибка и Caps Lock --- */
+.lp-card__notes {
+  min-height: 0;
+  margin-top: -8px;
+}
+
+.lp-card__notes:empty { display: none; }
+
+.lp-card__error,
+.lp-card__caps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 600;
+  animation: lpNote 0.35s var(--lp-ease);
+}
+
+.lp-card__error { color: var(--sys-red); }
+.lp-card__caps { color: #8a6d00; }
+
+.lp-card__error::before,
+.lp-card__caps::before {
+  content: '';
+  flex: 0 0 8px;
+  height: 8px;
+  background: currentColor;
+}
+
+/* --- кнопка --- */
+.lp-submit {
+  position: relative;
+  height: 64px;
+  border-radius: var(--radius-16);
+  border: var(--stroke-4) solid var(--ithub-white);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  box-shadow: var(--card-shadow);
+  font-family: var(--font-text);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.2s var(--lp-ease), box-shadow 0.3s var(--lp-ease), background 0.3s var(--lp-ease);
+  opacity: 0;
+  animation: lpFieldIn 0.7s var(--lp-ease) 0.72s forwards;
+}
+
+/* блик проходит по кнопке при наведении — один раз, не по кругу */
+.lp-submit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+  transform: translateX(-110%);
+  transition: transform 0.7s var(--lp-ease);
+}
+
+.lp-submit:hover:not(:disabled)::before { transform: translateX(110%); }
+
+.lp-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.lp-submit:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  transition-duration: 0.08s;
+}
+
+.lp-submit:focus-visible {
+  outline: 3px solid var(--ithub-black);
+  outline-offset: 3px;
+}
+
+.lp-submit:disabled { cursor: default; }
+
+.lp-submit__label,
+.lp-submit__loader,
+.lp-submit__check {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transition: opacity 0.25s var(--lp-ease), transform 0.4s var(--lp-ease);
+}
+
+.lp-submit__label { transform: translate(-50%, -50%); }
+
+.lp-submit__loader {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transform: translate(-50%, 40%);
+}
+
+.lp-submit__loader i {
+  width: 10px;
+  height: 10px;
+  background: var(--ithub-white);
+}
+
+.lp-submit--loading .lp-submit__loader i { animation: lpHop 0.9s var(--lp-ease-io) infinite; }
+.lp-submit--loading .lp-submit__loader i:nth-child(2) { animation-delay: 0.12s; }
+.lp-submit--loading .lp-submit__loader i:nth-child(3) { animation-delay: 0.24s; }
+
+.lp-submit__check {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+  fill: none;
+  stroke: var(--ithub-white);
+  stroke-width: 3;
+  stroke-linecap: square;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+
+.lp-submit--loading .lp-submit__label,
+.lp-submit--success .lp-submit__label {
+  opacity: 0;
+  transform: translate(-50%, -140%);
+}
+
+.lp-submit--loading .lp-submit__loader {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.lp-submit--success { background: var(--ithub-black); }
+
+.lp-submit--success .lp-submit__check {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  stroke-dashoffset: 0;
+  transition: opacity 0.2s, transform 0.4s var(--lp-ease), stroke-dashoffset 0.45s var(--lp-ease) 0.05s;
+}
+
+.lp-card__foot {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b6b6b;
+}
+
+.lp-card__foot span {
+  color: var(--purple-500);
+  font-weight: 700;
+}
+
+/* --- переход в приложение: фиолетовая волна из кнопки --- */
+.lp__wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--purple-500);
+  border-radius: 0;
+  clip-path: inset(var(--wt) var(--wr) var(--wb) var(--wl) round 16px);
+  animation: lpWipe 0.7s var(--lp-ease-io) 0.2s forwards;
+  pointer-events: none;
+}
+
+.lp__wipe::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border: 6px solid var(--ithub-white);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 7px var(--purple-500), inset 0 0 0 20px var(--ithub-white);
+  opacity: 0;
+  animation: lpFade 0.3s var(--lp-ease) 0.6s forwards;
+}
+
+/* пока заставка не уехала, появление стоит на паузе */
+.lp:not(.lp--ready) *,
+.lp:not(.lp--ready) *::before {
+  animation-play-state: paused;
+}
+
+@keyframes lpFade { to { opacity: 1; } }
+@keyframes lpRise { to { transform: translateY(0); } }
+
+@keyframes lpCardIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lpFieldIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lpShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes lpNote {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes lpHop {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  45% { transform: translateY(-9px); opacity: 0.55; }
+}
+
+@keyframes lpWipe {
+  to { clip-path: inset(0 0 0 0 round 0); }
+}
+
+/* --- планшет и телефон --- */
+@media (max-width: 900px) {
+  .lp__layout {
+    width: calc(100% - 32px);
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    gap: 28px;
+    padding: 28px 0 32px;
+  }
+
+  .lp__hero {
+    align-self: auto;
+    gap: 16px;
+    padding: 0;
+  }
+
+  .lp__logo { width: 104px; }
+
+  .lp__title { font-size: clamp(52px, 15vw, 96px); }
+
+  .lp__lead { font-size: 15px; }
+
+  .lp__vignette {
+    background: radial-gradient(80% 50% at 50% 68%, rgba(28, 6, 54, 0.78) 0%, rgba(28, 6, 54, 0) 100%);
+  }
+
+  .lp-card {
+    padding: 24px 18px 20px;
+    gap: 16px;
+  }
+
+  .lp-card__title { font-size: 30px; }
+}
+
+@media (max-width: 380px) {
+  .lp__lead { display: none; }
+  .lp-field { height: 60px; }
+  .lp-submit { height: 58px; font-size: 20px; }
+}
+
+/* на низких экранах (телефон с открытой клавиатурой) — без крупного заголовка */
+@media (max-height: 620px) and (max-width: 900px) {
+  .lp__title { font-size: 44px; }
+  .lp__lead { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp__field,
+  .lp__logo,
+  .lp__lead,
+  .lp__card-slot,
+  .lp-field,
+  .lp-submit,
+  .lp__line > span {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .lp__wipe { animation-duration: 0.01s; animation-delay: 0s; }
+}
+
+/* фокус показывает рамка самого поля; общая обводка рисовалась бы
+   полоской внутри него */
+.lp-field__input:focus-visible { outline: none; }

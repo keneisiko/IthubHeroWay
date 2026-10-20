@@ -21,11 +21,19 @@ export function extractLoginError(error: unknown): string {
   if (!data) {
     return 'Ошибка соединения. Проверьте, что бэкенд запущен.'
   }
+  // Русскую причину показываем как есть. Английскую («Invalid
+  // email/password.») — нет: на отказ во входе понятнее своя фраза.
+  const russian = (value: unknown) =>
+    typeof value === 'string' && /[а-яё]/i.test(value) ? value : null
   const detail = data.detail
-  if (typeof detail === 'string') return detail
-  if (Array.isArray(detail) && typeof detail[0] === 'string') return detail[0]
   const nonField = data.non_field_errors
-  if (Array.isArray(nonField) && typeof nonField[0] === 'string') return nonField[0]
-  if (err.response?.status === 401) return 'Неверный логин или пароль'
+  const reason =
+    russian(detail) ??
+    (Array.isArray(detail) ? russian(detail[0]) : null) ??
+    (Array.isArray(nonField) ? russian(nonField[0]) : null)
+  if (reason) return reason
+  const status = err.response?.status
+  if (status === 400 || status === 401) return 'Неверный логин или пароль'
+  if (status === 429) return 'Слишком много попыток. Подождите минуту.'
   return 'Не удалось войти. Попробуйте позже.'
 }

@@ -1,13 +1,18 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Header from './components/Header'
 import ProtectedRoute from './components/ProtectedRoute'
 import Sidebar from './components/Sidebar'
 import BottomNav from './components/BottomNav'
 import ScrollTopButton from './components/ScrollTopButton'
+import BrandLoader from './components/BrandLoader'
+import Atmosphere from './components/Atmosphere'
 import PageTransition from './PageTransition'
+import { releaseBoot } from './lib/boot'
+import { clearEnterFlag, hasEnterFlag } from './lib/enterFlag'
 
 import './App.css'
+import './styles/atmosphere.css'
 
 const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -19,22 +24,9 @@ const Squads = lazy(() => import('./pages/Squads'))
 const Badges = lazy(() => import('./pages/Badges'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
-function PageFallback() {
-  return (
-    <div className="profile-loading">
-      <div className="loading-spinner">
-        <span className="loading-spinner-dot" />
-        <span className="loading-spinner-dot" />
-        <span className="loading-spinner-dot" />
-      </div>
-      <p className="loading-text">Загрузка...</p>
-    </div>
-  )
-}
-
 function App() {
   return (
-    <Suspense fallback={<PageFallback />}>
+    <Suspense fallback={<BrandLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/*" element={
@@ -51,14 +43,25 @@ function AppShell() {
   const location = useLocation()
   const KNOWN_PATHS = ['/dashboard', '/profile', '/leaderboard', '/quests', '/shop', '/squads', '/badges']
   const isKnownRoute = location.pathname === '/' || KNOWN_PATHS.some(p => location.pathname.startsWith(p))
+  // заставку после входа играем один раз: флаг ставит страница входа
+  const [entering, setEntering] = useState(hasEnterFlag)
+
+  useEffect(() => {
+    releaseBoot()
+    if (!entering) return
+    clearEnterFlag()
+    const timer = window.setTimeout(() => setEntering(false), 1600)
+    return () => window.clearTimeout(timer)
+  }, [entering])
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${entering ? ' app-shell--entering' : ''}`}>
+      <Atmosphere />
       <Header />
       <div className="app-content">
         <main className="page-content">
           <PageTransition>
-            <Suspense fallback={<PageFallback />}>
+            <Suspense fallback={<BrandLoader />}>
               <Routes location={location} key={location.pathname}>
                 <Route path="/" element={<Navigate to="/dashboard" />} />
                 <Route path="/dashboard" element={<Dashboard />} />
@@ -78,6 +81,11 @@ function AppShell() {
       </div>
       {isKnownRoute && <BottomNav />}
       <ScrollTopButton />
+      {entering && (
+        <div className="shell-intro" aria-hidden="true">
+          <span className="shell-intro__mark" />
+        </div>
+      )}
     </div>
   )
 }
