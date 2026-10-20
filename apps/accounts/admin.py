@@ -248,6 +248,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
                 data["tariff_code"],
                 activity_key=activity_key_for(title, data["activity_date"]),
                 title=title,
+                happened_on=data["activity_date"],
                 confirmed_by=request.user,
                 note=note,
             )

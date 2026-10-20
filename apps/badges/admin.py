@@ -10,7 +10,6 @@ from apps.progress.services.rewards import grant_coins_with_daily_cap
 from .metrics import FLAG_METRICS, MANUAL_CONDITION_KEY, METRIC_LABELS, THRESHOLD_METRICS
 from .models import Badge, UserBadge
 
-
 MAX_CONDITION_ROWS = 3
 
 
@@ -49,7 +48,7 @@ class BadgeAdminForm(forms.ModelForm):
 
     class Meta:
         model = Badge
-        exclude = ("condition",)
+        fields = ("title", "description", "category", "rarity", "reward_coins", "is_active", "code")
         help_texts = {
             "code": "Латиницей, без пробелов, например rating-250. Можно оставить пустым — "
             "соберётся из названия.",

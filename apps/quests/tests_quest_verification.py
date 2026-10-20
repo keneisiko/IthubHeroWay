@@ -8,8 +8,8 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import Role
 from apps.integrations.models import ExternalEvent, TelegramAccountLink
-from apps.quests.models import Quest, QuestType, QuestVerifierKind, UserQuestProgress
 from apps.progress.models import RatingLog
+from apps.quests.models import Quest, QuestType, QuestVerifierKind, UserQuestProgress
 from apps.quests.services.quest_completion import complete_quest_idempotent
 from apps.quests.services.quest_verification import verify_quest_for_user
 from apps.quests.services.verifiers import verify_hik_no_late, verify_hik_on_time

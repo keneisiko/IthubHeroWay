@@ -102,7 +102,7 @@ class _QuestTemplateAdminFormBase(forms.ModelForm):
         model = QuestTemplate
         # Рейтинг из квестов не начисляется (Положение, разделы 3–7):
         # обязательное поле, куда «нужно вписать ноль», только путало.
-        exclude = ("verifier_params", "reward_rating_delta")
+        fields = ("title", "description", "quest_type", "reward_coins", "is_active", "code", "verifier")
         help_texts = {
             "code": "Можно оставить пустым — соберётся из названия латиницей. "
             "После запуска квеста не меняйте: по коду связаны прогресс и награды.",
