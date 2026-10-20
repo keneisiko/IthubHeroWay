@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { navItems } from './components/navItems'
+
+// Порядок разделов в меню: переход «вперёд» по меню бежит вправо, назад — влево
+const ORDER = navItems.map((item) => item.path)
+const orderOf = (path: string) => ORDER.findIndex((p) => path.startsWith(p))
 
 const ROUTE_COLORS: Record<string, string> = {
   '/dashboard':   '#9a33f4',
@@ -17,17 +22,25 @@ export default function PageTransition({ children }: { children: React.ReactNode
   const [displayed, setDisplayed] = useState(children)
   const [phase, setPhase] = useState<'idle' | 'cover' | 'uncover'>('idle')
   const prevPath = useRef(location.pathname)
+  const prevPathForDir = useRef(location.pathname)
   const pendingChildren = useRef(children)
   // таймеры прошлого перехода: быстрый второй тап по навигации не должен
   // снять шторку посреди нового перехода
   const timers = useRef<number[]>([])
+  const [run, setRun] = useState({ id: 0, dir: 1 })
 
   useEffect(() => {
     if (location.pathname === prevPath.current) return
     prevPath.current = location.pathname
     pendingChildren.current = children
 
+    const from = orderOf(prevPathForDir.current)
+    const to = orderOf(location.pathname)
+    prevPathForDir.current = location.pathname
+    const dir = from >= 0 && to >= 0 && to < from ? -1 : 1
+
     timers.current.forEach(window.clearTimeout)
+    setRun((r) => ({ id: r.id + 1, dir }))
     setPhase('cover')
 
     timers.current = [window.setTimeout(() => {
@@ -47,40 +60,33 @@ export default function PageTransition({ children }: { children: React.ReactNode
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       {/* Контент */}
-      <div style={{
-        width: '100%', height: '100%',
-        opacity: phase === 'cover' ? 0 : 1,
-        transform: phase === 'cover' ? 'translateY(8px)' : phase === 'uncover' ? 'translateY(0)' : 'none',
-        transition: phase === 'uncover'
-          ? 'opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1)'
-          : 'opacity 0.2s ease, transform 0.2s ease',
-      }}>
+      <div
+        className={phase === 'uncover' ? 'route-in' : undefined}
+        style={{
+          width: '100%', height: '100%',
+          // уходящая страница сдвигается против хода, новая въезжает по ходу
+          opacity: phase === 'cover' ? 0 : 1,
+          transform: phase === 'cover' ? `translateX(${-run.dir * 14}px)` : 'none',
+          transition: phase === 'cover' ? 'opacity 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 1, 1)' : 'none',
+          '--route-dx': `${run.dir * 18}px`,
+        } as React.CSSProperties}
+      >
         {displayed}
       </div>
 
-      {/* Штора */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '3px',
-        background: color,
-        boxShadow: `0 0 20px 4px ${color}, 0 0 60px 8px ${color}88`,
-        zIndex: 9999,
-        transformOrigin: 'left center',
-        transform: phase === 'idle'
-          ? 'scaleX(0) translateX(-100%)'
-          : phase === 'cover'
-          ? 'scaleX(1) translateX(0%)'
-          : 'scaleX(1) translateX(100%)',
-        transition: phase === 'cover'
-          ? 'transform 0.28s cubic-bezier(0.76, 0, 0.24, 1)'
-          : phase === 'uncover'
-          ? 'transform 0.35s cubic-bezier(0.76, 0, 0.24, 1)'
-          : 'none',
-        pointerEvents: 'none',
-      }} />
+      {/* Пиксель-герой пробегает по верху экрана со следом — тот же знак,
+          что ходит по сетке на странице входа */}
+      {phase !== 'idle' && (
+        <div
+          key={run.id}
+          className={`route-runner${run.dir < 0 ? ' route-runner--back' : ''}`}
+          style={{ '--runner': color } as React.CSSProperties}
+          aria-hidden="true"
+        >
+          <i className="route-runner__trail" />
+          <i className="route-runner__head" />
+        </div>
+      )}
 
       {/* Полная штора */}
       <div style={{

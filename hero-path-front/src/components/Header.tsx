@@ -5,6 +5,7 @@ import api from '../api'
 import { clearAuthTokens } from '../auth'
 import { onBalanceChanged } from '../lib/balance'
 import { useAnimatedNumber } from '../useCountUp'
+import { flyCoins } from '../lib/coinFly'
 
 interface ProfileData {
   callsign: string
@@ -64,12 +65,15 @@ export default function Header() {
   // Короткий «пульс» монетки, когда баланс изменился уже после загрузки
   const [pulse, setPulse] = useState<'up' | 'down' | null>(null)
   const prevCoins = useRef<number | null>(null)
+  const coinRef = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     if (!profile) return
     const prev = prevCoins.current
     prevCoins.current = coins
     if (prev === null || prev === coins) return
     setPulse(coins > prev ? 'up' : 'down')
+    // монеты видно в полёте: награда — в счётчик, покупка — из него
+    flyCoins(coinRef.current, coins > prev ? 'in' : 'out', Math.min(9, 4 + Math.round(Math.abs(coins - prev) / 15)))
     const timer = setTimeout(() => setPulse(null), 700)
     return () => clearTimeout(timer)
   }, [coins, profile])
@@ -87,7 +91,7 @@ export default function Header() {
         <div className="top-header__user-meta">
           <div className="top-header__username">{username}</div>
           <div className={`top-header__money${pulse ? ` top-header__money--${pulse}` : ''}`}>
-            <span className="top-header__coin" aria-hidden="true" />
+            <span className="top-header__coin" aria-hidden="true" ref={coinRef} />
             <strong>{shownCoins}</strong>
           </div>
         </div>

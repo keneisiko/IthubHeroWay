@@ -984,3 +984,44 @@
   .bd-card__emblem .emblem,
   .bd-sheet__emblem { transition: none; }
 }
+
+/* закрепили — эмблема с отскоком впечатывается, под ней проходит шов */
+.bd-sheet__float[data-stamp='a'] { animation: bdStampA 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.bd-sheet__float[data-stamp='b'] { animation: bdStampB 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+.bd-sheet__float[data-stamp]::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -14px;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, var(--ithub-white) 0 8px, transparent 8px 13px);
+  transform-origin: left center;
+  animation: bdSeam 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
+}
+
+@keyframes bdStampA {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.28) rotate(-6deg); }
+  55% { transform: scale(0.9) rotate(2deg); }
+  100% { transform: none; }
+}
+
+@keyframes bdStampB {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.28) rotate(-6deg); }
+  55% { transform: scale(0.9) rotate(2deg); }
+  100% { transform: none; }
+}
+
+@keyframes bdSeam {
+  from { transform: scaleX(0); opacity: 1; }
+  70% { transform: scaleX(1); opacity: 1; }
+  to { transform: scaleX(1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-sheet__float[data-stamp],
+  .bd-sheet__float[data-stamp]::after { animation: none; }
+}

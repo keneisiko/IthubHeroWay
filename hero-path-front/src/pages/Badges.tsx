@@ -98,6 +98,7 @@ function tiltHandlers() {
 }
 
 interface SheetProps {
+  stamp: number
   badge: Badge | null
   earned: EarnedBadge | undefined
   isNew: boolean
@@ -106,7 +107,7 @@ interface SheetProps {
   onTogglePin: (badge: Badge) => void
 }
 
-function BadgeSheet({ badge, earned, isNew, pinning, onClose, onTogglePin }: SheetProps) {
+function BadgeSheet({ stamp, badge, earned, isNew, pinning, onClose, onTogglePin }: SheetProps) {
   // держим последнюю нашивку, пока шторка уезжает
   const [shown, setShown] = useState<Badge | null>(badge)
   const [closing, setClosing] = useState(false)
@@ -164,7 +165,7 @@ function BadgeSheet({ badge, earned, isNew, pinning, onClose, onTogglePin }: She
 
         <div className="bd-sheet__stage" {...tiltHandlers()}>
           <span className="bd-sheet__halo" aria-hidden="true" />
-          <span className="bd-sheet__float">
+          <span className="bd-sheet__float" data-stamp={stamp ? (stamp % 2 ? 'a' : 'b') : undefined}>
             <BadgeEmblem
               code={shown.code}
               rarity={shown.rarity}
@@ -223,6 +224,8 @@ export default function Badges() {
   const [category, setCategory] = useState<string>('')
   const [openCode, setOpenCode] = useState<string | null>(null)
   const [pinning, setPinning] = useState(false)
+  // закрепили — эмблема «пришивается»: счётчик перезапускает анимацию
+  const [stamp, setStamp] = useState({ code: '', n: 0 })
   const [fresh, setFresh] = useState<Set<string>>(() => new Set())
   const { toasts, addToast } = useToasts()
   const { containerRef: tabsRef, registerTab, indicator } = useTabIndicator(filter, !loading)
@@ -322,6 +325,10 @@ export default function Badges() {
     request
       .then(() => {
         addToast(row.is_pinned ? 'Нашивка откреплена' : 'Нашивка закреплена', 'success')
+        if (!row.is_pinned) {
+          setStamp((prev) => ({ code: badge.code, n: prev.n + 1 }))
+          celebrate('small')
+        }
         return load()
       })
       .catch(() => addToast('Не удалось изменить нашивку', 'error'))
@@ -533,6 +540,7 @@ export default function Badges() {
       </div>
 
       <BadgeSheet
+        stamp={openBadge && stamp.code === openBadge.code ? stamp.n : 0}
         badge={openBadge}
         earned={openBadge ? earnedByCode.get(openBadge.code) : undefined}
         isNew={openBadge ? fresh.has(openBadge.code) : false}
