@@ -130,7 +130,10 @@ class UserQuestProgress(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.user_id}:{self.quest_id}:{'done' if self.is_completed else 'active'}"
+        # Строка видна в истории действий и в полях поиска админки: «1:1:done»
+        # сотруднику ни о чём не говорит.
+        state = "выполнен" if self.is_completed else "в процессе"
+        return f"{self.user} — {self.quest.title} ({state})"
 
 
 class QuestRewardTransaction(models.Model):

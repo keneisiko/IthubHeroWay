@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.models import ADDITION, CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
+from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.html import format_html
 
+from apps.integrations.services.lxp_group_import import slug
 from apps.notifications.services import events
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_curator, is_hq, is_superadmin, is_tutor
 from apps.quests.services.quest_completion import complete_quest_idempotent
@@ -14,6 +17,7 @@ from .models import (
     Quest,
     QuestRewardTransaction,
     QuestTemplate,
+    QuestVerifierKind,
     SeasonalEvent,
     SelfReportProof,
     SelfReportProofStatus,
@@ -35,15 +39,166 @@ def _complete_quest_idempotent(user, quest, reviewer):
         object_id=progress.pk,
         object_repr=str(progress),
         action_flag=CHANGE,
-        change_message=f"Self-report approve for quest {quest.code}. reward_created={created}",
+        change_message=(
+            f"Одобрено подтверждение по квесту «{quest.title}»: "
+            + ("награда начислена." if created else "награда уже была начислена раньше.")
+        ),
     )
+
+
+# Параметры каждой проверки: (ключ, подпись, значение по умолчанию).
+# Значения по умолчанию те же, что в apps/quests/services/verifiers.py.
+VERIFIER_PARAMS: dict[str, tuple[tuple[str, str, float], ...]] = {
+    QuestVerifierKind.HIK_ON_TIME: (
+        ("deadline_hour", "Прийти до, час (если у отряда нет расписания)", 10),
+        ("deadline_minute", "Прийти до, минута", 0),
+        ("grace_minutes", "Допуск после начала пары, минут", 0),
+    ),
+    QuestVerifierKind.HIK_NO_LATE: (("days", "За сколько дней считать", 1),),
+    QuestVerifierKind.LXP_ATTENDANCE: (("min_percent", "Посещаемость не ниже, %", 80),),
+    QuestVerifierKind.LXP_CT_CLOSED: (
+        ("min_closed", "Закрыть контрольных точек, не меньше", 1),
+        ("days", "За сколько дней", 7),
+    ),
+    QuestVerifierKind.YOUGILE_TASKS: (
+        ("min_count", "Закрыть задач, не меньше", 3),
+        ("days", "За сколько дней", 7),
+    ),
+    QuestVerifierKind.LXP_NO_MISSES: (
+        ("max_missed", "Пропусков, не больше", 0),
+        ("days", "За сколько дней", 7),
+    ),
+    QuestVerifierKind.LATE_STREAK: (("min_days", "Дней подряд без опозданий", 7),),
+    QuestVerifierKind.ATTENDANCE_STREAK: (("min_days", "Дней подряд без пропусков", 10),),
+}
+_ALL_PARAM_KEYS = sorted({key for spec in VERIFIER_PARAMS.values() for key, _, _ in spec})
+_PARAM_LABELS = {
+    "deadline_hour": "Прийти до, час",
+    "deadline_minute": "Прийти до, минута",
+    "grace_minutes": "Допуск, минут",
+    "days": "За сколько дней",
+    "min_percent": "Посещаемость не ниже, %",
+    "min_closed": "КТ не меньше",
+    "min_count": "Задач не меньше",
+    "max_missed": "Пропусков не больше",
+    "min_days": "Дней подряд",
+}
+
+
+def _param_help(key: str) -> str:
+    users = [str(QuestVerifierKind(kind).label) for kind, spec in VERIFIER_PARAMS.items() if key in {k for k, _, _ in spec}]
+    return "Для проверки: " + ", ".join(users) + ". Пусто — значение по умолчанию."
+
+
+class _QuestTemplateAdminFormBase(forms.ModelForm):
+    """Параметры проверки — подписанными полями вместо JSON.
+
+    Раньше «Параметры проверки» были сырым JSON без подсказок: чтобы
+    поменять порог посещаемости, нужно было знать ключ `min_percent`.
+    Неизвестный ключ проверка молча игнорировала.
+    """
+
+    class Meta:
+        model = QuestTemplate
+        # Рейтинг из квестов не начисляется (Положение, разделы 3–7):
+        # обязательное поле, куда «нужно вписать ноль», только путало.
+        exclude = ("verifier_params", "reward_rating_delta")
+        help_texts = {
+            "code": "Можно оставить пустым — соберётся из названия латиницей. "
+            "После запуска квеста не меняйте: по коду связаны прогресс и награды.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["code"].required = False
+        current = (self.instance.verifier_params if self.instance and self.instance.pk else None) or {}
+        for key in _ALL_PARAM_KEYS:
+            if key in current:
+                self.initial[f"param_{key}"] = current[key]
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get("code") and cleaned.get("title"):
+            base = slug(cleaned["title"], "quest")
+            code, n = base, 2
+            while QuestTemplate.objects.filter(code=code).exclude(pk=self.instance.pk).exists():
+                code, n = f"{base}-{n}", n + 1
+            cleaned["code"] = code
+        return cleaned
+
+    def save(self, commit=True):
+        spec = VERIFIER_PARAMS.get(self.cleaned_data.get("verifier"), ())
+        params = {}
+        for key, _, default in spec:
+            value = self.cleaned_data.get(f"param_{key}")
+            value = default if value is None else value
+            params[key] = int(value) if float(value).is_integer() else float(value)
+        self.instance.verifier_params = params
+        self.instance.reward_rating_delta = 0
+        return super().save(commit)
+
+
+# Поля параметров объявлены на классе, а не добавлены в __init__: админка
+# сверяет поля из fieldsets с классом формы и на «лишние» отвечает FieldError.
+QuestTemplateAdminForm = type(_QuestTemplateAdminFormBase)(
+    "QuestTemplateAdminForm",
+    (_QuestTemplateAdminFormBase,),
+    {
+        "__module__": __name__,
+        **{
+            f"param_{key}": forms.DecimalField(
+                label=_PARAM_LABELS[key], required=False, help_text=_param_help(key)
+            )
+            for key in _ALL_PARAM_KEYS
+        },
+    },
+)
 
 
 @admin.register(QuestTemplate)
 class QuestTemplateAdmin(ManagedRoleAdminMixin):
-    list_display = ("code", "title", "quest_type", "verifier", "reward_coins", "is_active")
+    """Шаблоны — единственное место, где заводится новый квест.
+
+    Ежедневные и еженедельные квесты создаются из шаблонов каждую ночь
+    на свой период; остальные виды — один квест на шаблон. Прежде квест из
+    шаблона самоотчёта или долгого квеста создавала только консольная
+    команда: шаблон, добавленный в админке, студентам не появлялся.
+    """
+
+    form = QuestTemplateAdminForm
+    list_display = ("title", "quest_type", "verifier", "reward_coins", "is_active")
     list_filter = ("quest_type", "verifier", "is_active")
     search_fields = ("code", "title")
+
+    def get_fieldsets(self, request, obj=None):
+        params = tuple(f"param_{key}" for key in _ALL_PARAM_KEYS)
+        return (
+            (None, {"fields": ("title", "description", "quest_type", "reward_coins", "is_active", "code")}),
+            ("Как проверяется", {"fields": ("verifier", *params)}),
+        )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        from apps.quests.services.quest_periods import PERIODIC_TYPES, ensure_period_quests
+
+        if obj.quest_type in PERIODIC_TYPES:
+            result = ensure_period_quests()
+            self.message_user(
+                request,
+                f"Квест будет появляться у студентов каждый период. На сегодня заведено: +{result['created']}.",
+            )
+            return
+        quest_defaults = {
+            "title": obj.title,
+            "description": obj.description,
+            "quest_type": obj.quest_type,
+            "reward_coins": obj.reward_coins,
+            "reward_rating_delta": 0,
+            "conditions": obj.build_conditions(),
+            "is_active": obj.is_active,
+        }
+        _, created = Quest.objects.update_or_create(code=obj.code, defaults=quest_defaults)
+        self.message_user(request, "Квест создан и виден студентам." if created else "Квест обновлён.")
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) and (
@@ -53,7 +208,15 @@ class QuestTemplateAdmin(ManagedRoleAdminMixin):
 
 @admin.register(Quest)
 class QuestAdmin(ManagedRoleAdminMixin):
-    list_display = ("code", "title", "quest_type", "reward_coins", "reward_rating_delta", "is_active")
+    """Квесты, которые видят студенты. Новые заводятся через «Шаблоны квестов»:
+    здесь удобно включить или выключить квест и поправить награду."""
+
+    list_display = ("title", "quest_type", "period_key", "reward_coins", "is_active")
+    readonly_fields = ("conditions",)
+
+    def has_add_permission(self, request):
+        # Квест без шаблона не знает, как его проверять: новые — через шаблоны.
+        return False
     list_filter = ("quest_type", "is_active", "start_at", "end_at")
     search_fields = ("code", "title")
 
@@ -157,13 +320,71 @@ class SquadLeaderboardSnapshotAdmin(ManagedRoleAdminMixin):
 
 @admin.register(SelfReportProof)
 class SelfReportProofAdmin(ManagedRoleAdminMixin):
-    list_display = ("user", "quest", "status_badge", "proof_link", "created_at", "reviewed_at")
+    """Очередь проверки — главный ежедневный экран куратора.
+
+    Раньше одобрение одной заявки занимало четыре шага: галочка, поиск
+    действия в выпадающем списке, «Выполнить», перезагрузка. Комментарий
+    студента в списке не показывался — каждую заявку приходилось открывать.
+    Теперь решение принимается кнопкой прямо в строке.
+    """
+
+    list_display = (
+        "user",
+        "quest_title",
+        "comment_short",
+        "proof_link",
+        "status_badge",
+        "decision",
+        "created_at",
+    )
     list_filter = ("status", "created_at", "quest__quest_type")
     search_fields = ("user__username", "user__email", "comment", "attachment_link")
     autocomplete_fields = ("quest", "user", "quest_progress", "reviewed_by",)
     list_select_related = ("user", "quest", "reviewed_by",)
     readonly_fields = ("created_at", "reviewed_at", "reviewed_by", "proof_link")
     actions = ("approve_proofs", "reject_proofs")
+
+    @admin.display(description="Квест", ordering="quest__title")
+    def quest_title(self, obj: SelfReportProof):
+        # Название, а не служебный код вида self-report-lab.
+        return obj.quest.title if obj.quest_id else "—"
+
+    @admin.display(description="Что сделал студент")
+    def comment_short(self, obj: SelfReportProof):
+        text = (obj.comment or "").strip()
+        if not text:
+            return "—"
+        return text if len(text) <= 140 else f"{text[:140]}…"
+
+    @admin.display(description="Решение")
+    def decision(self, obj: SelfReportProof):
+        """Кнопки внутри формы списка: у неё уже есть CSRF-токен, а нажатие
+        перехватывает changelist_view ниже."""
+        if obj.status != SelfReportProofStatus.PENDING:
+            return "—"
+        return format_html(
+            '<button type="submit" name="row_approve" value="{}" class="btn btn-sm btn-success mb-1">'
+            "Одобрить</button> "
+            '<button type="submit" name="row_reject" value="{}" class="btn btn-sm btn-outline-danger mb-1">'
+            "Отклонить</button>",
+            obj.pk,
+            obj.pk,
+        )
+
+    def changelist_view(self, request, extra_context=None):
+        if request.method == "POST":
+            for field, handler in (("row_approve", self.approve_proofs), ("row_reject", self.reject_proofs)):
+                pk = request.POST.get(field)
+                if pk and pk.isdigit():
+                    # get_queryset ограничивает видимость: чужую заявку по
+                    # подменённому номеру не одобрить.
+                    handler(request, self.get_queryset(request).filter(pk=int(pk)))
+                    return HttpResponseRedirect(request.get_full_path())
+        return super().changelist_view(request, extra_context)
+
+    def has_add_permission(self, request):
+        # Заявки создают студенты; сотруднику создавать их незачем.
+        return False
 
     @admin.display(description="Доказательство")
     def proof_link(self, obj: SelfReportProof):

@@ -72,8 +72,33 @@ def notify_user(user, text: str) -> bool:
     if not chat_id:
         # Аккаунт без привязки — не ошибка: студент мог не активироваться.
         return False
-    ok, _ = send_message(chat_id, text)
-    return ok
+    return enqueue_message(chat_id, text)
+
+
+def enqueue_message(chat_id: int, text: str) -> bool:
+    """Поставить сообщение в очередь Celery, а не ждать Telegram в запросе.
+
+    Раньше отправка шла прямо в запросе с таймаутом 8 секунд на сообщение.
+    Одобрение пачки заявок в админке, респект или вызов на дуэль ждали
+    ответа Telegram по каждому получателю: восемь медленных ответов — и
+    запрос упирался в 60-секундный предел gunicorn, обрывался с 502, а
+    заявки оставались одобренными наполовину.
+
+    Возвращает «поставлено в очередь», а не «доставлено»: о доставке
+    в момент вызова уже ничего не известно.
+    """
+    from kombu.exceptions import OperationalError as BrokerUnavailable
+
+    from apps.notifications.tasks import send_telegram_message
+
+    try:
+        send_telegram_message.delay(chat_id, text)
+    except BrokerUnavailable as exc:
+        # Очередь недоступна: лучше отправить медленно, чем потерять.
+        logger.warning("Очередь уведомлений недоступна (%s), отправляю сразу", type(exc).__name__)
+        ok, _ = send_message(chat_id, text)
+        return ok
+    return True
 
 
 def notify_users(users, text: str) -> int:

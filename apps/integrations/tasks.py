@@ -211,6 +211,25 @@ def process_hik_snapshot_daily() -> str:
 
 
 @shared_task
+def apply_hik_snapshot_task(date_iso: str) -> str:
+    """Применить снимок Hik за день в фоне — для кнопки в админке.
+
+    Кнопка делала это прямо в запросе с лимитом 50 000 событий: страница
+    висела минуту, gunicorn обрывал запрос по таймауту, и сотрудник видел
+    502, не зная, применился снимок или нет.
+    """
+    from datetime import date
+
+    result = apply_hik_snapshot(date.fromisoformat(date_iso), skip_process=False)
+    if result.get("error"):
+        return f"hik_snapshot_error date={date_iso}: {result['error']}"
+    return (
+        f"hik_snapshot date={date_iso} import={result.get('import_inserted')} "
+        f"external={result.get('external_created')}"
+    )
+
+
+@shared_task
 def process_hik_events_daily() -> str:
     """Доработка очереди необработанных HikEvent."""
     if not getattr(settings, "HIK_PROCESS_ENABLED", True):

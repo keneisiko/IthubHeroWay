@@ -20,6 +20,15 @@ from celery import shared_task
 logger = logging.getLogger(__name__)
 
 
+@shared_task(ignore_result=True)
+def send_telegram_message(chat_id: int, text: str) -> str:
+    """Отправка одного уведомления в фоне. См. `enqueue_message`."""
+    from apps.notifications.services.telegram import send_message
+
+    _, reason = send_message(chat_id, text)
+    return reason
+
+
 @shared_task
 def squad_digest_friday() -> str:
     """Пятничный дайджест отряда — не реализован."""

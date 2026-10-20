@@ -1,0 +1,103 @@
+.dashboard-role-nav {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.role-link {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  background: #1d4ed8;
+  color: #fff !important;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dash-card {
+  background: #111827;
+  color: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid #334155;
+  padding: 8px;
+  text-align: left;
+}
+
+/* Очередь подтверждений на главной странице админки. */
+.review-queue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #2b2b2b;
+  color: #d0d0d0;
+  font-weight: 600;
+}
+
+.review-queue--has-work {
+  background: #7a2ecc;
+  color: #fff;
+}
+
+.review-queue__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: #ffd900;
+  color: #121212;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.review-queue .role-link {
+  margin-left: auto;
+}
+
+/* Имя вошедшего сотрудника в шапке бокового меню было тёмно-серым на
+   тёмно-сером (#212529 на #343a40) — практически невидимым. */
+.app-sidebar .info,
+.app-sidebar .info a {
+  color: #e9ecef;
+}
+
+/* Пункты меню обрезались многоточием: «Подтверждения выпол…», «Снимки
+   рейтинга отря…». Полное название важнее ровной колонки — переносим. */
+.app-sidebar .nav-link > p {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+
+/* Промежуточная страница действий: поля во всю ширину карточки. */
+.card form .form-group select,
+.card form .form-group input[type="text"],
+.card form .form-group input[type="date"],
+.card form .form-group input[type="number"],
+.card form .form-group textarea {
+  width: 100%;
+  max-width: 560px;
+}

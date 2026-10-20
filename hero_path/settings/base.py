@@ -235,13 +235,18 @@ JAZZMIN_SETTINGS = {
         "social",
         "integrations",
     ],
+    # Одна ссылка, ведущая каждого в его дашборд: три отдельных показывались
+    # всем ролям, а открывались только своей — остальным 403.
     "custom_links": {
         "accounts": [
-            {"name": "Кураторский дашборд", "url": "admin-curator-dashboard", "icon": "fas fa-user-check"},
-            {"name": "Дашборд тьютора", "url": "admin-tutor-dashboard", "icon": "fas fa-user-graduate"},
-            {"name": "Дашборд штаба", "url": "admin-hq-dashboard", "icon": "fas fa-flag"},
+            {"name": "Мой дашборд", "url": "admin-my-dashboard", "icon": "fas fa-gauge"},
         ],
     },
+    # Формы одной страницей. По умолчанию тема раскладывает разделы формы
+    # на вкладки, а адрес вкладки строит из русского названия раздела —
+    # такие вкладки не переключаются. Ошибка проверки на невидимой вкладке
+    # выглядела как «нажал Сохранить, ничего не произошло».
+    "changeform_format": "single",
     "icons": {
         "accounts.User": "fas fa-users",
         "accounts.Squad": "fas fa-people-group",
@@ -255,6 +260,11 @@ JAZZMIN_SETTINGS = {
     },
     "custom_css": "admin/css/custom_admin.css",
 }
+
+# Вход в админку по прямой ссылке /admin/login/ без «next» отправлял на
+# /accounts/profile/ — такой страницы нет, сотрудник видел 404 сразу после
+# ввода пароля.
+LOGIN_REDIRECT_URL = "/admin/"
 
 # Cache TTLs (seconds)
 LEADERBOARD_CACHE_TTL = 300  # 5 minutes

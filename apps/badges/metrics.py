@@ -154,6 +154,25 @@ FLAG_METRICS: dict[str, Callable[[User], bool]] = {
 
 SUPPORTED_CONDITION_KEYS = set(THRESHOLD_METRICS) | set(FLAG_METRICS) | {MANUAL_CONDITION_KEY}
 
+# Как метрики называются для людей — в форме нашивки в админке. Без этого
+# сотрудник должен был сам писать JSON вида {"rating_at_least": 250}.
+METRIC_LABELS: dict[str, str] = {
+    "completed_quests_at_least": "Выполнено квестов, не меньше",
+    "completed_weekly_quests_at_least": "Выполнено недельных квестов, не меньше",
+    "rating_at_least": "Рейтинг, не меньше",
+    "late_streak_at_least": "Дней подряд без опозданий, не меньше",
+    "attendance_streak_at_least": "Дней подряд без пропусков, не меньше",
+    "ct_closed_at_least": "Закрыто контрольных точек, не меньше",
+    "respects_given_at_least": "Отправлено респектов, не меньше",
+    "respects_received_at_least": "Получено респектов, не меньше",
+    "duels_won_at_least": "Выиграно дуэлей, не меньше",
+    "purchases_at_least": "Покупок в магазине, не меньше",
+    "coins_spent_at_least": "Потрачено монет, не меньше",
+    "max_pillar_at_least": "Лучшая характеристика, не меньше",
+    "badges_at_least": "Собрано нашивок, не меньше",
+    "telegram_linked": "Привязал Telegram (число не нужно)",
+}
+
 
 def required_metrics(conditions) -> set[str]:
     """Какие метрики нужны этому набору условий.

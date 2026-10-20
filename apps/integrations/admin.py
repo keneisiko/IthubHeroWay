@@ -106,13 +106,19 @@ class HikSnapshotAdmin(ManagedRoleAdminMixin):
 
     @admin.action(description="Импортировать снимок → HikEvent → ExternalEvent")
     def apply_snapshot(self, request, queryset):
-        from apps.integrations.services.hik_snapshot_service import apply_hik_snapshot
+        # В фоне: в запросе обработка до 50 000 событий упиралась в таймаут
+        # gunicorn, и страница падала с 502 посреди работы.
+        from apps.integrations.tasks import apply_hik_snapshot_task
 
-        done = 0
-        for snap in queryset:
-            apply_hik_snapshot(snap.date, skip_process=False)
-            done += 1
-        self.message_user(request, f"Обработано снимков Hik: {done}.", level=messages.SUCCESS)
+        dates = sorted({snap.date for snap in queryset})
+        for day in dates:
+            apply_hik_snapshot_task.delay(day.isoformat())
+        self.message_user(
+            request,
+            f"Запущена обработка снимков Hik: {len(dates)}. Это займёт несколько минут — "
+            "результат появится в «Запусках импорта Hik» и в посещаемости.",
+            level=messages.SUCCESS,
+        )
 
 
 @admin.register(LXPSnapshot)

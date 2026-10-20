@@ -5,7 +5,7 @@ from django.urls import include, path
 from django_prometheus import exports
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from apps.operations.admin_views import curator_dashboard, hq_dashboard, tutor_dashboard
+from apps.operations.admin_views import curator_dashboard, hq_dashboard, my_dashboard, tutor_dashboard
 from apps.operations.health_views import HealthView, ReadyView
 from hero_path.admin_site import setup_admin_site
 
@@ -13,6 +13,7 @@ from hero_path.admin_site import setup_admin_site
 setup_admin_site()
 
 urlpatterns = [
+    path("admin/my-dashboard/", my_dashboard, name="admin-my-dashboard"),
     path("admin/curator/", curator_dashboard, name="admin-curator-dashboard"),
     path("admin/tutor/", tutor_dashboard, name="admin-tutor-dashboard"),
     path("admin/hq/", hq_dashboard, name="admin-hq-dashboard"),
