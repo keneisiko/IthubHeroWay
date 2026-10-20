@@ -141,6 +141,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const tilt = useTilt()
+  // На тач-экране наведения нет: подсказку по оси не увидеть, и радар
+  // читается как фигура без смысла. Там подписываем оси прямо на графике.
+  const [touchOnly] = useState(() => window.matchMedia('(hover: none)').matches)
   const { toasts, addToast } = useToasts()
 
   // quiet — обновить после действия без лоадера на весь экран
@@ -314,6 +317,18 @@ export default function Dashboard() {
                 data={radarData}
                 options={{
                   ...radarOptions,
+                  layout: { padding: touchOnly ? 6 : 0 },
+                  scales: {
+                    r: {
+                      ...radarOptions.scales.r,
+                      pointLabels: {
+                        display: touchOnly,
+                        color: '#9a33f4',
+                        font: { family: 'Montserrat', size: 13, weight: 700 },
+                        padding: 8,
+                      },
+                    },
+                  },
                   plugins: {
                     legend: { display: false },
                     tooltip: {

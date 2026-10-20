@@ -1,0 +1,261 @@
+/* =========================
+   УДОБСТВО НАЖАТИЯ И ОТКЛИК НА ВВОД
+   Подключается последним: правит хитбоксы и нажатия поверх
+   страниц, не меняя их раскладку.
+   ========================= */
+
+/* системная подсветка касания ложилась бирюзовым поверх фиолетового
+   и чёрного — нажатие показывают сами кнопки */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* без задержки двойного тапа: кнопка реагирует сразу */
+a, button, [role='button'], [role='tab'], label, input, select, textarea, summary {
+  touch-action: manipulation;
+}
+
+/* --- вкладки: подпись мелкая, а нажимать надо по всей высоте ленты.
+   Поле нажатия растёт отступами, отрицательные поля держат раскладку --- */
+.q1__tab,
+.shop-tab,
+.profile-path__tab {
+  padding-block: 12px;
+  margin-block: -12px;
+}
+
+/* --- кнопка аватара в шапке: 38px — меньше пальца --- */
+.top-header__user > button {
+  position: relative;
+}
+
+.top-header__user > button::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+/* --- поиск: поле на всю высоту плашки, плашка — одно целое поле --- */
+.leaderboard-search,
+.squad-members__search {
+  padding-block: 4px;
+  cursor: text;
+  transition: box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.leaderboard-search input,
+.squad-members__search-input {
+  min-height: 44px;
+  caret-color: var(--purple-500);
+}
+
+.leaderboard-search input:focus-visible,
+.squad-members__search-input:focus-visible { outline: none; }
+
+.leaderboard-search:focus-within,
+.squad-members__search:focus-within {
+  /* поиск лежит на фиолетовой панели: фиолетовая рамка с ней сливалась */
+  box-shadow: inset 0 0 0 3px var(--ithub-black);
+}
+
+.leaderboard-search svg *,
+.squad-members__search svg * {
+  transition: stroke 0.25s ease;
+}
+
+.leaderboard-search:focus-within svg *,
+.squad-members__search:focus-within svg * {
+  stroke: var(--purple-500);
+}
+
+.leaderboard-search svg,
+.squad-members__search svg {
+  flex: 0 0 auto;
+  transform-origin: 40% 40%;
+}
+
+/* --- кнопки, которые были ниже пальца --- */
+.squad-member-row__rating { min-height: 40px; }
+
+.scroll-top {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.popup__input { caret-color: var(--purple-500); }
+
+@media (max-width: 900px) {
+  .shop-card__buy { min-height: 44px; }
+  .squad-member-row__rating { height: 40px; }
+  .bd-cat { height: 42px; }
+
+  /* длинная подсказка в поиске обрезалась на середине слова */
+  .squad-members__search-input,
+  .leaderboard-search input {
+    font-size: 16px !important;
+    text-overflow: ellipsis;
+  }
+}
+
+/* =========================
+   ОТКЛИК НА ВВОД (lib/typingFx.ts)
+   ========================= */
+
+.type-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.type-fx__px {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  background: var(--purple-500);
+  /* белая кайма: пиксель виден и на белом поле, и на фиолетовой панели */
+  box-shadow: 0 0 0 2px var(--ithub-white);
+  animation: typePx 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.type-fx__px--coin { background: var(--sys-yellow); box-shadow: 0 0 0 2px var(--ithub-black); }
+
+@keyframes typePx {
+  0% { opacity: 0.95; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), -30px) scale(0.5) rotate(90deg); }
+}
+
+/* поле коротко вспыхивает на каждое нажатие; два одинаковых ключевых
+   кадра нужны, чтобы смена атрибута перезапускала анимацию */
+.popup__input[data-typing='a'],
+.leaderboard-search[data-typing='a'],
+.squad-members__search[data-typing='a'] { animation: typeTickA 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+
+.popup__input[data-typing='b'],
+.leaderboard-search[data-typing='b'],
+.squad-members__search[data-typing='b'] { animation: typeTickB 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+
+.leaderboard-search[data-typing] svg,
+.squad-members__search[data-typing] svg { animation: typeLens 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+.leaderboard-search[data-typing='b'] svg,
+.squad-members__search[data-typing='b'] svg { animation-name: typeLensB; }
+
+@keyframes typeTickA {
+  0% { box-shadow: inset 0 0 0 3px var(--ithub-black), 0 0 0 5px rgba(245, 245, 245, 0.55); }
+  100% { box-shadow: inset 0 0 0 3px var(--ithub-black), 0 0 0 0 rgba(245, 245, 245, 0); }
+}
+
+@keyframes typeTickB {
+  0% { box-shadow: inset 0 0 0 3px var(--ithub-black), 0 0 0 5px rgba(245, 245, 245, 0.55); }
+  100% { box-shadow: inset 0 0 0 3px var(--ithub-black), 0 0 0 0 rgba(245, 245, 245, 0); }
+}
+
+@keyframes typeLens {
+  40% { transform: scale(1.18) rotate(-10deg); }
+}
+
+@keyframes typeLensB {
+  40% { transform: scale(1.18) rotate(-10deg); }
+}
+
+/* у поля в окне своя рамка — вспышка вокруг неё, без внутренней обводки */
+.popup__input[data-typing='a'] { animation-name: typeTickInputA; }
+.popup__input[data-typing='b'] { animation-name: typeTickInputB; }
+
+@keyframes typeTickInputA {
+  0% { box-shadow: 0 0 0 7px rgba(154, 51, 244, 0.25); }
+  100% { box-shadow: 0 0 0 4px rgba(154, 51, 244, 0.18); }
+}
+
+@keyframes typeTickInputB {
+  0% { box-shadow: 0 0 0 7px rgba(154, 51, 244, 0.25); }
+  100% { box-shadow: 0 0 0 4px rgba(154, 51, 244, 0.18); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup__input[data-typing],
+  .leaderboard-search[data-typing],
+  .squad-members__search[data-typing],
+  .leaderboard-search[data-typing] svg,
+  .squad-members__search[data-typing] svg { animation: none; }
+}
+
+/* =========================
+   НАЛЕЗАНИЯ НА УЗКИХ ЭКРАНАХ
+   ========================= */
+
+/* строка лидера не шире списка: длинное имя с «Это ты» раньше
+   распирало карточку за край белой панели */
+.leaderboard-item { min-width: 0; }
+.leaderboard-item__card { min-width: 0; }
+.leaderboard-item__tags { flex: 1 1 auto; min-width: 0; }
+
+@media (max-width: 900px) {
+  /* рейтинг держал 110px и отъедал место у имени: «Демо-аг…» */
+  .leaderboard-item__rating {
+    min-width: 76px;
+    min-height: 40px;
+  }
+
+  .leaderboard-item__tags .tag--me {
+    margin: 2px 0;
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+}
+
+/* три вкладки квестов не помещались в 360px и давали прокрутку вбок */
+@media (max-width: 400px) {
+  .q1__tabs-card { padding: 0 12px; }
+  .q1__tabs-row { gap: var(--space-8); }
+  .q1__tab { font-size: 13px; }
+  .q1__tab--active { font-size: 14px; }
+}
+
+/* поле самоотчёта — многострочное: в 48px подсказка не помещалась */
+textarea.popup__input {
+  height: auto;
+  min-height: 128px;
+  padding: 12px 16px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+/* кнопки окон: подпись не вылезает за кнопку на узком экране */
+.shop-modal__btn {
+  min-width: 0;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.shop-modal__btn:active:not(:disabled) { transform: scale(0.97); }
+
+@media (max-width: 900px) {
+  .shop-modal__btn {
+    height: 54px;
+    font-size: 18px;
+  }
+
+  /* на телефоне поле ввода в окне — 16px: меньше iOS увеличивает страницу */
+  .popup__input { font-size: 16px; }
+}
+
+/* =========================
+   ОТРЯДЫ
+   ========================= */
+
+.squad-member-row__avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(154, 51, 244, 0.16);
+  color: var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* «Курс» прилипал к нижнему краю плашки с названием */
+.squad-my__course { margin-top: 6px; }

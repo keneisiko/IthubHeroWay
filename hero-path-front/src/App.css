@@ -151,9 +151,11 @@
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .hover-lift:hover {
   transform: translateY(-6px) scale(1.02);
   box-shadow: 0 20px 40px rgba(154, 51, 244, 0.25), 0 8px 16px rgba(0,0,0,0.12);
+}
 }
 
 /* Glassmorphism header */
@@ -181,10 +183,12 @@
   transition: box-shadow 0.3s ease, transform 0.2s ease !important;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .q1__card-confirm:hover,
 .shop-card__buy:hover {
   box-shadow: 0 0 24px rgba(154, 51, 244, 0.6), 0 4px 12px rgba(0,0,0,0.2) !important;
   transform: translateY(-2px) !important;
+}
 }
 
 /* Плавный переход между страницами */
@@ -255,9 +259,11 @@
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .hover-lift:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.5);
+}
 }
 
 /* Smooth button press */
@@ -292,10 +298,12 @@
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .shop-card:hover,
 .leaderboard-item:hover {
   transform: translateY(-3px);
   box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.5);
+}
 }
 
 body {
@@ -534,13 +542,17 @@ body {
   color: #f5f5f5;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .header-user-menu__item:hover svg circle,
 .header-user-menu__item:hover svg path[fill] {
   fill: #f5f5f5 !important;
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
 .header-user-menu__item:hover svg path[stroke] {
   stroke: #f5f5f5 !important;
+}
 }
 
 .header-user-menu__divider {
@@ -725,9 +737,11 @@ body {
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .card:hover {
   transform: translateY(-4px);
   box-shadow: var(--card-shadow-hover);
+}
 }
 
 .card--light {
@@ -755,8 +769,10 @@ body {
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .card--light:hover .series__icon-image {
   transform: scale(1.06) rotate(-3deg);
+}
 }
 
 .series__title-wrap { flex: 1 0 0; min-width: 0; }
@@ -1060,9 +1076,11 @@ body {
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .activity-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--card-shadow-hover);
+}
 }
 
 .section-title {
@@ -1116,10 +1134,12 @@ body {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .activity__item:hover {
   transform: translateX(4px);
   border-color: #7b1fe0;
   box-shadow: 0 18px 36px -16px rgba(154, 51, 244, 0.4);
+}
 }
 
 .activity__item time { margin-top: auto; text-align: right; font-size: 20px; font-weight: 600; color: #848484; }
@@ -1178,7 +1198,9 @@ body {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .popup__submit:hover { background: #7b1fe0; box-shadow: 0 20px 40px -14px rgba(154, 51, 244, 0.7); }
+}
 
 .overlay--closing { animation: overlayFadeOut 0.22s ease-in forwards; }
 .popup--closing { animation: popOut 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -1570,8 +1592,10 @@ body {
   transition: transform 0.2s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .profile-radar__axis:hover {
   scale: 1.08;
+}
 }
 
 .profile-radar__chart {
@@ -2374,14 +2398,18 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .q1__card-confirm:hover {
   background: var(--ithub-black);
   color: var(--ithub-white);
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
 .q1__card-confirm:hover {
   background: #9a33f4;
   color: #f5f5f5;
+}
 }
 
 .q1__card-note {
@@ -2475,7 +2503,9 @@ body {
   transition: opacity 0.2s;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .q1__wcard-pick:hover { opacity: 0.85; }
+}
 
 .q1__wcard--selected {
   border-color: #ffd900;
@@ -2678,9 +2708,11 @@ body {
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .q1__activity-more:hover {
   background: #9a33f4;
   color: #f5f5f5;
+}
 }
 
 /* =========================
@@ -2843,8 +2875,10 @@ body {
   border-radius: 3px;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .leaderboard-list::-webkit-scrollbar-thumb:hover {
   background: rgba(154, 51, 244, 0.55);
+}
 }
 
 .leaderboard-item {
@@ -2995,9 +3029,11 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .leaderboard-item__button:hover {
   background: #9a33f4;
   color: #f5f5f5;
+}
 }
 
 .leaderboard-divider {
@@ -3304,8 +3340,10 @@ body {
   opacity: 1;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .shop-card__buy:hover {
   opacity: 0.85;
+}
 }
 
 /* =========================
@@ -3759,9 +3797,11 @@ body {
   transition: all 0.2s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .shop-card__detail:hover {
   background: #9a33f4;
   color: #f5f5f5;
+}
 }
 
 /* =========================
@@ -3820,10 +3860,12 @@ body {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .popup__submit:hover {
   background: #7b1fe0;
   box-shadow: 0 20px 40px -14px rgba(154, 51, 244, 0.7);
   transform: translateY(-1px);
+}
 }
 
 /* =========================
@@ -3888,9 +3930,11 @@ body {
   box-shadow: 0 16px 32px -14px rgba(154, 51, 244, 0.55);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .shop-modal__btn--primary:hover {
   background: #7b1fe0;
   transform: translateY(-2px);
+}
 }
 
 .shop-modal__btn--secondary {
@@ -3899,9 +3943,11 @@ body {
   border: 4px solid #121212;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .shop-modal__btn--secondary:hover {
   background: #121212;
   color: #f5f5f5;
+}
 }
 
 .shop-modal__btn--small {
@@ -4101,9 +4147,11 @@ body {
   transition: all 0.2s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .squad-modal__invite-btn:hover {
   background: #7b1fe0;
   transform: translateY(-1px);
+}
 }
 
 .squad-modal__empty {
@@ -4218,9 +4266,11 @@ body {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .profile-card__avatar:hover {
   transform: scale(1.05);
   box-shadow: 0 0 20px rgba(154, 51, 244, 0.5);
+}
 }
 
 /* =========================
@@ -4239,9 +4289,11 @@ body {
   margin-bottom: 16px;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .avatar-upload-zone:hover {
   background: rgba(154, 51, 244, 0.08);
   border-color: #7b1fe0;
+}
 }
 
 .avatar-upload-icon {
@@ -4353,9 +4405,11 @@ body {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .error-page__btn:hover {
   background: #7b1fe0;
   transform: translateY(-1px);
+}
 }
 
 /* =========================
@@ -4421,8 +4475,10 @@ body {
   border-radius: 4px;
 }
 
+@media (hover: hover) and (pointer: fine) {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(154, 51, 244, 0.5);
+}
 }
 
 ::selection {
@@ -4697,9 +4753,11 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .q1__slot-confirm:hover {
   background: var(--ithub-black);
   color: var(--ithub-white);
+}
 }
 
 .q1__slot-auto {
@@ -5226,9 +5284,11 @@ body {
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .q1__card-confirm:hover {
   background: var(--purple-500);
   color: var(--ithub-white);
+}
 }
 
 .q1__card-review {
@@ -5346,7 +5406,9 @@ body {
   transition: background-color .2s, border-color .2s, color .2s;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .profile-social__action:hover { background: #8424d9; border-color: #8424d9; }
+}
 
 .profile-social__action--light {
   border-color: var(--ithub-black);
@@ -5354,10 +5416,12 @@ body {
   color: var(--ithub-black);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .profile-social__action--light:hover {
   background: var(--ithub-white);
   border-color: var(--purple-500);
   color: var(--purple-500);
+}
 }
 
 /* Подсказки поиска студентов в модалках социальных действий. */
@@ -5383,8 +5447,10 @@ body {
   text-align: left;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .agent-picker__row:hover {
   background: #ebebeb;
+}
 }
 
 .agent-picker__row--picked {
@@ -5412,8 +5478,10 @@ body {
   cursor: not-allowed;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .agent-picker__row--disabled:hover {
   background: #f5f5f5;
+}
 }
 
 /* холст салюта (lib/celebrate.ts) — поверх всего, клики не перехватывает */
@@ -5460,7 +5528,9 @@ body {
   pointer-events: auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .scroll-top:hover { box-shadow: var(--card-shadow-hover); }
+}
 .scroll-top:active { transform: scale(0.92); }
 
 /* =========================

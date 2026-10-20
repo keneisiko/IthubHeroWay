@@ -851,7 +851,7 @@
 
   .bd-cat {
     flex: 0 0 auto;
-    height: 38px;
+    height: 42px;
     font-size: 14px;
     scroll-snap-align: start;
   }
@@ -936,6 +936,11 @@
 
 @keyframes bdSheetDown {
   to { transform: translateY(100%); }
+}
+
+@media (max-width: 400px) {
+  .bd__tabs .q1__tab { font-size: 14px; }
+  .bd__tab-count { margin-left: 4px; padding: 0 5px; }
 }
 
 @media (max-width: 360px) {

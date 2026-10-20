@@ -13,6 +13,7 @@ import { clearEnterFlag, hasEnterFlag } from './lib/enterFlag'
 
 import './App.css'
 import './styles/atmosphere.css'
+import './styles/interaction.css'
 
 const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))

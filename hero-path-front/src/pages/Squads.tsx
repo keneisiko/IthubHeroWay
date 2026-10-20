@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import userAvatar from '../assets/branding/user-avatar.png'
 import api from '../api'
 import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
@@ -95,8 +94,7 @@ function SortDropdown({
   )
 }
 
-function memberAvatarUrl(avatar?: string | null): string {
-  if (!avatar) return userAvatar
+function memberAvatarUrl(avatar: string): string {
   if (avatar.startsWith('http')) return avatar
   return avatar.startsWith('/') ? avatar : `/${avatar}`
 }
@@ -135,8 +133,9 @@ export default function Squads() {
     id: index + 1,
     username: m.username,
     name: m.callsign || m.username,
-    track: m.track || '—',
-    status: m.status || '—',
+    // пустые трек и статус не рисуем: плашка «—» выглядела как данные
+    track: m.track || '',
+    status: m.status || '',
     avatar: m.avatar,
     rating: m.rating_current ?? null,
   }))
@@ -507,11 +506,19 @@ export default function Squads() {
             {visibleMembers.map((m, i) => (
               <li key={m.id} className="squad-member-row hover-lift" style={{ animationDelay: `${i * 40}ms` }}>
                 <div className="squad-member-row__main">
-                  <img className="squad-member-row__avatar" src={memberAvatarUrl(m.avatar)} alt="" width={50} height={50} />
+                  {/* без своего аватара — инициалы, как в лидерах: одна и та же
+                      стоковая фотография у всех путала, кто есть кто */}
+                  {m.avatar ? (
+                    <img className="squad-member-row__avatar" src={memberAvatarUrl(m.avatar)} alt="" width={50} height={50} />
+                  ) : (
+                    <span className="squad-member-row__avatar squad-member-row__avatar--initials" aria-hidden="true">
+                      {m.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
                   <div className="squad-member-row__tags">
                     <span className="squad-member-tag squad-member-tag--dark">{m.name}</span>
-                    <span className="squad-member-tag squad-member-tag--purple">{m.track}</span>
-                    <span className="squad-member-tag squad-member-tag--purple">{m.status}</span>
+                    {m.track && <span className="squad-member-tag squad-member-tag--purple">{m.track}</span>}
+                    {m.status && <span className="squad-member-tag squad-member-tag--purple">{m.status}</span>}
                   </div>
                 </div>
                 <button
