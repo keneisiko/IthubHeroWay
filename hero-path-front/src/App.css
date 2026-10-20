@@ -347,6 +347,11 @@ body {
   /* Stroke */
   --stroke-4: 4px;
 
+  /* Поле справа под боковую панель. Раньше это число стояло отдельно
+     у каждой страницы: новая страница про него не знала и уезжала под
+     панель, а на 900-980px отступ уже снимался, хотя панель ещё видна. */
+  --sidebar-gutter: 145px;
+
   /* Тень карточек — одна на весь макет */
   --card-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
   --card-shadow-hover: 25px 32px 26px -18px rgba(0, 0, 0, 0.45);
@@ -569,7 +574,9 @@ body {
 
 .right-sidebar {
   width: 100px;
-  height: 620px;
+  /* высота по числу пунктов: при фиксированных 620px седьмой пункт
+     обрезался нижним краем панели */
+  height: auto;
   border-radius: var(--radius-24);
   /* в макете 24 внешних + 20 внутренних отступа сверху и снизу */
   padding: 44px 0;
@@ -762,6 +769,16 @@ body {
    DASHBOARD — премиальный моушн-слой
    ========================= */
 
+/* Отступ под боковую панель — на корне страницы, чтобы ни один блок
+   не мог оказаться под ней. .dashboard — общий корень ещё и для
+   лидеров, магазина и отрядов. */
+.dashboard,
+.profile,
+.q1,
+.badges-page {
+  padding-right: var(--sidebar-gutter);
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;
@@ -823,7 +840,6 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 460px) minmax(0, 465px);
   gap: clamp(20px, 6vw, 77px);
-  margin-right: 145px;
   align-items: start;
   min-height: 680px;
   position: relative;
@@ -852,7 +868,7 @@ body {
 .card--light {
   width: 100%;
   max-width: 460px;
-  height: 281px;
+  min-height: 281px;
   background: var(--ithub-white);
   display: flex;
   flex-direction: column;
@@ -960,7 +976,7 @@ body {
 .card--purple {
   width: 100%;
   max-width: 460px;
-  height: 379px;
+  min-height: 379px;
   background: var(--purple-500);
   color: var(--ithub-white);
   display: flex;
@@ -1083,7 +1099,7 @@ body {
 .radar-card {
   width: 100%;
   max-width: 465px;
-  height: 446px;
+  min-height: 446px;
   position: relative;
   display: flex;
   align-items: center;
@@ -1213,6 +1229,22 @@ body {
   transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
 }
 
+/* Карточка квеста подстраивает вкладки и шаги под собственную ширину,
+   а не под экран: она бывает узкой и на планшете, и в колонке на
+   десктопе. Стоит после базовых правил — иначе те перебивали бы запрос. */
+.quest { container: quest / inline-size; }
+
+@container quest (max-width: 520px) {
+  .quest__tab { font-size: 18px; height: 42px; padding: 3px var(--space-12); }
+}
+
+@container quest (max-width: 400px) {
+  .quest__tab { font-size: 15px; height: 40px; padding: 3px var(--space-8); }
+  .quest .dot { width: 24px; height: 24px; border-width: 6px; }
+  .quest .quest__steps,
+  .quest .quest-step { gap: var(--space-4); }
+}
+
 .quest__tab:active { transform: scale(0.96); }
 .quest__tab--active { border-color: var(--ithub-white); }
 
@@ -1255,7 +1287,9 @@ body {
 }
 
 .quest__steps { display: flex; align-items: center; justify-content: center; gap: var(--space-8); }
-.quest-step { display: flex; align-items: center; gap: var(--space-8); }
+/* Шаг может ужиматься: на узкой карточке (планшет, телефон) цепочка
+   шагов иначе торчала из неё с обеих сторон. */
+.quest-step { display: flex; align-items: center; gap: var(--space-8); min-width: 0; }
 
 .dot {
   width: 30px;
@@ -1272,7 +1306,13 @@ body {
 .dot--green { background: transparent; border-color: #6cd63e; animation-delay: 0.24s; }
 
 .quest-step__bar {
+  /* 80px из макета; на узкой карточке полоска сжимается. Ширину задаём
+     через width, а не flex-basis: пустой элемент с одной лишь базой
+     браузер считает нулевым, и шаг сжимался до минимума даже при
+     свободном месте. */
   width: 80px;
+  flex-shrink: 1;
+  min-width: 16px;
   height: 12px;
   border-radius: 6px;
   background: var(--ithub-black);
@@ -1353,7 +1393,7 @@ body {
 .activity-card {
   width: 100%;
   max-width: 580px;
-  height: 385px;
+  min-height: 385px;
   border-radius: 24px;
   padding: 20px;
   background: var(--ithub-white);
@@ -1398,11 +1438,12 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(108, 214, 62, 0); }
 }
 
-.activity { width: 100%; height: 289px; display: flex; flex-direction: column; gap: 8px; }
+.activity { width: 100%; min-height: 289px; display: flex; flex-direction: column; gap: 8px; }
 
 .activity__item {
   width: 100%;
-  height: 91px;
+  /* длинная запись в ленте не должна обрезаться рамкой */
+  min-height: 91px;
   border-radius: 12px;
   border: 4px solid #9a33f4;
   background: #f5f5f5;
@@ -1518,7 +1559,6 @@ body {
   grid-template-columns: minmax(0, 580px) minmax(0, 460px);
   gap: 20px;
   align-items: start;
-  padding-right: 145px;
 }
 
 .profile__left {
@@ -1535,7 +1575,7 @@ body {
 .profile-card--primary {
   width: 100%;
   max-width: 580px;
-  height: 294px;
+  min-height: 294px;
   background: #9a33f4;
   color: #f5f5f5;
   padding: 20px;
@@ -1657,7 +1697,6 @@ body {
   position: relative;
   width: 100%;
   max-width: 580px;
-  height: 261px;
   min-height: 261px;
   display: flex;
   flex-direction: column;
@@ -1677,7 +1716,7 @@ body {
 
 .profile-map__body {
   width: 100%;
-  height: 157px;
+  min-height: 157px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1827,7 +1866,7 @@ body {
   padding: 20px 12px 20px 20px;
   width: 100%;
   max-width: 460px;
-  height: 590px;
+  min-height: 590px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1838,11 +1877,18 @@ body {
 }
 
 .profile-radar {
-  margin: 26px auto 0;
+  /* В макете центр радара совпадает с центром шапки, а не колонки слева
+     от боковой панели. Подписи осей до панели не дотягиваются, поэтому
+     блок занимает и поле справа, а холст центрируется внутри. */
+  margin: 26px calc(-1 * var(--sidebar-gutter)) 0 0;
   position: relative;
-  width: 899px;
-  height: 808px;
-  max-width: 100%;
+  /* Подписи осей вынесены за холст примерно на 80px вверх и 24px вниз.
+     Высота считается от холста плюс это поле: при фиксированной высоте
+     на узких брейкпоинтах холст оставался прежним и подписи наезжали
+     на карточку выше. */
+  height: auto;
+  padding: 84px 0 28px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2161,9 +2207,9 @@ body {
   padding: 40px;
   box-shadow: 25px 25px 20px -20px rgba(0, 0, 0, 0.45);
   min-height: 813px;
-  width: min(1180px, 100%);
-  margin-left: auto;
-  margin-right: auto;
+  /* В макете панель на всю ширину под шапкой. Боковой панели она не
+     касается — между ними весь радар, — поэтому занимает и поле справа. */
+  margin-right: calc(-1 * var(--sidebar-gutter));
   overflow: visible;
 }
 
@@ -2290,7 +2336,10 @@ body {
   line-height: 1.15;
   color: var(--ithub-black);
   text-align: center;
-  overflow-wrap: anywhere;
+  /* break-word рвёт слово только когда оно иначе не помещается,
+     anywhere рвал «Командный» посреди слова при любой ширине */
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .path-card__chip {
@@ -2357,7 +2406,7 @@ body {
 }
 
 .profile-aside__title {
-  margin: 0 0 12px;
+  margin: 0;
   font-family: 'TT Firs Neue', sans-serif;
   font-size: 28px;
   font-weight: 700;
@@ -2365,7 +2414,13 @@ body {
   color: #9a33f4;
 }
 
-.profile-aside__title--sp { margin-top: 18px; }
+/* Секция карточки: заголовок и содержимое через 12px, секции между
+   собой — через общий gap карточки (20px), как в макете */
+.profile-aside__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
 
 .profile-aside__stats {
   display: flex;
@@ -2386,8 +2441,10 @@ body {
 }
 
 .profile-aside__mentee {
-  margin-top: 2px;
-  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border-radius: 48px;
   padding: 5px 16px;
   border: 4px solid #121212;
@@ -2543,33 +2600,13 @@ body {
   gap: 12px;
   /* в макете карточки уже слота на 8 с каждой стороны */
   padding: 0 var(--space-8);
-  /* Список прокручивается внутри слота: с экземплярами квестов на каждый
-     период карточек становится много, и без ограничения высоты страница
-     уезжала вниз без конца, унося кнопку подтверждения за край экрана. */
-  max-height: min(58vh, 620px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(18, 18, 18, 0.35) transparent;
-  /* Место под полосу прокрутки, чтобы карточки не дёргались при её появлении. */
-  padding-right: var(--space-12);
 }
 
-.q1__quests-slot-inner::-webkit-scrollbar {
-  width: 8px;
-}
-
-.q1__quests-slot-inner::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.q1__quests-slot-inner::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background: rgba(18, 18, 18, 0.35);
-}
-
-.q1__quests-slot-inner::-webkit-scrollbar-thumb:hover {
-  background: rgba(18, 18, 18, 0.55);
+/* Квестов на каждый период много: видны первые три, остальные — по
+   кнопке «Показать все». Раньше список прокручивался внутри слота —
+   прокрутка в прокрутке, и с телефона его было не пролистать. */
+.q1__quests-slot-inner:not(.q1__quests-slot-inner--all) > .q1__card:nth-child(n + 4) {
+  display: none;
 }
 
 .q1__card {
@@ -2680,6 +2717,22 @@ body {
 }
 
 .q1__card-reward-coins { color: var(--sys-yellow); }
+
+/* полоска прогресса и «Показать все» — только в мобильной ленте */
+.q1__card-bar { display: none; }
+
+.q1__quests-more {
+  width: 100%;
+  height: 56px;
+  border: var(--stroke-4) solid var(--ithub-white);
+  border-radius: var(--radius-16);
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 .q1__card-confirm {
   width: 100%;
@@ -3007,10 +3060,6 @@ body {
 /* =========================
    LEADERBOARD
    ========================= */
-
-.leaderboard-page {
-  padding-right: 145px;
-}
 
 .leaderboard-controls {
   display: flex;
@@ -3340,11 +3389,6 @@ body {
    SHOP
    ========================= */
 
-.shop-page {
-  /* три карточки по 340 с зазором 20 занимают 1060, остальное — под сайдбар */
-  padding-right: 120px;
-}
-
 .shop-page__head {
   display: grid;
   grid-template-columns: minmax(0, 700px) minmax(0, 340px);
@@ -3368,13 +3412,30 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--space-8);
   width: 100%;
   height: 93px;
   padding: 0 20px;
   background: var(--ithub-white);
   border-radius: var(--radius-24);
   box-shadow: var(--card-shadow);
+  /* Когда категории не влезают (планшет, телефон), лента едет вбок.
+     Если влезают — прокрутки нет, вкладки по центру, как в макете. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.shop-tabs::-webkit-scrollbar { display: none; }
+
+/* вкладки и линия под ними: шириной в содержимое, но не уже ленты */
+.shop-tabs__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: max-content;
+  min-width: 100%;
 }
 
 .shop-tabs__labels {
@@ -3603,6 +3664,20 @@ body {
   transition: opacity 0.2s;
 }
 
+/* Не хватает монет — серая кнопка с суммой, как в мобильном макете */
+.shop-card__buy--lack,
+.shop-card__buy--lack:disabled {
+  background: var(--grey-text);
+  border-color: var(--grey-text);
+  color: var(--ithub-white);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.15;
+  padding: 0 var(--space-8);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .shop-card__buy:hover {
   opacity: 0.85;
 }
@@ -3610,10 +3685,6 @@ body {
 /* =========================
    SQUADS
    ========================= */
-
-.squad-page {
-  padding-right: 145px;
-}
 
 .squad-page__top {
   display: grid;
@@ -3897,12 +3968,14 @@ body {
   margin: 0;
 }
 
+/* Карточка участников фиолетовая, поэтому кнопка белая с фиолетовым
+   текстом — как в макете. Прозрачная с фиолетовой обводкой сливалась с фоном. */
 .squad-members__sort {
   height: 40px;
   border-radius: 12px;
-  border: 3px solid #9a33f4;
-  background: transparent;
-  color: #9a33f4;
+  border: 3px solid var(--ithub-white);
+  background: var(--ithub-white);
+  color: var(--purple-500);
   font-family: 'Montserrat', sans-serif;
   font-size: 16px;
   font-weight: 700;
@@ -4694,6 +4767,11 @@ body {
   transform: scale(0.96);
 }
 
+/* неактивная кнопка не «проседает» под пальцем — нажатия ведь не будет */
+.btn-press:disabled:active {
+  transform: none;
+}
+
 /* Фикс для активных осей радара */
 .profile-radar__axis--active {
   background: #9a33f4 !important;
@@ -4756,25 +4834,16 @@ body {
    ========================= */
 
 @media (max-width: 1260px) {
+  :root { --sidebar-gutter: 130px; }
+
   .q1 {
     grid-template-columns: 1fr;
-    padding-right: 130px;
   }
 
   .q1__right {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-  }
-
-  .leaderboard-page,
-  .shop-page,
-  .squad-page {
-    padding-right: 130px;
-  }
-
-  .profile__top {
-    padding-right: 130px;
   }
 
   .shop-grid {
@@ -4789,16 +4858,11 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .profile-radar {
-    width: 100%;
-    height: 600px;
-  }
 }
 
 @media (max-width: 980px) {
   .q1 {
     grid-template-columns: 1fr;
-    padding-right: 0;
   }
 
   .q1__right {
@@ -4820,16 +4884,6 @@ body {
 
   .q1__tab {
     font-size: 16px;
-  }
-
-  .leaderboard-page,
-  .shop-page,
-  .squad-page {
-    padding-right: 0;
-  }
-
-  .profile__top {
-    padding-right: 0;
   }
 
   .leaderboard-controls {
@@ -4873,8 +4927,7 @@ body {
   }
 
   .profile-radar {
-    width: 100%;
-    height: 500px;
+    padding: 84px 0 50px;
   }
 
   .profile-radar__chart {
@@ -4984,16 +5037,6 @@ body {
   text-decoration: underline;
   text-underline-position: from-font;
 }
-
-/* Шефство: чип подшефного и кнопка в одну строку — по макету Figma */
-.profile-aside__mentor-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-}
-
-.profile-aside__mentor-row .profile-aside__mentor-btn { margin-top: 0; }
 
 /* Обёртка иконки в сайдбаре: flex убирает лишнюю строчную высоту,
    чтобы её центр совпадал с центром самой иконки */
@@ -5171,7 +5214,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-  padding-right: 120px;
+  padding-right: var(--sidebar-gutter);
 }
 
 .shop-detail__back {
@@ -5356,6 +5399,35 @@ body {
 
 .leaderboard-myplace strong { color: var(--purple-500); }
 
+/* своя строка в списке: фиолетовая карточка и пометка «Это ты» */
+.leaderboard-item--me .leaderboard-item__card {
+  background: #f3e8ff;
+  border-color: var(--purple-500);
+  box-shadow: 0 0 0 3px rgba(154, 51, 244, 0.25), var(--card-shadow);
+}
+
+.tag--me {
+  padding: 4px var(--space-12);
+  border-radius: var(--radius-48);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* «Моё место» нажато — строка коротко пульсирует */
+.leaderboard-item--flash .leaderboard-item__card { animation: myRowFlash 1.2s ease-out; }
+
+@keyframes myRowFlash {
+  0%, 40% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(154, 51, 244, 0.35); }
+  100% { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaderboard-item--flash .leaderboard-item__card { animation: none; }
+}
+
 /* Панель фильтров */
 .leaderboard-filters {
   position: absolute;
@@ -5425,7 +5497,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-  padding-right: 120px;
+  padding-right: var(--sidebar-gutter);
 }
 
 .shop-purchases__card {
@@ -5616,52 +5688,94 @@ body {
   cursor: default;
 }
 
-/* Списки дуэлей и подшефных в боковой карточке профиля. */
-.profile-social__list {
+/* Шефство и дуэли в боковой карточке профиля. Словарь макета: человек —
+   белый чип в чёрной рамке с фиолетовым именем, главное действие — чёрная
+   кнопка, подписи — Montserrat 20 SemiBold. Мелкий «обычный» текст сюда
+   не пускаем. */
+.profile-social {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-  margin: 0 0 var(--space-12);
-  padding: 0;
-  list-style: none;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+.profile-social .profile-aside__mentor-btn { margin-top: var(--space-8); }
+.profile-social .profile-aside__btn { margin: 0; }
+
+/* Кнопка, которую сейчас нажать нельзя: причина написана под ней */
+.profile-aside__btn:disabled,
+.profile-aside__mentor-btn:disabled {
+  background: var(--grey-text);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 .profile-social__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-8);
-  font-family: var(--font-text);
-  font-size: 15px;
-  font-weight: 600;
+  gap: var(--space-8) var(--space-12);
+  max-width: 100%;
 }
 
 .profile-social__actions {
   display: flex;
-  gap: var(--space-8);
+  gap: var(--space-12);
 }
 
-.profile-social__link {
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--purple-500);
-  font-family: var(--font-text);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.profile-social__link--muted {
-  color: #848484;
-}
-
-.profile-social__muted {
-  color: #848484;
-  font-family: var(--font-text);
-  font-size: 14px;
+.profile-social__label,
+.profile-social__status,
+.profile-social__empty {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1;
+  color: var(--ithub-black);
+}
+
+.profile-social__status,
+.profile-social__empty { color: var(--grey-text); }
+
+.profile-social__status--win { color: var(--purple-500); }
+
+.profile-social__hint {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--grey-text);
+}
+
+/* Действие над человеком — пилюля того же размера, что и чип рядом */
+.profile-social__action {
+  min-height: 35px;
+  padding: 4px var(--space-16);
+  border-radius: 48px;
+  border: 4px solid var(--purple-500);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .2s, border-color .2s, color .2s;
+}
+
+.profile-social__action:hover { background: #8424d9; border-color: #8424d9; }
+
+.profile-social__action--light {
+  border-color: var(--ithub-black);
+  background: var(--ithub-white);
+  color: var(--ithub-black);
+}
+
+.profile-social__action--light:hover {
+  background: var(--ithub-white);
+  border-color: var(--purple-500);
+  color: var(--purple-500);
 }
 
 /* Подсказки поиска студентов в модалках социальных действий. */
@@ -5715,7 +5829,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-  padding: var(--space-20) 0;
+  /* только по вертикали: сокращённая запись padding обнуляла правое поле
+     под боковую панель, и карточки уезжали под неё */
+  padding-block: var(--space-20);
 }
 
 .badges-toasts {
@@ -5916,6 +6032,92 @@ body {
   background: #f5f5f5;
 }
 
+/* холст салюта (lib/celebrate.ts) — поверх всего, клики не перехватывает */
+.celebrate-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+/* =========================
+   КНОПКА «НАВЕРХ»
+   ========================= */
+
+.scroll-top {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 94;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* белая обводка, как у кнопок макета на цветном фоне: иначе на
+     фиолетовой карточке (лидеры, отряды) кнопка с ней сливалась */
+  border: 3px solid var(--ithub-white);
+  border-radius: var(--radius-12);
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  box-shadow: var(--card-shadow);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(16px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scroll-top--visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.scroll-top:hover { box-shadow: var(--card-shadow-hover); }
+.scroll-top:active { transform: scale(0.92); }
+
+/* =========================
+   МОНЕТЫ В ШАПКЕ
+   ========================= */
+
+/* баланс поменялся — монетка коротко подпрыгивает */
+.top-header__money--up .top-header__coin,
+.top-header__money--down .top-header__coin {
+  animation: coinBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.top-header__money--up strong { animation: coinFlashUp 0.7s ease; }
+.top-header__money--down strong { animation: coinFlashDown 0.7s ease; }
+
+@keyframes coinBounce {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.45) rotate(-12deg); box-shadow: 0 0 12px 3px rgba(255, 217, 0, 0.75); }
+  100% { transform: scale(1); }
+}
+
+@keyframes coinFlashUp {
+  0%, 100% { color: inherit; }
+  30% { color: var(--sys-green); }
+}
+
+@keyframes coinFlashDown {
+  0%, 100% { color: inherit; }
+  30% { color: var(--ithub-white); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav,
+  .bottom-nav__pill,
+  .scroll-top { transition: none; }
+  .top-header__money--up .top-header__coin,
+  .top-header__money--down .top-header__coin,
+  .top-header__money--up strong,
+  .top-header__money--down strong { animation: none; }
+}
+
 /* ============================================================
    МОБИЛЬНАЯ ВЕРСИЯ
    Макет Figma, ширина 440: боковая панель уезжает вниз и
@@ -5930,15 +6132,17 @@ body {
    состояние открытой страницы. */
 .bottom-nav { display: none; }
 
-.top-header__title-mobile { display: none; }
 
 @media (max-width: 900px) {
+  /* панель уехала вниз — поле справа больше не нужно */
+  :root { --sidebar-gutter: 0px; }
+
   /* --- каркас --- */
   .right-sidebar { display: none; }
 
   .app-shell {
     /* место под нижнюю панель, чтобы она не перекрывала контент */
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
   .app-content,
@@ -5973,19 +6177,10 @@ body {
     margin: 0 -8px;
   }
 
-  /* в макете название уходит из шапки под неё */
+  /* на телефоне название не влезает в шапку, а отдельной строкой под
+     ней на каждой странице только съедает экран */
   .top-header__title { display: none; }
-
-  .top-header__title-mobile {
-    display: block;
-    margin: 14px 0 0;
-    text-align: center;
-    font-family: var(--font-display);
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--purple-500);
-  }
+  .top-header { margin-bottom: var(--space-20); }
 
   .top-header__user {
     width: auto;
@@ -6024,22 +6219,30 @@ body {
     min-width: 170px;
   }
 
+  /* кнопка «наверх» поднимается над нижней панелью */
+  .scroll-top {
+    right: 16px;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    width: 44px;
+    height: 44px;
+  }
+
   /* --- нижняя навигация --- */
   .bottom-nav {
     display: flex;
+    /* прибита к нижнему краю: под ней ничего не просвечивает */
     position: fixed;
-    left: 50%;
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 95;
-    width: calc(100vw - 24px);
-    max-width: 416px;
     box-sizing: border-box;
     align-items: center;
     justify-content: space-between;
     gap: 2px;
-    padding: 8px 10px;
-    border-radius: var(--radius-24);
+    /* на планшете иконки не разъезжаются по всей ширине */
+    padding: 8px max(10px, calc((100% - 416px) / 2)) calc(8px + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--radius-24) var(--radius-24) 0 0;
     background: var(--ithub-white);
     box-shadow: var(--card-shadow);
   }
@@ -6059,10 +6262,27 @@ body {
 
   .bottom-nav__item:active { transform: scale(0.92); }
 
-  .bottom-nav__item--active {
+  /* фон активного пункта рисует общая пилюля — она едет между пунктами */
+  .bottom-nav__item { position: relative; z-index: 1; }
+
+  /* пока пилюля не измерена, фон рисует сам пункт: иначе белая иконка
+     активного пункта на кадр пропадала бы на белой панели */
+  .bottom-nav:not(.bottom-nav--measured) .bottom-nav__item--active {
+    background: var(--purple-500);
+  }
+
+  .bottom-nav__pill {
+    position: absolute;
+    top: 8px;
+    left: 0;
+    height: 44px;
+    border-radius: var(--radius-12);
     background: var(--purple-500);
     box-shadow: 0 4px 12px rgba(154, 51, 244, 0.45);
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), width 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
   }
+
 
   .bottom-nav__icon {
     display: flex;
@@ -6083,8 +6303,7 @@ body {
   .profile__top,
   .q1,
   .q1__right,
-  .squad-page__top,
-  .shop-grid {
+  .squad-page__top {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -6119,8 +6338,18 @@ body {
 
   /* в мобильном макете активный квест идёт перед лентой активности,
      на десктопе они лежат в двух колонках и порядок другой */
-  .dashboard__bottom .quest { order: 1; }
-  .dashboard__bottom .activity-card { order: 2; }
+  /* на телефоне сначала то, ради чего заходят: рейтинг и активный
+     квест с кнопкой «Подтвердить»; серия, лента и радар — ниже.
+     Обёртки колонок растворяются, и карточки встают в один поток */
+  .dashboard__top,
+  .dashboard__left-col,
+  .dashboard__bottom { display: contents; }
+
+  .dashboard--home .card--purple { order: 1; }
+  .dashboard--home .quest { order: 2; }
+  .dashboard--home .card--light { order: 3; }
+  .dashboard--home .activity-card { order: 4; }
+  .dashboard--home .radar-card { order: 5; }
 
   /* карточки распрямляются по ширине экрана, высота — по содержимому */
   .card--light,
@@ -6134,7 +6363,8 @@ body {
     height: auto;
   }
 
-  .profile-card--map { min-height: 0; }
+  .profile-card--map,
+  .profile-card--aside { min-height: 0; }
 
   /* фоновые пятна на узком экране только мешают и дают горизонтальный скролл */
   .dash-glow { display: none; }
@@ -6142,7 +6372,7 @@ body {
   /* --- радар главной --- */
   .radar-card {
     max-width: none;
-    height: 340px;
+    min-height: 340px;
     margin-top: 48px;
     padding: 12px;
     justify-self: stretch;
@@ -6150,8 +6380,8 @@ body {
 
   /* --- радар профиля --- */
   .profile-radar {
-    width: 100%;
-    height: 420px;
+    /* подписи здесь мельче, поэтому поле под них меньше десктопного */
+    padding: 64px 0 46px;
   }
 
   /* пилюли осей уходят за холст примерно на 50px с каждой стороны,
@@ -6184,8 +6414,11 @@ body {
   }
 
   /* --- карта пути --- */
+  /* карточки достижений — кнопки: не уже 88px, чтобы в них было удобно
+     попадать и плашка редкости помещалась. На телефоне выходит три
+     колонки, как в мобильном макете. */
   .profile-path__grid {
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
     column-gap: 8px;
     row-gap: 20px;
   }
@@ -6373,29 +6606,98 @@ body {
     min-height: 0;
   }
 
-  /* --- шаги квеста --- */
-  .q1__card-steps { width: 100%; }
-
-  .q1__step-seg,
-  .q1__step-rail {
-    width: auto;
-    flex: 1 1 0;
-    min-width: 12px;
+  /* «Моё место» на телефоне всегда под рукой: прилипает к низу экрана
+     над нижней панелью, пока листаешь список */
+  .leaderboard-myplace {
+    position: sticky;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    height: 52px;
+    font-size: 20px;
   }
 
-  /* заливка сегмента тянется за ним, а не по своей ширине */
-  .q1__step-seg--red::after,
-  .q1__step-seg--yellow::after {
-    width: auto;
-    left: 3px;
-    right: 3px;
+  /* --- квесты: компактная лента вместо прокрутки внутри прокрутки ---
+     одна карточка больше не занимает весь экран: шапка с типом и
+     процентом, название, полоска прогресса, награда и срок строкой */
+  .q1__quests-slot { padding: var(--space-16); }
+
+  .q1__quests-slot-inner { padding: 0; }
+
+  .q1__quests-more { height: 48px; font-size: 18px; }
+
+  .q1__card { padding: var(--space-12) var(--space-16) var(--space-16); }
+  .q1__card-body { gap: var(--space-8); }
+
+  .q1__card-top {
+    flex-wrap: wrap;
+    row-gap: var(--space-8);
+    font-size: 15px;
   }
 
-  .q1__card-pct { font-size: 28px; }
+  .q1__card-kind { order: 0; font-size: 16px; }
+  /* «Цель недели» уходит ко сроку, чтобы процент не съезжал вниз */
+  .q1__card-focus { order: 5; }
+  .q1__card-kind-ic { display: none; }
+  .q1__card-pct { order: 2; margin-left: auto; font-size: 24px; line-height: 1; }
 
-  .q1__card-top { flex-wrap: wrap; font-size: 15px; }
+  /* срок переносится на вторую строку шапки */
+  .q1__card-top::after { content: ''; order: 3; flex-basis: 100%; }
+  .q1__card-left { order: 4; margin: 0; height: 24px; font-size: 14px; padding: 0 var(--space-12); }
 
-  .q1__card-kind { font-size: 18px; }
+  .q1__card-name { font-size: 18px; line-height: 1.2; }
+  .q1__card-desc {
+    font-size: 15px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .q1__card-bar {
+    display: block;
+    height: 8px;
+    border-radius: 8px;
+    background: var(--ithub-black);
+    overflow: hidden;
+  }
+
+  .q1__card-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 8px;
+    background: var(--purple-500);
+  }
+
+  .q1__card--completed .q1__card-bar span { background: var(--sys-green, #6cd63e); }
+
+  .q1__card-reward {
+    justify-content: flex-start;
+    width: fit-content;
+    max-width: 100%;
+    padding: 6px var(--space-12);
+    font-size: 15px;
+  }
+
+  /* еженедельный выбор: варианты тоже компактные */
+  .q1__choice-options { gap: var(--space-12); }
+  .q1__option { padding: var(--space-16); gap: var(--space-8); }
+  .q1__option-title { font-size: 20px; line-height: 1.15; }
+  .q1__option-task { font-size: 15px; line-height: 1.3; }
+  .q1__option-reward {
+    width: fit-content;
+    padding: 6px var(--space-12);
+    font-size: 15px;
+  }
+  .q1__option-pick { height: 44px; font-size: 18px; }
+  .q1__choice-lead { font-size: 18px; line-height: 1.25; }
+
+  .q1__card-confirm {
+    padding: 0 var(--space-16);
+    height: 44px;
+    font-size: 18px;
+    border-radius: var(--radius-12);
+  }
 
   /* --- кошелёк магазина --- */
   .shop-wallet__label,
@@ -6407,22 +6709,6 @@ body {
   .shop-wallet__history-label {
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  /* --- шаги серии на главной --- */
-  .quest-steps { width: 100%; }
-
-  .quest-step,
-  .quest-line {
-    flex-shrink: 1;
-    min-width: 0;
-  }
-
-  /* --- вкладки магазина --- */
-  .shop-tabs__labels {
-    flex-wrap: wrap;
-    justify-content: center;
-    row-gap: 4px;
   }
 
   /* --- плитки достижений --- */
@@ -6440,7 +6726,7 @@ body {
   .ach__rarity {
     max-width: 100%;
     text-align: center;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
     hyphens: auto;
   }
 
@@ -6451,7 +6737,7 @@ body {
     white-space: normal;
     height: auto;
     min-height: 20px;
-    padding: 3px var(--space-8);
+    padding: 3px 6px;
     font-size: 10px;
     line-height: 1.15;
   }
@@ -6467,16 +6753,6 @@ body {
 
   .profile-achievements__row { min-width: 0; }
 
-  /* --- вкладки квеста на главной --- */
-  .quest__tab {
-    font-size: 15px;
-    height: 40px;
-    padding: 3px var(--space-8);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   /* --- кошелёк магазина: заголовок переносится --- */
   .shop-wallet__label {
     font-size: 20px;
@@ -6489,6 +6765,15 @@ body {
   }
 
   /* --- график истории в профиле --- */
+  /* всплывает над радаром: на узком экране якорь слева снизу выводил
+     его за блок, поэтому ставим по центру и внутрь */
+  .profile-history {
+    left: 50%;
+    margin-left: -141px;
+    bottom: 8px;
+    max-width: calc(100% - 16px);
+  }
+
   .profile-history__chart,
   .profile-history__plot {
     max-width: 100%;
@@ -6518,9 +6803,42 @@ body {
     gap: 8px;
   }
 
+  /* как в лидерах: ник, трек и статус колонкой обычным текстом */
   .squad-member-row__tags {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 0;
     min-width: 0;
+  }
+
+  .squad-member-tag {
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .squad-member-tag--dark {
+    color: var(--purple-500);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .squad-member-tag--purple {
+    color: var(--ithub-black);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* заголовок и сортировка не умещаются в строку — ставим их друг под друга */
+  .squad-members__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 
   .squad-member-row__avatar {
@@ -6529,12 +6847,6 @@ body {
     flex-shrink: 0;
   }
 
-  .squad-member-tag {
-    font-size: 12px;
-    padding: 3px 10px;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
 
   .squad-member-row__rating {
     min-width: 0;
@@ -6547,6 +6859,24 @@ body {
 
   /* --- квесты --- */
   .q1__tab { font-size: 14px; }
+
+  .q1__tabs-row {
+    gap: var(--space-12);
+    justify-content: space-between;
+  }
+
+  /* заголовок серии набран крупно и в одну строку не помещается */
+  .series__header {
+    height: auto;
+    align-items: center;
+  }
+
+  .series__header h3 { font-size: 22px; }
+
+  .series__header p {
+    font-size: 18px;
+    overflow-wrap: break-word;
+  }
 
   .q1__choice-options {
     flex-direction: column;
@@ -6562,18 +6892,107 @@ body {
 
   .shop-wallet__label { min-width: 0; }
 
+  /* в макете кошелёк лежит над вкладками, а не рядом с ними */
+  .shop-page__head {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* В колоночном флексе ширина строки равна самому широкому элементу,
+     поэтому левой части нужна явная ширина — иначе она растягивала
+     страницу под своё содержимое. */
+  .shop-page__head-left {
+    order: 2;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .shop-wallet { order: 1; width: 100%; }
+
+  /* лента вкладок прокручивается на любой ширине (см. .shop-tabs),
+     здесь только компактнее */
   .shop-tabs {
     height: auto;
     padding: 12px 14px;
   }
 
-  .shop-tabs__labels {
-    gap: var(--space-16);
-    justify-content: space-between;
-  }
+  .shop-tabs__labels { gap: var(--space-20); }
 
   .shop-tab { font-size: 15px; }
   .shop-tab--active { font-size: 16px; }
+
+  /* товары в макете идут в две колонки */
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .shop-card {
+    min-width: 0;
+    /* высота по содержимому: иначе между ценой и кнопкой зияет пустота */
+    min-height: 0;
+    gap: 8px;
+    padding: var(--space-12);
+  }
+
+  .shop-card__title {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .shop-card__thumb { height: 140px; }
+
+  .shop-card__price {
+    height: 36px;
+    padding: var(--space-4) var(--space-8);
+  }
+
+  .shop-card__price-value { font-size: 18px; }
+  .shop-card__coin { width: 18px; height: 18px; }
+
+  .shop-card__buy {
+    font-size: 14px;
+    height: 36px;
+    padding: 0 10px;
+  }
+
+  /* кнопка списка покупок — во всю ширину, как прочие действия */
+  /* покупка на телефоне: картинка и название сверху, статус и кнопка —
+     строкой ниже, во всю ширину; в одну строку это не помещается */
+  .shop-purchase {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-areas: "img name" "img state" "apply apply";
+    gap: var(--space-12);
+    padding: var(--space-12);
+  }
+  .shop-purchase__image { grid-area: img; align-self: center; }
+  .shop-purchase__name {
+    grid-area: name;
+    justify-self: start;
+    max-width: 100%;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+  .shop-purchase__state {
+    grid-area: state;
+    justify-self: start;
+    font-size: 16px;
+  }
+  .shop-purchase__apply {
+    grid-area: apply;
+    margin-left: 0;
+    width: 100%;
+    height: 44px;
+  }
+
+  .shop-purchases-frame { width: 100%; }
+
+  .shop-purchases-btn {
+    width: 100%;
+    height: 44px;
+  }
 
   /* --- вход --- */
   .login-container { width: calc(100vw - 24px); }
@@ -6590,12 +7009,8 @@ body {
   .top-header__money { font-size: 12px; }
 
   .bottom-nav { gap: 0; padding: 6px; }
+  .bottom-nav__pill { top: 6px; }
   .bottom-nav__icon svg { width: 24px; height: 24px; }
 
-  .profile-radar { height: 360px; }
-  .radar-card { height: 300px; }
-
-  .profile-path__grid {
-    grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
-  }
+  .radar-card { min-height: 300px; }
 }

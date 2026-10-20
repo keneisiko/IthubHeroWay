@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import palmSky from '../assets/shop/palm-sky.png'
 import api from '../api'
+import { notifyBalanceChanged } from '../lib/balance'
+import { celebrate } from '../lib/celebrate'
+import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
-import { formatDateRu, SHOP_TAB_TYPES, unwrapList } from '../lib/apiData'
+import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
@@ -88,10 +91,14 @@ export default function Shop() {
   const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
-  const tabIndicator = useTabIndicator(activeTab, loading)
+  // лента категорий прокручивается на узких экранах; выбранная подъезжает к центру
+  const tabsScrollRef = useRef<HTMLElement>(null)
+  const tabIndicator = useTabIndicator(activeTab, loading, tabsScrollRef)
 
-  const loadShop = useCallback(() => {
-    setLoading(true)
+  // quiet — обновить после покупки без лоадера: иначе сетка товаров
+  // пропадает, страница сжимается и прокрутка прыгает вверх.
+  const loadShop = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (!quiet) setLoading(true)
     const itemType = SHOP_TAB_TYPES[activeTab]
 
     Promise.all([
@@ -158,7 +165,7 @@ export default function Shop() {
       ))
 
       setCoins(String(profileRes.data.coins_balance ?? 0))
-    }).catch(() => addToast('Не удалось загрузить магазин', 'error'))
+    }).catch(() => addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error'))
       .finally(() => setLoading(false))
   }, [activeTab, addToast])
 
@@ -177,7 +184,7 @@ export default function Shop() {
     request
       .then(() => {
         addToast(purchase.isApplied ? 'Покупка снята' : 'Покупка применена', 'success')
-        return loadShop()
+        loadShop({ quiet: true })
       })
       .catch(() => addToast('Не удалось изменить покупку', 'error'))
       .finally(() => setApplyingId(null))
@@ -185,6 +192,8 @@ export default function Shop() {
 
   const selectedProduct = products.find(p => p.id === (showPurchase ?? showDetail))
   const selectedDetail = showDetail !== null ? products.find(p => p.id === showDetail) : undefined
+  // сколько монет не хватает на открытый товар (0 — хватает)
+  const detailLack = selectedDetail ? Math.max(0, Number(selectedDetail.price) - Number(coins)) : 0
   // Бэкенд отдаёт одно изображение на товар, галереи в данных нет
   const detailImages = [selectedDetail?.image ?? palmSky]
 
@@ -195,9 +204,11 @@ export default function Shop() {
     api.post('/api/v1/shop/purchase/', { item_code: product.code })
       .then(() => {
         addToast('Покупка оформлена!', 'success')
-        loadShop()
+        celebrate('big')
+        notifyBalanceChanged()
+        loadShop({ quiet: true })
       })
-      .catch(() => addToast('Не удалось оформить покупку', 'error'))
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось оформить покупку'), 'error'))
       .finally(() => setShowPurchase(null))
   }, [showPurchase, products, addToast, loadShop])
 
@@ -277,13 +288,23 @@ export default function Shop() {
                 {selectedDetail.desc || 'Описание пока не заполнено.'}
               </p>
             </div>
-            <button
-              type="button"
-              className="shop-detail__buy btn-press"
-              onClick={() => setShowPurchase(selectedDetail.id)}
-            >
-              Купить
-            </button>
+            {purchasedCodes.has(selectedDetail.code) ? (
+              <button type="button" className="shop-detail__buy" disabled>
+                Куплено
+              </button>
+            ) : detailLack > 0 ? (
+              <button type="button" className="shop-detail__buy shop-card__buy--lack" disabled>
+                {`Не хватает ${detailLack} ${plural(detailLack, ['монеты', 'монет', 'монет'])}`}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="shop-detail__buy btn-press"
+                onClick={() => setShowPurchase(selectedDetail.id)}
+              >
+                Купить
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -291,24 +312,28 @@ export default function Shop() {
       <>
       <div className="shop-page__head">
         <div className="shop-page__head-left">
-        <nav className="shop-tabs" aria-label="Категории магазина">
-          <div className="shop-tabs__labels" role="tablist" ref={tabIndicator.containerRef}>
-            {TABS.map((label, index) => (
-              <button
-                key={label} type="button" role="tab"
-                aria-selected={activeTab === index}
-                className={`shop-tab ${activeTab === index ? 'shop-tab--active' : ''} btn-press`}
-                onClick={() => setActiveTab(index)}
-                ref={tabIndicator.registerTab(index)}
-              >{label}</button>
-            ))}
-          </div>
-          <div className="shop-tabs__track" aria-hidden="true">
-            <span className="shop-tabs__line" />
-            <div
-              className="shop-tabs__pill"
-              style={{ left: tabIndicator.indicator.left + (tabIndicator.indicator.width - 50) / 2 }}
-            />
+        <nav className="shop-tabs" aria-label="Категории магазина" ref={tabsScrollRef}>
+          {/* Вкладки и линия под ними в общем блоке: лента прокручивается
+              целиком, и линия всегда тянется на всю её длину. */}
+          <div className="shop-tabs__inner">
+            <div className="shop-tabs__labels" role="tablist" ref={tabIndicator.containerRef}>
+              {TABS.map((label, index) => (
+                <button
+                  key={label} type="button" role="tab"
+                  aria-selected={activeTab === index}
+                  className={`shop-tab ${activeTab === index ? 'shop-tab--active' : ''} btn-press`}
+                  onClick={() => setActiveTab(index)}
+                  ref={tabIndicator.registerTab(index)}
+                >{label}</button>
+              ))}
+            </div>
+            <div className="shop-tabs__track" aria-hidden="true">
+              <span className="shop-tabs__line" />
+              <div
+                className="shop-tabs__pill"
+                style={{ left: tabIndicator.indicator.left + (tabIndicator.indicator.width - 50) / 2 }}
+              />
+            </div>
           </div>
         </nav>
 
@@ -336,6 +361,10 @@ export default function Shop() {
           <p className="loading-text" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>Товаров в этой категории пока нет</p>
         ) : products.map((item, i) => {
           const isPurchased = purchasedCodes.has(item.code)
+          // В макете товар, на который не хватает монет, сразу показывает
+          // серую кнопку с недостающей суммой, а не ошибку после нажатия.
+          const lack = Number(item.price) - Number(coins)
+          const tooExpensive = !isPurchased && lack > 0
           return (
           <article
             key={item.id}
@@ -352,11 +381,15 @@ export default function Shop() {
             <div className="shop-card__actions">
               <button
                 type="button"
-                className="shop-card__buy btn-press"
+                className={`shop-card__buy${tooExpensive ? ' shop-card__buy--lack' : ''} btn-press`}
                 onClick={(e) => { e.stopPropagation(); setShowPurchase(item.id) }}
-                disabled={isPurchased}
+                disabled={isPurchased || tooExpensive}
               >
-                {isPurchased ? 'Куплено' : 'Купить'}
+                {isPurchased
+                  ? 'Куплено'
+                  : tooExpensive
+                    ? `Не хватает ${lack} ${plural(lack, ['монеты', 'монет', 'монет'])}`
+                    : 'Купить'}
               </button>
             </div>
           </article>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 /**
  * Анимирует число от 0 до target при монтировании или смене target.
@@ -30,6 +30,43 @@ export function useCountUp(target: number, duration = 1100, delay = 0) {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [target, duration, delay])
+
+  return value
+}
+
+/**
+ * Плавно переводит число от прежнего значения к новому.
+ *
+ * В отличие от useCountUp не начинает с нуля при каждой смене цели:
+ * баланс 240 → 120 едет вниз, а не «0 → 120». При включённом
+ * «уменьшении движения» в системе число меняется сразу.
+ */
+export function useAnimatedNumber(target: number, duration = 700) {
+  const [value, setValue] = useState(target)
+  const fromRef = useRef(target)
+
+  useEffect(() => {
+    const from = fromRef.current
+    if (from === target) return
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduce) {
+      fromRef.current = target
+      setValue(target)
+      return
+    }
+    let raf = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      const current = Math.round(from + (target - from) * eased)
+      fromRef.current = current
+      setValue(current)
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
 
   return value
 }

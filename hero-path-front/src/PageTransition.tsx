@@ -8,6 +8,7 @@ const ROUTE_COLORS: Record<string, string> = {
   '/shop':        '#a855f7',
   '/leaderboard': '#5b21b6',
   '/squads':      '#8b5cf6',
+  '/badges':      '#9333ea',
 }
 
 export default function PageTransition({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,12 @@ export default function PageTransition({ children }: { children: React.ReactNode
     setTimeout(() => {
       setDisplayed(pendingChildren.current)
       setPhase('uncover')
+      // Новая страница открывается сверху. Без этого после длинного списка
+      // лидеров профиль открывался промотанным вниз. Прыжок происходит,
+      // пока страница закрыта шторкой, поэтому его не видно. Числовая форма
+      // вместо { behavior: 'instant' }: старый Safari на ней бросает
+      // исключение, и страница осталась бы под шторкой.
+      window.scrollTo(0, 0)
     }, 350)
 
     setTimeout(() => {

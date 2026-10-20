@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useTabIndicator } from '../useTabIndicator'
+import { plural } from '../lib/plural'
+import { celebrate } from '../lib/celebrate'
+import { apiErrorMessage } from '../lib/apiData'
 import seriesIcon from '../assets/other/Group 11.svg'
 import {
   mapCompletedQuests,
@@ -45,13 +48,11 @@ function useModal(initial = false) {
 }
 
 // Склонение дней для подписи серии
-function dayWord(days: number) {
-  if (days === 1) return 'день'
-  if (days >= 2 && days <= 4) return 'дня'
-  return 'дней'
-}
+// сколько квестов видно до «Показать все»
+const MOBILE_QUESTS = 3
 
 export default function Quests() {
+  const [showAllQuests, setShowAllQuests] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
   const [quests, setQuests] = useState<UiQuest[]>([])
   const [completedQuests, setCompletedQuests] = useState<UiQuest[]>([])
@@ -92,9 +93,13 @@ export default function Quests() {
     }, 3000)
   }, [])
 
-  const loadQuests = useCallback(() => {
-    setLoading(true)
-    setLoadError(false)
+  // quiet — обновить после отправки отчёта или выбора цели без лоадера
+  // на всю страницу и без прыжка прокрутки
+  const loadQuests = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (!quiet) {
+      setLoading(true)
+      setLoadError(false)
+    }
     Promise.all([
       api.get('/api/v1/quests/active/'),
       api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
@@ -115,12 +120,16 @@ export default function Quests() {
         rating: focusRes.data?.bonus_rating ?? 0,
       })
     }).catch(() => {
+      if (quiet) {
+        addToast('Не удалось обновить квесты', 'error')
+        return
+      }
       setQuests([])
       setCompletedQuests([])
       setActivity([])
       setLoadError(true)
     }).finally(() => setLoading(false))
-  }, [])
+  }, [addToast])
 
   useEffect(() => {
     loadQuests()
@@ -141,9 +150,9 @@ export default function Quests() {
         addToast('Самоотчёт отправлен!', 'success')
         reportModal.hide()
         setReportText('')
-        loadQuests()
+        loadQuests({ quiet: true })
       })
-      .catch(() => addToast('Ошибка отправки', 'error'))
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить самоотчёт'), 'error'))
   }, [reportText, selfReportQuestCode, loadQuests])
 
   const handleConfirmSubmit = useCallback(() => {
@@ -154,12 +163,13 @@ export default function Quests() {
     api.post(`/api/v1/quests/${confirmQuestCode}/complete/`, { proof_payload: proof })
       .then(() => {
         addToast('Отправлено куратору на проверку', 'success')
+        celebrate('small')
         confirmModal.hide()
         setConfirmQuestCode(null)
         setConfirmLink('')
-        loadQuests()
+        loadQuests({ quiet: true })
       })
-      .catch(() => addToast('Ошибка подтверждения', 'error'))
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
   }, [confirmQuestCode, confirmLink, loadQuests])
 
   const openConfirm = (code: string, title: string) => {
@@ -172,7 +182,7 @@ export default function Quests() {
     api.post('/api/v1/quests/weekly-focus/', { quest_code: code })
       .then(() => {
         addToast(`Цель недели: ${title}`)
-        return loadQuests()
+        loadQuests({ quiet: true })
       })
       .catch(() => addToast('Не удалось выбрать цель недели', 'error'))
   }, [addToast, loadQuests])
@@ -206,7 +216,7 @@ export default function Quests() {
   if (loadError) {
     return (
       <div className="q1 page-enter">
-        <LoadError className="q1__loading" onRetry={loadQuests} />
+        <LoadError className="q1__loading" onRetry={() => loadQuests()} />
       </div>
     )
   }
@@ -232,7 +242,7 @@ export default function Quests() {
                 ref={tabIndicator.registerTab(i)}
                 aria-selected={i === activeTab}
                 className={`q1__tab${i === activeTab ? ' q1__tab--active' : ''} btn-press`}
-                onClick={() => setActiveTab(i)}
+                onClick={() => { setActiveTab(i); setShowAllQuests(false) }}
               >{t}</button>
             ))}
           </div>
@@ -271,7 +281,7 @@ export default function Quests() {
               <h2 className="q1__quests-title">
                 {activeTab === 0 ? 'Активный квест' : 'Выполненные квесты'}
               </h2>
-              <div className="q1__quests-slot-inner">
+              <div className={`q1__quests-slot-inner${showAllQuests ? ' q1__quests-slot-inner--all' : ''}`}>
                 {currentQuests.map((q, i) => (
                   <article key={q.id} className={`q1__card hover-lift ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
                     <div className="q1__card-body">
@@ -302,6 +312,10 @@ export default function Quests() {
                         <div className="q1__card-desc">{q.desc}</div>
                         {q.note && <div className="q1__card-team">{q.note}</div>}
                       </div>
+                      {/* на телефоне прогресс виден полоской, процент — в углу */}
+                      <div className="q1__card-bar" aria-hidden="true">
+                        <span style={{ width: `${q.progress}%` }} />
+                      </div>
                       <div className="q1__card-reward">
                         Награда:&nbsp;<span className="q1__card-reward-coins">{q.reward}</span>
                       </div>
@@ -323,7 +337,6 @@ export default function Quests() {
                           Куратор отклонил подтверждение
                         </div>
                       )}
-                      {q.note && <div className="q1__card-note">{q.note}</div>}
                     </div>
                   </article>
                 ))}
@@ -333,6 +346,17 @@ export default function Quests() {
                   </div>
                 )}
               </div>
+              {/* сначала видны три квеста, остальные — по кнопке */}
+              {currentQuests.length > MOBILE_QUESTS && (
+                <button
+                  type="button"
+                  className="q1__quests-more btn-press"
+                  onClick={() => setShowAllQuests((v) => !v)}
+                  aria-expanded={showAllQuests}
+                >
+                  {showAllQuests ? 'Свернуть' : `Показать все (${currentQuests.length})`}
+                </button>
+              )}
 
 
             </div>
@@ -400,7 +424,7 @@ export default function Quests() {
               <h3>Серия:</h3>
               <p>
                 {strike
-                  ? `${strike.late_strike} ${dayWord(strike.late_strike)} без опозданий`
+                  ? `${strike.late_strike} ${plural(strike.late_strike, ['день', 'дня', 'дней'])} без опозданий`
                   : 'Данные обновляются после синхронизации с HikCentral'}
               </p>
             </div>

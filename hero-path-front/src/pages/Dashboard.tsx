@@ -11,8 +11,9 @@ import {
 import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
 import api from '../api'
+import { celebrate } from '../lib/celebrate'
 import { useToasts } from '../useToasts'
-import { formatDateTimeRu, progressPercent } from '../lib/apiData'
+import { apiErrorMessage, formatDateTimeRu, progressPercent } from '../lib/apiData'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
@@ -200,12 +201,19 @@ export default function Dashboard() {
   const tilt = useTilt()
   const { toasts, addToast } = useToasts()
 
-  const loadDashboard = useCallback(() => {
-    setLoadError(false)
-    setLoading(true)
+  // quiet — обновить после действия без лоадера на весь экран
+  const loadDashboard = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    if (!quiet) {
+      setLoadError(false)
+      setLoading(true)
+    }
     api.get('/api/v1/dashboard/')
       .then(res => setData(res.data))
       .catch(() => {
+        if (quiet) {
+          addToast('Не удалось обновить главную', 'error')
+          return
+        }
         setData(null)
         setLoadError(true)
         addToast('Не удалось загрузить дашборд', 'error')
@@ -217,9 +225,10 @@ export default function Dashboard() {
     loadDashboard()
   }, [loadDashboard])
 
-  const rating = data?.user.rating_current ?? 0
+  // Цепочка обрывалась после data?: ответ без user ронял страницу в белый экран
+  const rating = data?.user?.rating_current ?? 0
   const ratingDisplay = useCountUp(rating)
-  const level = data?.user.level ?? 0
+  const level = data?.user?.level ?? 0
   const questTitle = data?.current_quest?.title ?? 'На сегодня всё. Отдыхай.'
   // Прогресс приходит долей (0.15), а не процентами: на дашборде он
   // выводился как «0.15%», хотя в списке квестов — как 15%.
@@ -232,7 +241,7 @@ export default function Dashboard() {
   if (loadError) {
     return (
       <div className="dashboard page-enter">
-        <LoadError className="profile-loading" onRetry={loadDashboard} />
+        <LoadError className="profile-loading" onRetry={() => loadDashboard()} />
       </div>
     )
   }
@@ -292,7 +301,7 @@ export default function Dashboard() {
   const activity = data?.feed ?? []
 
   return (
-    <div className="dashboard page-enter">
+    <div className="dashboard dashboard--home page-enter">
       <div className="dash-glow dash-glow--a" aria-hidden="true" />
       <div className="dash-glow dash-glow--b" aria-hidden="true" />
 
@@ -489,8 +498,11 @@ export default function Dashboard() {
           }
           const proof = confirmLink.trim() ? { link: confirmLink.trim() } : {}
           api.post(`/api/v1/quests/${code}/complete/`, { proof_payload: proof })
-            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Квест подтверждён!', 'success'); loadDashboard() })
-            .catch(() => addToast('Ошибка подтверждения', 'error'))
+            // Это заявка куратору, а не зачёт: награда придёт после одобрения
+            // (apps/quests/views.py, QuestCompleteView). «Квест подтверждён!»
+            // обещал то, чего ещё не случилось.
+            .then(() => { confirm.hide(); setConfirmLink(''); addToast('Отправлено куратору на проверку', 'success'); celebrate('small'); loadDashboard({ quiet: true }) })
+            .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
         }}
       />
 
