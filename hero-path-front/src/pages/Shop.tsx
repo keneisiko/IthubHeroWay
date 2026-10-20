@@ -5,7 +5,7 @@ import { notifyBalanceChanged } from '../lib/balance'
 import { celebrate } from '../lib/celebrate'
 import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
-import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList } from '../lib/apiData'
+import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList, formatRating } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
@@ -173,19 +173,19 @@ export default function Shop() {
 
       const purchaseHistory: HistoryItem[] = purchaseRows.map((p) => ({
         name: p.item?.title ?? 'Покупка',
-        amount: `-${p.coins_spent}`,
+        amount: `-${formatRating(p.coins_spent)}`,
         date: formatDateRu(p.created_at),
       }))
       const rewardHistory: HistoryItem[] = rewardRows.map((r) => ({
         name: r.quest_title,
-        amount: r.coins_delta >= 0 ? `+${r.coins_delta}` : String(r.coins_delta),
+        amount: r.coins_delta >= 0 ? `+${formatRating(r.coins_delta)}` : formatRating(r.coins_delta),
         date: formatDateRu(r.granted_at),
       }))
       setHistory([...purchaseHistory, ...rewardHistory].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
       ))
 
-      setCoins(String(profileRes.data.coins_balance ?? 0))
+      setCoins(formatRating(profileRes.data.coins_balance))
     }).catch(() => addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error'))
       .finally(() => {
         loadedOnce.current = true

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useCountUp } from '../useCountUp'
-import { unwrapList } from '../lib/apiData'
+import { unwrapList, formatRating } from '../lib/apiData'
 
 type LeaderTab = 'agents' | 'squads'
 
@@ -169,7 +169,7 @@ export default function Leaderboard() {
         username: item.username,
         rank: (page - 1) * pageSize + i + 1,
         title: item.callsign || item.username,
-        delta: String(item.rating_current ?? 0),
+        delta: formatRating(item.rating_current),
         badgeClass: getBadgeClass((page - 1) * pageSize + i + 1),
         track: item.track,
         status: item.level ? `${item.level} ур.` : undefined,
@@ -180,13 +180,13 @@ export default function Leaderboard() {
         username: item.code,
         rank: i + 1,
         title: item.name,
-        delta: String(item.avg_rating ?? 0),
+        delta: formatRating(item.avg_rating),
         badgeClass: getBadgeClass(i + 1),
       })))
 
       setMyRank({
         rank: meRes.data?.rank ?? 0,
-        delta: String(meRes.data?.rating_current ?? 0),
+        delta: formatRating(meRes.data?.rating_current),
         username: meRes.data?.username ?? '',
       })
     }).catch(() => {

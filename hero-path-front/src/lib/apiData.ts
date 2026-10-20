@@ -134,3 +134,10 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   }
   return /[а-яё]/i.test(detail) ? detail : fallback
 }
+
+/** Рейтинг приходит строкой «699.00» — показываем без пустых нулей: 699, 612.5. */
+export function formatRating(value: number | string | null | undefined): string {
+  const n = Number(value ?? 0)
+  if (!Number.isFinite(n)) return String(value ?? '')
+  return String(Math.round(n * 10) / 10)
+}
