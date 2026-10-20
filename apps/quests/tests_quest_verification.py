@@ -9,6 +9,8 @@ from rest_framework.test import APIClient
 from apps.accounts.models import Role
 from apps.integrations.models import ExternalEvent, TelegramAccountLink
 from apps.quests.models import Quest, QuestType, QuestVerifierKind, UserQuestProgress
+from apps.progress.models import RatingLog
+from apps.quests.services.quest_completion import complete_quest_idempotent
 from apps.quests.services.quest_verification import verify_quest_for_user
 from apps.quests.services.verifiers import verify_hik_no_late, verify_hik_on_time
 
@@ -108,3 +110,44 @@ class QuestAutoCompleteApiTests(TestCase):
         self.assertTrue(
             UserQuestProgress.objects.filter(user=self.agent, quest=self.quest, is_completed=True).exists()
         )
+
+
+class QuestReasonIsHumanReadableTests(TestCase):
+    """Причина начисления видна студенту в ленте событий.
+
+    Раньше туда уходило `Auto-verify weekly-no-late:2026-W42: ...` —
+    внутренний код квеста вместе с английским служебным словом. Студент
+    читает ленту, а не исходники, поэтому в причине только название квеста.
+    """
+
+    def setUp(self):
+        self.agent = User.objects.create_user(
+            username="agent_reason", password="x", callsign="agent_reason", role=Role.AGENT
+        )
+        self.quest = Quest.objects.create(
+            code="weekly-no-late:2026-W42",
+            title="Неделя без опозданий",
+            quest_type=QuestType.WEEKLY,
+            is_active=True,
+            reward_coins=5,
+            reward_rating_delta=3,
+            conditions={
+                "verifier": QuestVerifierKind.HIK_ON_TIME,
+                "params": {"deadline_hour": 10},
+                "auto_verify": True,
+            },
+        )
+
+    def _reason(self) -> str:
+        complete_quest_idempotent(self.agent, self.quest, reason=f"Квест «{self.quest.title}»")
+        log = RatingLog.objects.filter(user=self.agent).exclude(delta=0).latest("created_at")
+        return log.reason
+
+    def test_reason_names_the_quest(self):
+        self.assertIn("Неделя без опозданий", self._reason())
+
+    def test_reason_hides_the_internal_code(self):
+        reason = self._reason()
+
+        self.assertNotIn(self.quest.code, reason, "код квеста студенту ни о чём не говорит")
+        self.assertNotIn("Auto-verify", reason, "служебное слово из кода не для студента")

@@ -72,7 +72,10 @@ def verify_quest_for_user(
         progress, reward_created = complete_quest_idempotent(
             user,
             quest,
-            reason=f"Auto-verify {quest.code}: {result.message}",
+            # Причина попадает студенту в ленту событий как есть, поэтому в
+            # ней только человеческий текст. Код квеста и подробности проверки
+            # остаются в evidence и в админке — там они и нужны.
+            reason=f"Квест «{quest.title}»",
             evidence=evidence,
             progress_value=1.0,
         )

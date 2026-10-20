@@ -26,7 +26,7 @@ def _complete_quest_idempotent(user, quest, reviewer):
     progress, created = complete_quest_idempotent(
         user,
         quest,
-        reason=f"Квест подтверждён куратором: {quest.code}",
+        reason=f"Квест «{quest.title}» подтверждён куратором",
     )
     LogEntry.objects.log_action(
         user_id=reviewer.pk,
