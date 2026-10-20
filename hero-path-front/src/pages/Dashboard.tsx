@@ -389,7 +389,6 @@ export default function Dashboard() {
       <div className="toast-container toast-container--fixed-right">
         {toasts.map(toast => (
           <div key={toast.id} className={`toast toast--${toast.type}`}>
-            {toast.type === 'success' ? '✓ ' : '✕ '}
             {toast.message}
           </div>
         ))}

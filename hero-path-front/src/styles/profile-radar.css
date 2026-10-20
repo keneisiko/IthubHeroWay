@@ -417,3 +417,18 @@
 @media (hover: none) {
   .profile-card__avatar-edit { transform: none; height: 22px; font-size: 10px; }
 }
+
+/* плашка ника была шириной ровно 434px и вылезала за карточку, как
+   только рядом стоит аватар — теперь тянется до края карточки */
+.profile-card__names {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-card__nickname {
+  width: auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

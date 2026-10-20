@@ -16,7 +16,19 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <App />
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: '#121212',
+              color: '#f5f5f5',
+              borderRadius: 14,
+              fontFamily: 'Montserrat, sans-serif',
+              fontWeight: 600,
+              fontSize: 14,
+            },
+          }}
+        />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

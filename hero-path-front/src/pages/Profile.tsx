@@ -835,6 +835,9 @@ export default function Profile() {
         )}
       </div>
 
+      {/* Характеристики чужого профиля сервер не отдаёт — пустой пятиугольник
+          на пол-экрана только путал. Радар — только в своём профиле. */}
+      {showCharacteristics && (
       <section className="profile-radar card-entrance" style={{ animationDelay: '0.3s' }}>
         <div className="profile-radar__chart">
           <Radar ref={chartRef} data={radarData} options={radarOptions} />
@@ -931,6 +934,7 @@ export default function Profile() {
           />
         )}
       </section>
+      )}
 
       {isOwnProfile && (
       <section className="profile-path profile-card card-entrance" style={{ animationDelay: '0.4s' }}>
@@ -1168,7 +1172,6 @@ export default function Profile() {
       <div className="toast-container toast-container--fixed-right">
         {toasts.map(toast => (
           <div key={toast.id} className={`toast toast--${toast.type}`}>
-            {toast.type === 'success' ? '✓ ' : '✕ '}
             {toast.message}
           </div>
         ))}
