@@ -12,7 +12,9 @@ import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
 import api from '../api'
 import { useToasts } from '../useToasts'
-import { formatDateTimeRu } from '../lib/apiData'
+import { formatDateTimeRu, formatRating } from '../lib/apiData'
+import RollNumber from '../components/RollNumber'
+import PixelText from '../components/PixelText'
 import '../styles/dashboard.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -74,24 +76,6 @@ interface DashboardData {
 }
 
 /* ---------- маленькие хуки для "живости" интерфейса ---------- */
-
-// плавный счётчик — рейтинг "доезжает" до значения, а не появляется сразу
-function useCountUp(target: number, duration = 1100) {
-  const [value, setValue] = useState(0)
-  useEffect(() => {
-    let raf = 0
-    const start = performance.now()
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration)
-      const eased = 1 - Math.pow(1 - t, 3) // easeOutCubic
-      setValue(Math.round(target * eased))
-      if (t < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, duration])
-  return value
-}
 
 // лёгкий 3D-tilt по курсору на карточке радара
 function useTilt(maxDeg = 7) {
@@ -173,7 +157,6 @@ export default function Dashboard() {
 
   // Цепочка обрывалась после data?: ответ без user ронял страницу в белый экран
   const rating = data?.user?.rating_current ?? 0
-  const ratingDisplay = useCountUp(rating)
   const level = data?.user?.level ?? 0
 
   if (loadError) {
@@ -249,7 +232,7 @@ export default function Dashboard() {
             <div className="series__header">
               <img className="series__icon-image" src={seriesIcon} alt="" aria-hidden="true" />
               <div className="series__title-wrap">
-                <h3>Серия:</h3>
+                <h3><PixelText text="Серия:" /></h3>
                 <p>{lateDays} {lateDays === 1 ? 'день' : lateDays >= 2 && lateDays <= 4 ? 'дня' : 'дней'} без опозданий</p>
               </div>
             </div>
@@ -269,8 +252,8 @@ export default function Dashboard() {
           </section>
 
           <section className="card card--purple dash-in" style={{ animationDelay: '90ms' }}>
-            <h3 className="rating__title">Текущий рейтинг:</h3>
-            <div className="rating__value">{ratingDisplay}</div>
+            <h3 className="rating__title"><PixelText text="Текущий рейтинг:" /></h3>
+            <div className="rating__value"><RollNumber value={formatRating(rating)} /></div>
             <div className="rating__line">
               <span>Статус:</span>
               <span className="chip chip--light rating__chip">{ratingProgress?.zone_label ?? '—'}</span>
@@ -365,7 +348,7 @@ export default function Dashboard() {
         <section className="activity-card dash-in" style={{ animationDelay: '240ms' }}>
           <h3 className="section-title">
             <span className="live-dot" aria-hidden="true" />
-            Лента активности
+            <PixelText text="Лента активности" />
           </h3>
           <div className="activity">
             {activity.length === 0 ? (
@@ -373,7 +356,7 @@ export default function Dashboard() {
             ) : activity.map((item, i) => (
               <article
                 key={`${item.text}-${i}`}
-                className="activity__item dash-in-item"
+                className="activity__item dash-in-item spot"
                 style={{ animationDelay: `${320 + i * 80}ms` }}
               >
                 <FeedText text={item.text} />

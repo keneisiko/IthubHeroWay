@@ -7,6 +7,7 @@ import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
 import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList, formatRating } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
+import RollNumber from '../components/RollNumber'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
@@ -373,7 +374,7 @@ export default function Shop() {
           <p className="shop-wallet__label">Сколько монет у пользователя:</p>
           <div className="shop-wallet__amount">
             <span className="shop-wallet__coin" aria-hidden="true" />
-            <span className="shop-wallet__value">{coins}</span>
+            <RollNumber className="shop-wallet__value" value={coins} />
           </div>
           <button type="button" className="shop-wallet__history btn-press" onClick={() => setShowHistory(true)}>
             <span className="shop-wallet__history-label">История покупок</span>
@@ -393,7 +394,7 @@ export default function Shop() {
           return (
           <article
             key={item.id}
-            className="shop-card hover-lift"
+            className="shop-card hover-lift spot"
             style={{ animationDelay: `${i * 50}ms` }}
             onClick={() => setShowDetail(item.id)}
           >

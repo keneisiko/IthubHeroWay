@@ -14,6 +14,7 @@ import { clearEnterFlag, hasEnterFlag } from './lib/enterFlag'
 import './App.css'
 import './styles/atmosphere.css'
 import './styles/interaction.css'
+import './styles/motion.css'
 
 const pages = {
   dashboard: () => import('./pages/Dashboard'),

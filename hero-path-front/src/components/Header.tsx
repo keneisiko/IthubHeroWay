@@ -4,7 +4,8 @@ import ithubLogo from '../assets/other/лого-26 1.svg'
 import api from '../api'
 import { clearAuthTokens } from '../auth'
 import { onBalanceChanged } from '../lib/balance'
-import { useAnimatedNumber } from '../useCountUp'
+import RollNumber from './RollNumber'
+import { formatRating } from '../lib/apiData'
 import { flyCoins } from '../lib/coinFly'
 
 interface ProfileData {
@@ -60,7 +61,6 @@ export default function Header() {
 
   const username = profile?.callsign || 'Агент'
   const coins = profile?.coins_balance ?? 0
-  const shownCoins = useAnimatedNumber(coins)
 
   // Короткий «пульс» монетки, когда баланс изменился уже после загрузки
   const [pulse, setPulse] = useState<'up' | 'down' | null>(null)
@@ -92,7 +92,7 @@ export default function Header() {
           <div className="top-header__username">{username}</div>
           <div className={`top-header__money${pulse ? ` top-header__money--${pulse}` : ''}`}>
             <span className="top-header__coin" aria-hidden="true" ref={coinRef} />
-            <strong>{shownCoins}</strong>
+            <strong><RollNumber value={formatRating(coins)} /></strong>
           </div>
         </div>
         <button

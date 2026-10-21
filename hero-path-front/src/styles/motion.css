@@ -1,0 +1,109 @@
+/* =========================
+   ДВИЖЕНИЕ: одометр чисел, пиксельные заголовки, прожектор карточек
+   ========================= */
+
+/* --- число-одометр (components/RollNumber.tsx) --- */
+.roll__digits {
+  display: inline-flex;
+  vertical-align: top;
+  align-items: flex-start;
+  font-variant-numeric: tabular-nums;
+}
+
+.roll__col {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  line-height: 1.2;
+  /* соседние цифры ленты не выглядывают сверху и снизу */
+  -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+
+.roll__sizer { visibility: hidden; }
+
+.roll__strip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateY(calc(var(--n) * -10%));
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i) * 45ms);
+  animation: rollIn 1s cubic-bezier(0.22, 1, 0.36, 1) calc(120ms + var(--i) * 70ms) backwards;
+}
+
+.roll__strip > span { display: block; }
+
+@keyframes rollIn {
+  from { transform: translateY(0); }
+}
+
+/* --- заголовок из пикселей (components/PixelText.tsx) --- */
+.ptext__word { white-space: nowrap; }
+
+.ptext__ch {
+  position: relative;
+  display: inline-block;
+  animation: ptCh 0.34s cubic-bezier(0.22, 1, 0.36, 1) calc(110ms + var(--i) * 26ms) both paused;
+}
+
+.ptext__ch::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 0.42em;
+  height: 0.42em;
+  margin: -0.21em 0 0 -0.21em;
+  background: currentColor;
+  border-radius: 1px;
+  transform: scale(0);
+  animation: ptPx 0.38s cubic-bezier(0.76, 0, 0.24, 1) calc(var(--i) * 26ms) both paused;
+}
+
+.ptext--in .ptext__ch,
+.ptext--in .ptext__ch::before { animation-play-state: running; }
+
+@keyframes ptCh {
+  from { opacity: 0; transform: translateY(0.18em); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ptPx {
+  0% { transform: scale(0); }
+  45% { transform: scale(1); }
+  100% { transform: scale(0) rotate(90deg); }
+}
+
+/* --- пиксельный прожектор (lib/spotlight.ts) --- */
+.spot {
+  position: relative;
+  isolation: isolate;
+}
+
+.spot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: conic-gradient(from 270deg at 3px 3px, var(--spot-color, rgba(154, 51, 244, 0.5)) 25%, transparent 0);
+  background-size: 9px 9px;
+  -webkit-mask-image: radial-gradient(130px circle at var(--sx, 50%) var(--sy, 50%), #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 75%);
+  mask-image: radial-gradient(130px circle at var(--sx, 50%) var(--sy, 50%), #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 75%);
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.spot--lit::after { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .roll__strip { animation: none; transition: none; }
+  .ptext__ch,
+  .ptext__ch::before { animation: none; }
+  .ptext__ch::before { display: none; }
+}
