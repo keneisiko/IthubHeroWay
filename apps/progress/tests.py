@@ -253,6 +253,12 @@ class CourseFairnessTests(TestCase):
 class AgentLeaderboardAvatarTests(TestCase):
     """Рейтинг агентов отдаёт аватар: без него строки показывали инициалы."""
 
+    def setUp(self):
+        # ответы рейтинга кешируются — чужой кеш из соседних тестов не нужен
+        from django.core.cache import cache
+
+        cache.clear()
+
     def test_avatar_in_leaderboard_row(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
         from rest_framework.test import APIClient
@@ -276,3 +282,31 @@ class AgentLeaderboardAvatarTests(TestCase):
         self.assertIn("avatar", by_name["hero"])
         self.assertTrue(by_name["hero"]["avatar"].endswith(".gif"))
         self.assertIsNone(by_name["viewer"]["avatar"])
+
+    def test_applied_frame_in_leaderboard_row(self):
+        from django.utils import timezone
+        from rest_framework.test import APIClient
+
+        from apps.shop.models import Purchase, ShopItem, ShopItemType
+
+        User = get_user_model()
+        framed = User.objects.create_user(username="framed", password="pass12345", callsign="Рамка")
+        plain = User.objects.create_user(username="plain", password="pass12345", callsign="Без рамки")
+        for n, user in enumerate((framed, plain)):
+            TelegramAccountLink.objects.create(
+                user=user, telegram_user_id=870 + n, telegram_chat_id=870 + n, is_active=True
+            )
+        frame = ShopItem.objects.create(
+            code="cosmetic-avatar-frame", title="Рамка", item_type=ShopItemType.COSMETIC, price_coins=30
+        )
+        Purchase.objects.create(user=framed, item=frame, coins_spent=30, applied_at=timezone.now())
+        Purchase.objects.create(user=plain, item=frame, coins_spent=30)
+
+        client = APIClient()
+        client.force_authenticate(plain)
+        rows = client.get("/api/v1/leaderboard/agents/").json()
+        rows = rows.get("results", rows)
+        by_name = {row["username"]: row for row in rows}
+        self.assertEqual(by_name["framed"]["applied_cosmetic"], "cosmetic-avatar-frame")
+        # купленная, но не применённая рамка в рейтинге не видна
+        self.assertIsNone(by_name["plain"]["applied_cosmetic"])

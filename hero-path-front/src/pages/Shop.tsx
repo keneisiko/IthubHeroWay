@@ -8,6 +8,9 @@ import { useToasts } from '../useToasts'
 import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList, formatRating } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
 import RollNumber from '../components/RollNumber'
+import Avatar from '../components/Avatar'
+import BadgeEmblem from '../components/BadgeEmblem'
+import { AVATAR_FRAME, BADGE_GLOW, COSMETIC_HINTS } from '../lib/cosmetics'
 import PixelText from '../components/PixelText'
 import '../styles/shop.css'
 
@@ -24,6 +27,7 @@ interface Product {
 
 interface Purchase {
   id: number
+  code: string
   title: string
   price: string
   status: string
@@ -109,6 +113,8 @@ export default function Shop() {
   const [applyingId, setApplyingId] = useState<number | null>(null)
   // кольцо вокруг нажатой кнопки; чередование имени перезапускает анимацию
   const [ring, setRing] = useState<{ id: number; n: number } | null>(null)
+  // свой аватар — для превью рамки прямо в карточке покупки
+  const [me, setMe] = useState<{ avatar: string | null; name: string }>({ avatar: null, name: '' })
   const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
@@ -163,6 +169,7 @@ export default function Shop() {
 
       setPurchases(purchaseRows.map((p) => ({
         id: p.id,
+        code: p.item?.code ?? '',
         title: p.item?.title ?? 'Покупка',
         price: String(p.coins_spent),
         status: p.created_at ? `Куплено · ${formatDateRu(p.created_at)}` : 'Куплено',
@@ -191,6 +198,7 @@ export default function Shop() {
       ))
 
       setCoins(formatRating(profileRes.data.coins_balance))
+      setMe({ avatar: profileRes.data.avatar ?? null, name: profileRes.data.callsign || profileRes.data.username || '' })
     }).catch(() => addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error'))
       .finally(() => {
         loadedOnce.current = true
@@ -223,6 +231,8 @@ export default function Shop() {
       .then(() => {
         addToast(next ? 'Покупка применена' : 'Покупка снята', 'success')
         loadShop({ quiet: true })
+        // шапка перечитает профиль — рамка у аватара появится сразу
+        notifyBalanceChanged()
       })
       .catch(() => {
         flip(purchase.isApplied)
@@ -285,9 +295,24 @@ export default function Shop() {
                 className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingId === p.id ? ' shop-purchase--pending' : ''}`}
               >
                 <span className="shop-purchase__frame">
-                  <img src={palmSky} alt="" className="shop-purchase__image" />
+                  {p.code === AVATAR_FRAME ? (
+                    <span className="shop-purchase__preview">
+                      <Avatar src={me.avatar} name={me.name || p.title} framed={p.isApplied} className="shop-purchase__avatar" />
+                    </span>
+                  ) : p.code === BADGE_GLOW ? (
+                    <span className={`shop-purchase__preview${p.isApplied ? ' shop-purchase__preview--glow' : ''}`}>
+                      <BadgeEmblem code="glow" rarity="epic" size={40} />
+                    </span>
+                  ) : (
+                    <img src={palmSky} alt="" className="shop-purchase__image" />
+                  )}
                 </span>
                 <span className="shop-purchase__name">{p.title}</span>
+                {COSMETIC_HINTS[p.code] && (
+                  <span className="shop-purchase__hint">
+                    {p.isApplied ? COSMETIC_HINTS[p.code] : 'Примените, чтобы увидеть'}
+                  </span>
+                )}
                 <span key={String(p.isApplied)} className="shop-purchase__state">
                   <i className="shop-purchase__tick" aria-hidden="true" />
                   {p.isApplied ? 'Применена' : 'Куплена'}

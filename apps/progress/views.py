@@ -2,13 +2,14 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django.utils import timezone
 from rest_framework import generics, views
 from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
+from apps.shop.models import Purchase, ShopItemType
 
 from .models import RatingLog
 from .serializers import LeaderboardAgentSerializer, RatingLogSerializer, RatingMeSerializer
@@ -47,7 +48,20 @@ class AgentLeaderboardView(generics.ListAPIView):
     serializer_class = LeaderboardAgentSerializer
 
     def get_queryset(self):
-        queryset = User.objects.filter(telegram_link__is_active=True).order_by("-rating_current", "id")
+        # применённая косметика (рамка аватара) видна и в рейтинге —
+        # одним подзапросом, а не запросом на каждую строку
+        applied_cosmetic = (
+            Purchase.objects.filter(
+                user=OuterRef("pk"), applied_at__isnull=False, item__item_type=ShopItemType.COSMETIC
+            )
+            .order_by("-applied_at")
+            .values("item__code")[:1]
+        )
+        queryset = (
+            User.objects.filter(telegram_link__is_active=True)
+            .annotate(applied_cosmetic=Subquery(applied_cosmetic))
+            .order_by("-rating_current", "id")
+        )
         track = self.request.query_params.get("track")
         course = self.request.query_params.get("course")
         search = self.request.query_params.get("search")

@@ -5,6 +5,7 @@ import LoadError from '../components/LoadError'
 import { useCountUp } from '../useCountUp'
 import { unwrapList, formatRating } from '../lib/apiData'
 import Avatar from '../components/Avatar'
+import { AVATAR_FRAME } from '../lib/cosmetics'
 
 type LeaderTab = 'agents' | 'squads'
 
@@ -17,6 +18,7 @@ interface LeaderItem {
   track?: string
   status?: string
   avatar?: string | null
+  framed?: boolean
 }
 
 const COURSE_OPTIONS = [1, 2, 3, 4]
@@ -170,6 +172,7 @@ export default function Leaderboard() {
         level: number
         track?: string
         avatar?: string | null
+        applied_cosmetic?: string | null
       }>(agentsRes.data)
 
       const squadsData = unwrapList<{
@@ -189,6 +192,7 @@ export default function Leaderboard() {
         track: item.track,
         status: item.level ? `${item.level} ур.` : undefined,
         avatar: item.avatar ?? null,
+        framed: item.applied_cosmetic === AVATAR_FRAME,
       })))
 
       setSquads(squadsData.map((item, i) => ({
@@ -335,7 +339,7 @@ export default function Leaderboard() {
                 <div className={`leaderboard-item__card leaderboard-item__card--rank-${Math.min(item.rank, 4)}`}>
                   <div className="leaderboard-item__tags">
                     {activeTab === 'agents' && (
-                      <Avatar src={item.avatar} name={item.title} className="leaderboard-item__avatar" />
+                      <Avatar src={item.avatar} name={item.title} framed={item.framed} className="leaderboard-item__avatar" />
                     )}
                     <div className="leaderboard-item__meta">
                       <span className="tag tag--title">{item.title}</span>

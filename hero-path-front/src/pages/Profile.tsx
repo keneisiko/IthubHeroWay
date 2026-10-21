@@ -23,6 +23,7 @@ import type { Badge, EarnedBadge } from '../lib/badges'
 import SkillHistory from '../components/SkillHistory'
 import PixelText from '../components/PixelText'
 import Avatar from '../components/Avatar'
+import { hasFrame, hasGlow, type AppliedItems } from '../lib/cosmetics'
 import RollNumber from '../components/RollNumber'
 import '../styles/profile-radar.css'
 
@@ -82,6 +83,7 @@ interface ProfileData {
   path_reached?: string[]
   duel_wins?: number
   respects_received?: number
+  applied_items?: AppliedItems
   // Только в чужом профиле: свой профиль берёт это из отдельных запросов.
   quests_completed?: number
   badges?: UserBadge[]
@@ -645,7 +647,7 @@ export default function Profile() {
           <section className="profile-card profile-card--primary card-entrance">
             <div className="profile-card__header">
               <div
-                className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}`}
+                className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}${hasFrame(profile.applied_items) ? ' profile-card__avatar--framed' : ''}`}
                 role={isOwnProfile ? 'button' : 'img'}
                 tabIndex={isOwnProfile ? 0 : undefined}
                 aria-label={isOwnProfile ? 'Сменить аватар' : 'Аватар'}
@@ -996,7 +998,7 @@ export default function Profile() {
           ) : pinnedBadges.map((item) => (
             <button
               key={item.id}
-              className="ach btn-press"
+              className={`ach btn-press${hasGlow(profile?.applied_items) ? ' ach--glow' : ''}`}
               type="button"
               onClick={() => setSheetCode(item.badge.code)}
               aria-haspopup="dialog"

@@ -4,6 +4,8 @@ interface AvatarProps {
   src?: string | null
   name: string
   className?: string
+  /** Применена рамка аватара из магазина. */
+  framed?: boolean
 }
 
 const TONES = ['light', 'purple', 'dark'] as const
@@ -36,7 +38,7 @@ function toneOf(name: string): (typeof TONES)[number] {
  * буквами, фото проявляется поверх. Не загрузилось (битый файл, нет
  * доступа) — остаётся знак, а не значок сломанной картинки.
  */
-export default function Avatar({ src, name, className }: AvatarProps) {
+export default function Avatar({ src, name, className, framed }: AvatarProps) {
   const url = avatarUrl(src)
   const [loaded, setLoaded] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
@@ -44,7 +46,7 @@ export default function Avatar({ src, name, className }: AvatarProps) {
 
   return (
     <span
-      className={`avatar${className ? ` ${className}` : ''}${showImage && loaded === url ? ' avatar--photo' : ''}`}
+      className={`avatar${className ? ` ${className}` : ''}${showImage && loaded === url ? ' avatar--photo' : ''}${framed ? ' avatar--framed' : ''}`}
       data-tone={toneOf(name)}
     >
       <span className="avatar__initials" aria-hidden="true">{initialsOf(name)}</span>

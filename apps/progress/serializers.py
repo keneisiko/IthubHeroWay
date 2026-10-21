@@ -27,7 +27,10 @@ class RatingMeSerializer(serializers.ModelSerializer):
 
 
 class LeaderboardAgentSerializer(serializers.ModelSerializer):
+    # код применённого косметического товара (рамка аватара) или null
+    applied_cosmetic = serializers.CharField(read_only=True, allow_null=True, default=None)
+
     class Meta:
         model = User
-        fields = ["username", "callsign", "avatar", "rating_current", "level"]
+        fields = ["username", "callsign", "avatar", "applied_cosmetic", "rating_current", "level"]
 
