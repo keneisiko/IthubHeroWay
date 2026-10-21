@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from rest_framework import serializers
@@ -7,6 +9,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from apps.integrations.services.lxp_auth import verify_lxp_credentials
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class AuthUserSerializer(serializers.ModelSerializer):
@@ -39,19 +42,28 @@ class LoginSerializer(TokenObtainPairSerializer):
         )
         if not user:
             raise AuthenticationFailed("Invalid credentials.")
-        if not user.is_active:
-            # Импортированные из LXP карточки неактивны до привязки Telegram:
-            # пароль от LXP знает сам студент, но подтверждением личности он
-            # становится только в боте.
-            raise AuthenticationFailed(
-                "Аккаунт не активирован. Активируйте его в Telegram-боте командой /activate."
-            )
+        if user.login_blocked:
+            raise AuthenticationFailed("Вход закрыт. Обратитесь к администратору.")
         if not user.email:
             raise AuthenticationFailed("User email is not configured for LXP verification.")
 
         ok, reason = verify_lxp_credentials(user.email, password)
         if not ok:
             raise AuthenticationFailed(reason)
+
+        if not user.is_active:
+            # Первый вход активирует аккаунт. Раньше импортированная карточка
+            # открывалась только через /activate в боте — и к 21.10 так вошли
+            # двое из 557. Бот проверяет ровно то же: учебную почту и пароль от
+            # LXP, так что вход с верным паролем подтверждает личность не хуже.
+            # Отключённых сотрудником отсекает login_blocked выше.
+            user.is_active = True
+            update_fields = ["is_active"]
+            if user.status == "imported_lxp":
+                user.status = "activated_web"
+                update_fields.append("status")
+            user.save(update_fields=update_fields)
+            logger.info("Аккаунт %s активирован первым входом на сайт", user.username)
 
         refresh = self.get_token(user)
         data = {"refresh": str(refresh), "access": str(refresh.access_token)}

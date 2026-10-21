@@ -219,7 +219,7 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
                 {"fields": (*self.LEDGER_FIELDS, "status", "history_links")},
             ),
             ("Связь с LXP и Hik", {"fields": ("lxp_user_id", "hik_card_code", "hik_person_id", "email")}),
-            ("Вход", {"fields": ("username", "password", "is_staff", "last_login", "date_joined")}),
+            ("Вход", {"fields": ("username", "password", "login_blocked", "is_staff", "last_login", "date_joined")}),
         ]
         if is_superadmin(request.user):
             # Группы и права Django доступ не решают — его решает роль.
@@ -280,6 +280,10 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         return readonly
 
     def save_model(self, request, obj, form, change):
+        # Снял сотрудник «Активный» — это намеренное отключение: первый вход
+        # на сайте и /activate в боте его не обойдут. Вернул — вход открыт.
+        if change and form is not None and "is_active" in form.changed_data:
+            obj.login_blocked = not obj.is_active
         # Admin cannot create/upgrade superusers.
         if is_admin(request.user) and not is_superadmin(request.user):
             obj.is_superuser = False

@@ -69,6 +69,15 @@ class User(AbstractUser):
         "Баланс монет", max_digits=10, decimal_places=2, default=Decimal("0")
     )
     status = models.CharField("Статус", max_length=64, blank=True)
+    # Неактивной бывает и свежая карточка из импорта LXP (студент ещё ни разу
+    # не входил), и аккаунт, который сотрудник отключил намеренно. По данным
+    # их было не отличить, а первый вход активирует только первую. Признак
+    # ставится сам, когда сотрудник снимает «Активный» в админке.
+    login_blocked = models.BooleanField(
+        "Вход закрыт сотрудником",
+        default=False,
+        help_text="Студент не сможет войти и активировать аккаунт ни на сайте, ни в боте.",
+    )
     level = models.PositiveIntegerField("Уровень", default=1)
     # п. 2.2: рейтинг на начало сезона равен нулю. п. 1.3: верхней границы нет.
     rating_current = models.DecimalField(

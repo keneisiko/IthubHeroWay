@@ -84,6 +84,8 @@ def activate_telegram_account(
     user = User.objects.filter(email__iexact=email).first()
     if not user:
         return False, "Пользователь с такой почтой не найден в платформе."
+    if getattr(user, "login_blocked", False):
+        return False, "Вход закрыт. Обратитесь к администратору."
 
     # Этот Telegram-аккаунт мог быть привязан к другому студенту: поле уникально,
     # и без явной проверки получили бы IntegrityError вместо понятного ответа.

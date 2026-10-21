@@ -1,9 +1,10 @@
-"""Активация аккаунта: импорт из LXP не должен открывать вход.
+"""Активация аккаунта: в боте или первым входом на сайт.
 
-Импорт заводит карточки всем студентам колледжа. Если такая карточка сразу
-активна, войти на платформу может любой, у кого есть пароль от LXP, — то есть
-все импортированные, независимо от того, знают ли они про бота. Подтверждением
-служит привязка Telegram.
+Импорт заводит карточки неактивными. Раньше открыть такую карточку можно было
+только через /activate в боте — к 21.10.2026 так вошли двое из 557. Бот
+проверяет учебную почту и пароль от LXP; вход на сайт проверяет то же самое,
+поэтому первый вход с верным паролем тоже активирует аккаунт. Отключённых
+сотрудником не открывает ни то, ни другое (`login_blocked`).
 """
 
 from unittest.mock import patch
@@ -139,19 +140,56 @@ class LoginGateTests(TestCase):
     def setUp(self):
         cache.clear()
 
-    @patch("apps.authapp.serializers.verify_lxp_credentials", return_value=(True, ""))
-    def test_imported_account_cannot_log_in_before_activation(self, verify):
-        _imported_agent()
-
-        response = self.client.post(
+    def login(self):
+        return self.client.post(
             reverse("auth-login"),
             {"login": "student@nalchik.ithub.ru", "password": "lxp-password"},
             content_type="application/json",
         )
 
+    @patch("apps.authapp.serializers.verify_lxp_credentials", return_value=(True, ""))
+    def test_first_login_with_lxp_password_activates_account(self, _verify):
+        user = _imported_agent()
+
+        response = self.login()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.json())
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertEqual(user.status, "activated_web")
+
+    @patch("apps.authapp.serializers.verify_lxp_credentials", return_value=(False, "Неверный пароль"))
+    def test_wrong_password_does_not_activate(self, _verify):
+        user = _imported_agent()
+
+        response = self.login()
+
         self.assertEqual(response.status_code, 401)
-        # До LXP запрос вообще не доходит: аккаунт закрыт.
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+
+    @patch("apps.authapp.serializers.verify_lxp_credentials", return_value=(True, ""))
+    def test_blocked_by_staff_cannot_log_in(self, verify):
+        _imported_agent(login_blocked=True)
+
+        response = self.login()
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Вход закрыт", response.json()["detail"])
+        # До LXP запрос не доходит: решение уже принято сотрудником.
         verify.assert_not_called()
+
+    def test_blocked_by_staff_cannot_activate_in_bot_either(self):
+        user = _imported_agent(login_blocked=True)
+
+        ok, _ = activate_telegram_account(
+            email="student@nalchik.ithub.ru", telegram_user_id=606, telegram_chat_id=606, telegram_username=""
+        )
+
+        self.assertFalse(ok)
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
 
     @patch("apps.authapp.serializers.verify_lxp_credentials", return_value=(True, ""))
     def test_login_works_after_telegram_activation(self, _verify):
@@ -171,3 +209,46 @@ class LoginGateTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("access", response.json())
+
+
+class StaffDeactivationTests(TestCase):
+    """Снятая сотрудником галочка «Активный» — намеренное отключение."""
+
+    def setUp(self):
+        from django.test import override_settings
+
+        self.enterContext(override_settings(SECURE_SSL_REDIRECT=False))
+        self.boss = User.objects.create_user(
+            username="boss", password="x", callsign="boss", role=Role.ADMIN, is_staff=True
+        )
+        self.client.force_login(self.boss)
+        self.student = _imported_agent(is_active=True, status="")
+
+    def post_active(self, value: bool):
+        """Сохранить карточку студента так, как это делает сотрудник в админке."""
+        url = reverse("admin:accounts_user_change", args=[self.student.pk])
+        initial = self.client.get(url).context["adminform"].form.initial
+        data = {
+            k: v for k, v in initial.items()
+            if v is not None and not isinstance(v, (list, tuple)) and k != "avatar"
+        }
+        data.update({"role": Role.AGENT})
+        if value:
+            data["is_active"] = "on"
+        else:
+            data.pop("is_active", None)
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302, "форма карточки не сохранилась")
+
+    def test_unchecking_active_blocks_login(self):
+        self.post_active(False)
+
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.login_blocked)
+
+    def test_checking_active_again_unblocks(self):
+        self.post_active(False)
+        self.post_active(True)
+
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.login_blocked)
