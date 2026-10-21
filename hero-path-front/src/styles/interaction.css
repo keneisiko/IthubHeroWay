@@ -381,7 +381,8 @@ textarea.popup__input {
   transition: background 0.2s ease, transform 0.15s ease;
 }
 
-.search-submit svg { width: 24px; height: 26px; margin: 0; }
+/* viewBox с запасом под толщину линии: круг и ручка выходили за край на 2px и обрезались */
+.search-submit svg { width: 26px; height: 26px; margin: 0; }
 .search-submit:active { transform: scale(0.9); }
 .search-submit:focus-visible { outline: 3px solid var(--ithub-black); outline-offset: 0; }
 
@@ -714,3 +715,23 @@ textarea.popup__input {
 
 /* нажатие главнее подъёма: правило выше иначе перебило бы «вдавливание» */
 .leaderboard-item--link:active .leaderboard-item__card { transform: scale(0.985); }
+
+/* --- появление строк внутри прокручиваемого списка рейтинга ---
+   Общая анимация карточек сдвигает строку на 32px вниз. В списке с
+   прокруткой это переполнение: пока строки «въезжали», появлялась полоса
+   прокрутки и исчезала по окончании — список дёргался даже на двух строках.
+   Здесь строки проявляются без сдвига по вертикали, а место под полосу
+   прокрутки зарезервировано, чтобы её появление не толкало содержимое. */
+.leaderboard-list {
+  scrollbar-gutter: stable;
+  overflow-x: hidden;
+}
+
+.leaderboard-list > .leaderboard-item {
+  animation-name: rowFadeIn;
+}
+
+@keyframes rowFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

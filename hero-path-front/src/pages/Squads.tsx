@@ -506,7 +506,7 @@ export default function Squads() {
             className="squad-members__search-input"
             aria-label="Поиск участника отряда"
           />
-          <svg viewBox="0 0 26 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <svg viewBox="-2 -2 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="10.11" cy="10.11" r="8.11" stroke="#848484" strokeWidth="4" />
             <line x1="17.6" y1="17.11" x2="25.67" y2="25.17" stroke="#848484" strokeWidth="4" strokeLinecap="round" />
           </svg>
