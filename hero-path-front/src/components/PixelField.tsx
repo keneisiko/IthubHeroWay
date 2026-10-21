@@ -42,7 +42,7 @@ export default function PixelField({ className = '' }: { className?: string }) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
 
     let cell = 24
@@ -234,7 +234,7 @@ export default function PixelField({ className = '' }: { className?: string }) {
     }
 
     const start = () => {
-      if (running || reduce) return
+      if (running || motionQuery.matches || document.visibilityState === 'hidden') return
       running = true
       last = 0
       raf = requestAnimationFrame(tick)
@@ -275,20 +275,26 @@ export default function PixelField({ className = '' }: { className?: string }) {
       const { x, y, power = 0.6, tone: t = 'light' } = (e as CustomEvent<BurstDetail>).detail
       const rect = canvas.getBoundingClientRect()
       ripple(x - rect.left, y - rect.top, power, t === 'coin' ? 1 : t === 'error' ? 2 : 0)
-      if (reduce) render(0)
+      if (motionQuery.matches) render(0)
     }
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') stop()
       else start()
     }
+    const onMotionChange = () => {
+      if (motionQuery.matches) {
+        stop()
+        bakeStill()
+      } else start()
+    }
 
     resize()
-    if (reduce) bakeStill()
+    if (motionQuery.matches) bakeStill()
     else start()
 
     const observer = new ResizeObserver(() => {
       resize()
-      if (reduce) bakeStill()
+      if (motionQuery.matches) bakeStill()
     })
     observer.observe(canvas)
     window.addEventListener('pointermove', onPointer, { passive: true })
@@ -299,6 +305,7 @@ export default function PixelField({ className = '' }: { className?: string }) {
     window.addEventListener('blur', onLeave)
     window.addEventListener(BURST_EVENT, onBurst)
     document.addEventListener('visibilitychange', onVisibility)
+    motionQuery.addEventListener('change', onMotionChange)
 
     return () => {
       stop()
@@ -311,6 +318,7 @@ export default function PixelField({ className = '' }: { className?: string }) {
       window.removeEventListener('blur', onLeave)
       window.removeEventListener(BURST_EVENT, onBurst)
       document.removeEventListener('visibilitychange', onVisibility)
+      motionQuery.removeEventListener('change', onMotionChange)
     }
   }, [])
 
