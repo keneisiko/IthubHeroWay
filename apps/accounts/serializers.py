@@ -4,12 +4,11 @@ from apps.badges.serializers import PublicUserBadgeSerializer
 from apps.progress.services.path_map import path_reached
 from apps.progress.services.pillar_labels import characteristics_payload
 from apps.progress.services.rating_zones import rating_status_label, rating_zone
-from apps.shop.services import applied_purchases
+from apps.shop.services import active_boost, applied_purchases
 from apps.social.services.duels import duel_wins
 from apps.social.services.rewards import respects_received_count
 
 from .frames import avatar_frame_for
-
 from .models import User
 
 
@@ -21,6 +20,8 @@ class MeProfileSerializer(serializers.ModelSerializer):
     # Активные покупки: какая рамка аватара и какое свечение значка надеты.
     applied_items = serializers.SerializerMethodField()
     avatar_frame = serializers.SerializerMethodField()
+    # Неиспользованный буст: {code, title} или null.
+    active_boost = serializers.SerializerMethodField()
     duel_wins = serializers.SerializerMethodField()
     respects_received = serializers.SerializerMethodField()
     # Статус по разделу 8 Положения: его название, а не только код зоны.
@@ -43,6 +44,7 @@ class MeProfileSerializer(serializers.ModelSerializer):
             "path_reached",
             "applied_items",
             "avatar_frame",
+            "active_boost",
             "duel_wins",
             "respects_received",
             "policy_accepted",
@@ -64,6 +66,12 @@ class MeProfileSerializer(serializers.ModelSerializer):
 
     def get_applied_items(self, obj: User) -> dict:
         return applied_purchases(obj)
+
+    def get_active_boost(self, obj: User) -> dict | None:
+        purchase = active_boost(obj)
+        if purchase is None:
+            return None
+        return {"code": purchase.item.code, "title": purchase.item.title}
 
     def get_duel_wins(self, obj: User) -> int:
         return duel_wins(obj)

@@ -297,7 +297,7 @@ class AgentLeaderboardAvatarTests(TestCase):
                 user=user, telegram_user_id=870 + n, telegram_chat_id=870 + n, is_active=True
             )
         frame = ShopItem.objects.create(
-            code="cosmetic-avatar-frame", title="Рамка", item_type=ShopItemType.COSMETIC, price_coins=30
+            code="cosmetic-avatar-frame", title="Рамка", item_type=ShopItemType.COSMETIC, slot="avatar_frame", price_coins=30
         )
         Purchase.objects.create(user=framed, item=frame, coins_spent=30, applied_at=timezone.now())
         Purchase.objects.create(user=plain, item=frame, coins_spent=30)

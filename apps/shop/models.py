@@ -9,6 +9,26 @@ class ShopItemType(models.TextChoices):
     OTHER = "other", "Прочее"
 
 
+class ShopItemSlot(models.TextChoices):
+    """Слот, который занимает предмет. Надеть можно по одному на слот."""
+
+    AVATAR_FRAME = "avatar_frame", "Рамка аватара"
+    BADGE_GLOW = "badge_glow", "Свечение значка"
+    PROFILE_BANNER = "profile_banner", "Баннер профиля"
+    BOOST = "boost", "Буст"
+
+
+# Слоты, которые «надеваются». Буст не надевают: он тратится сам при награде за квест.
+COSMETIC_SLOTS: tuple[str, ...] = (
+    ShopItemSlot.AVATAR_FRAME,
+    ShopItemSlot.BADGE_GLOW,
+    ShopItemSlot.PROFILE_BANNER,
+)
+
+
+BOOST_QUEST_X2_CODE = "boost-quest-x2"
+
+
 class ShopItem(models.Model):
     code = models.CharField("Код", max_length=64, unique=True)
     title = models.CharField("Название", max_length=255)
@@ -16,6 +36,9 @@ class ShopItem(models.Model):
     item_type = models.CharField(
         "Тип товара", max_length=16, choices=ShopItemType.choices, default=ShopItemType.OTHER
     )
+    # Рамка и свечение оба «косметика», поэтому по типу надевание одного
+    # молча снимало другое. Слот разводит их.
+    slot = models.CharField("Слот", max_length=16, choices=ShopItemSlot.choices, blank=True)
     price_coins = models.PositiveIntegerField("Цена (монеты)")
     is_active = models.BooleanField("Активен", default=True)
     available_from = models.DateTimeField("Доступен с", null=True, blank=True)
@@ -54,8 +77,14 @@ class Purchase(models.Model):
         blank=True,
         help_text=(
             "Когда покупку сделали активной. Одновременно активна одна покупка "
-            "на тип товара: рамка аватара, свечение значка и так далее."
+            "на слот товара: рамка аватара, свечение значка, баннер профиля."
         ),
+    )
+    consumed_at = models.DateTimeField(
+        "Использована",
+        null=True,
+        blank=True,
+        help_text="Для буста: когда он сработал на награде за квест.",
     )
     meta = models.JSONField("Метаданные", default=dict, blank=True)
 

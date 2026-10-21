@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from apps.accounts.frames import badge_frame_subquery
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsKnownRole
-from apps.shop.models import Purchase, ShopItemType
+from apps.shop.models import Purchase, ShopItemSlot
 
 from .models import RatingLog
 from .serializers import LeaderboardAgentSerializer, RatingLogSerializer, RatingMeSerializer
@@ -55,7 +55,7 @@ class AgentLeaderboardView(generics.ListAPIView):
         # одним подзапросом, а не запросом на каждую строку
         applied_cosmetic = (
             Purchase.objects.filter(
-                user=OuterRef("pk"), applied_at__isnull=False, item__item_type=ShopItemType.COSMETIC
+                user=OuterRef("pk"), applied_at__isnull=False, item__slot=ShopItemSlot.AVATAR_FRAME
             )
             .order_by("-applied_at")
             .values("item__code")[:1]

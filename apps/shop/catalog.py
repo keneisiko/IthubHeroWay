@@ -12,15 +12,18 @@
 не интересна. Теперь есть недельные покупки, месячная цель и одна крупная
 на сезон.
 
-Двух бустов в каталоге нет сознательно: «Буст опыта» и «Двойные монеты»
-продавались за 120 и 150 монет и не делали ничего — кода, который умножал бы
-начисления, в проекте не существует. Вернуть их можно только вместе
-с реализацией.
+Буст «×2 монеты за квест» теперь настоящий: он удваивает награду за ближайший
+выполненный квест (apps.quests.services.quest_completion), с учётом дневного
+предела. Прежние «Буст опыта» и «Двойные монеты» продавались за 120 и 150 монет
+и не делали ничего — они сняты с продажи (RETIRED_ITEM_CODES), а не возвращены.
+
+Косметика разложена по слотам (ShopItem.slot): рамка, свечение и баннер
+профиля надеваются независимо друг от друга.
 """
 
 from __future__ import annotations
 
-from apps.shop.models import ShopItemType
+from apps.shop.models import ShopItemSlot, ShopItemType
 
 SHOP_ITEMS: tuple[dict, ...] = (
     {
@@ -35,6 +38,7 @@ SHOP_ITEMS: tuple[dict, ...] = (
         "title": "Рамка аватара «Фиолетовый»",
         "description": "Фиолетовая рамка вокруг аватара в профиле и рейтинге.",
         "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.AVATAR_FRAME,
         "price_coins": 30,
     },
     {
@@ -49,6 +53,7 @@ SHOP_ITEMS: tuple[dict, ...] = (
         "title": "Свечение значка",
         "description": "Закреплённый значок светится в профиле.",
         "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.BADGE_GLOW,
         "price_coins": 40,
     },
     {
@@ -78,6 +83,102 @@ SHOP_ITEMS: tuple[dict, ...] = (
         "description": "Кружка с символикой. Выдаётся в учебной части.",
         "item_type": ShopItemType.OTHER,
         "price_coins": 250,
+    },
+    {
+        "code": "cosmetic-frame-gold",
+        "title": "Золотая рамка",
+        "description": "Золотая рамка вокруг аватара в профиле и рейтинге.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.AVATAR_FRAME,
+        "price_coins": 70,
+    },
+    {
+        "code": "cosmetic-frame-neon",
+        "title": "Неоновая рамка",
+        "description": "Неоновая рамка вокруг аватара в профиле и рейтинге.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.AVATAR_FRAME,
+        "price_coins": 90,
+    },
+    {
+        "code": "cosmetic-frame-flame",
+        "title": "Пламенная рамка",
+        "description": "Пламенная рамка вокруг аватара в профиле и рейтинге.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.AVATAR_FRAME,
+        "price_coins": 140,
+    },
+    {
+        "code": "cosmetic-glow-gold",
+        "title": "Золотое свечение",
+        "description": "Закреплённый значок светится золотом.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.BADGE_GLOW,
+        "price_coins": 60,
+    },
+    {
+        "code": "cosmetic-glow-rainbow",
+        "title": "Радужное свечение",
+        "description": "Закреплённый значок переливается радугой.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.BADGE_GLOW,
+        "price_coins": 110,
+    },
+    {
+        "code": "banner-night",
+        "title": "Ночной город",
+        "description": "Фон шапки профиля: ночной город.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.PROFILE_BANNER,
+        "price_coins": 45,
+    },
+    {
+        "code": "banner-sunset",
+        "title": "Закат",
+        "description": "Фон шапки профиля: закат.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.PROFILE_BANNER,
+        "price_coins": 45,
+    },
+    {
+        "code": "banner-matrix",
+        "title": "Матрица",
+        "description": "Фон шапки профиля: поток символов.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.PROFILE_BANNER,
+        "price_coins": 80,
+    },
+    {
+        "code": "banner-pixels",
+        "title": "Пиксели",
+        "description": "Фон шапки профиля: пиксельный узор.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.PROFILE_BANNER,
+        "price_coins": 60,
+    },
+    {
+        "code": "banner-aurora",
+        "title": "Северное сияние",
+        "description": "Фон шапки профиля: северное сияние.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.PROFILE_BANNER,
+        "price_coins": 120,
+    },
+    {
+        "code": "banner-gold",
+        "title": "Легенда",
+        "description": "Фон шапки профиля: золотой баннер для легенд.",
+        "item_type": ShopItemType.COSMETIC,
+        "slot": ShopItemSlot.PROFILE_BANNER,
+        "price_coins": 200,
+    },
+    {
+        "code": "boost-quest-x2",
+        "title": "×2 монеты за квест",
+        "description": "Монеты за следующий выполненный квест удваиваются.",
+        "item_type": ShopItemType.BOOST,
+        "slot": ShopItemSlot.BOOST,
+        "price_coins": 40,
     },
 )
 

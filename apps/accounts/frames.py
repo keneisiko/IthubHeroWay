@@ -11,6 +11,13 @@ from django.db.models import OuterRef, Subquery
 
 AVATAR_FRAME_ITEM = "cosmetic-avatar-frame"
 PURPLE = "purple"
+# Код товара-рамки → код рамки, которую рисует интерфейс.
+FRAME_BY_ITEM: dict[str, str] = {
+    AVATAR_FRAME_ITEM: PURPLE,
+    "cosmetic-frame-gold": "gold",
+    "cosmetic-frame-neon": "neon",
+    "cosmetic-frame-flame": "flame",
+}
 
 
 def badge_frame_subquery():
@@ -28,7 +35,7 @@ def badge_frame_subquery():
 def resolve_frame(badge_frame: str | None, applied_cosmetic: str | None) -> str:
     if badge_frame:
         return badge_frame
-    return PURPLE if applied_cosmetic == AVATAR_FRAME_ITEM else ""
+    return FRAME_BY_ITEM.get(applied_cosmetic or "", "")
 
 
 def avatar_frame_for(user) -> str:
@@ -42,4 +49,4 @@ def avatar_frame_for(user) -> str:
         .values_list("badge__avatar_frame", flat=True)
         .first()
     )
-    return resolve_frame(badge_frame, applied_purchases(user).get("cosmetic"))
+    return resolve_frame(badge_frame, applied_purchases(user).get("avatar_frame"))

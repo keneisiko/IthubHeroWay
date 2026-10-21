@@ -25,7 +25,8 @@ import RadarHud from '../components/RadarHud'
 import SkillSummary from '../components/SkillSummary'
 import PixelText from '../components/PixelText'
 import Avatar from '../components/Avatar'
-import { hasGlow, type AppliedItems } from '../lib/cosmetics'
+import { bannerVariant, glowVariant, type ActiveBoost, type AppliedItems } from '../lib/cosmetics'
+import { BoostPlaque } from '../components/BoostPlaque'
 import DevFrame from '../components/DevFrame'
 import RollNumber from '../components/RollNumber'
 import '../styles/profile-radar.css'
@@ -87,6 +88,8 @@ interface ProfileData {
   duel_wins?: number
   respects_received?: number
   applied_items?: AppliedItems
+  // Только в своём профиле: одноразовый буст, который ещё не сработал.
+  active_boost?: ActiveBoost | null
   avatar_frame?: string
   // Только в чужом профиле: свой профиль берёт это из отдельных запросов.
   quests_completed?: number
@@ -663,11 +666,17 @@ export default function Profile() {
     )
   }
 
+  // Косметика читается из applied_items профиля — своего или чужого,
+  // поэтому видна всем. Тихая перезагрузка (закрепление нашивки) заменяет
+  // профиль целиком, а applied_items приходит в каждом ответе.
+  const banner = bannerVariant(profile.applied_items)
+  const glow = glowVariant(profile.applied_items)
+
   return (
     <div className="profile page-enter">
       <div className="profile__top">
         <div className="profile__left">
-          <section className="profile-card profile-card--primary card-entrance">
+          <section className={`profile-card profile-card--primary card-entrance${banner ? ` profile-card--banner banner--${banner}` : ''}`}>
             <div className="profile-card__header">
               <div
                 className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}${profile.avatar_frame ? ` profile-card__avatar--${profile.avatar_frame}` : ''}`}
@@ -716,6 +725,7 @@ export default function Profile() {
               </div>
 
             </div>
+            {isOwnProfile && <BoostPlaque boost={profile.active_boost} />}
           </section>
 
           <section className="profile-card profile-card--map card-entrance" style={{ animationDelay: '0.1s' }}>
@@ -1042,7 +1052,7 @@ export default function Profile() {
           ) : pinnedBadges.map((item) => (
             <button
               key={item.id}
-              className={`ach btn-press${hasGlow(profile?.applied_items) ? ' ach--glow' : ''}`}
+              className={`ach btn-press${glow ? ` ach--glow ach--glow-${glow}` : ''}`}
               type="button"
               onClick={() => setSheetCode(item.badge.code)}
               aria-haspopup="dialog"
@@ -1086,7 +1096,7 @@ export default function Profile() {
           {filteredBadges.map((card) => (
             <button
               key={card.id}
-              className="path-card btn-press"
+              className={`path-card btn-press${glow ? ` ach--glow ach--glow-${glow}` : ''}`}
               type="button"
               onClick={() => setSheetCode(card.badge.code)}
               aria-haspopup="dialog"

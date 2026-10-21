@@ -29,9 +29,9 @@ def make_agent(username: str) -> User:
     )
 
 
-def make_item(code: str, item_type: str = ShopItemType.COSMETIC) -> ShopItem:
+def make_item(code: str, item_type: str = ShopItemType.COSMETIC, slot: str = "") -> ShopItem:
     return ShopItem.objects.create(
-        code=code, title=code, item_type=item_type, price_coins=10, is_active=True
+        code=code, title=code, item_type=item_type, slot=slot, price_coins=10, is_active=True
     )
 
 
@@ -39,10 +39,10 @@ class ApplyPurchaseServiceTests(TestCase):
     def setUp(self):
         self.user = make_agent("shopper")
         self.frame = Purchase.objects.create(
-            user=self.user, item=make_item("frame-violet"), coins_spent=10
+            user=self.user, item=make_item("frame-violet", slot="avatar_frame"), coins_spent=10
         )
         self.glow = Purchase.objects.create(
-            user=self.user, item=make_item("badge-glow"), coins_spent=10
+            user=self.user, item=make_item("badge-glow", slot="avatar_frame"), coins_spent=10
         )
 
     def test_apply_marks_purchase_active(self):
@@ -61,21 +61,20 @@ class ApplyPurchaseServiceTests(TestCase):
         self.assertIsNone(self.frame.applied_at)
         self.assertIsNotNone(self.glow.applied_at)
 
-    def test_purchases_of_different_types_coexist(self):
-        boost = Purchase.objects.create(
-            user=self.user, item=make_item("boost-x2", ShopItemType.BOOST), coins_spent=10
+    def test_purchases_of_different_slots_coexist(self):
+        framed = Purchase.objects.create(
+            user=self.user, item=make_item("frame-slot", slot="avatar_frame"), coins_spent=10
+        )
+        banner = Purchase.objects.create(
+            user=self.user, item=make_item("banner-x", slot="profile_banner"), coins_spent=10
         )
 
-        apply_purchase(self.user, self.frame.pk)
-        apply_purchase(self.user, boost.pk)
+        apply_purchase(self.user, framed.pk)
+        apply_purchase(self.user, banner.pk)
 
-        self.frame.refresh_from_db()
-        boost.refresh_from_db()
-        self.assertIsNotNone(self.frame.applied_at)
-        self.assertIsNotNone(boost.applied_at)
         self.assertEqual(
             applied_purchases(self.user),
-            {ShopItemType.COSMETIC: "frame-violet", ShopItemType.BOOST: "boost-x2"},
+            {"avatar_frame": "frame-slot", "profile_banner": "banner-x"},
         )
 
     def test_apply_twice_is_idempotent(self):
@@ -105,7 +104,7 @@ class ApplyPurchaseApiTests(APITestCase):
         self.user = make_agent("api_shopper")
         self.client.force_authenticate(self.user)
         self.purchase = Purchase.objects.create(
-            user=self.user, item=make_item("frame-gold"), coins_spent=10
+            user=self.user, item=make_item("frame-gold", slot="avatar_frame"), coins_spent=10
         )
 
     def _url(self, purchase_id: int) -> str:
@@ -122,7 +121,7 @@ class ApplyPurchaseApiTests(APITestCase):
 
     def test_foreign_purchase_returns_404(self):
         other = Purchase.objects.create(
-            user=make_agent("other_shopper"), item=make_item("frame-blue"), coins_spent=10
+            user=make_agent("other_shopper"), item=make_item("frame-blue", slot="avatar_frame"), coins_spent=10
         )
 
         response = self.client.post(self._url(other.pk))

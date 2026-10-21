@@ -10,6 +10,8 @@ from apps.progress.models import RatingChangeSource
 from apps.progress.services.rewards import apply_rating_delta_with_cap, remaining_daily_coin_budget
 from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
 from apps.quests.services.weekly_focus import focus_bonus
+from apps.shop.models import Purchase
+from apps.shop.services import unused_boosts
 
 
 @transaction.atomic
@@ -39,8 +41,13 @@ def complete_quest_idempotent(
     # Надбавка за цель недели: квест, который студент сам выбрал приоритетным.
     bonus_coins, bonus_rating = focus_bonus(user, quest)
 
+    base_coins = int(quest.reward_coins) + bonus_coins
+    # Буст берём под блокировкой до расчёта награды: две одновременные
+    # завершённые квесты не должны удвоить оба по одному бусту.
+    boost = _lock_boost(user) if base_coins > 0 and not _already_rewarded(user, quest) else None
     reward_budget = remaining_daily_coin_budget(user)
-    allowed_coins = min(int(quest.reward_coins) + bonus_coins, reward_budget)
+    # Дневной предел действует и на удвоенную награду: буст его не обходит.
+    allowed_coins = min(base_coins * (2 if boost else 1), reward_budget)
     reward_tx, created = QuestRewardTransaction.objects.get_or_create(
         user=user,
         quest=quest,
@@ -52,6 +59,16 @@ def complete_quest_idempotent(
     )
     if created and (bonus_coins or bonus_rating):
         reason = f"{reason} (цель недели: +{bonus_coins} монет, +{bonus_rating} рейтинга)"
+    # Буст тратится, только если он реально что-то дал: если предел дня и так
+    # дал бы ту же сумму (остаток лимита меньше базы), он остаётся на следующий квест.
+    if created and boost is not None and allowed_coins > min(base_coins, reward_budget):
+        boost.consumed_at = timezone.now()
+        boost.meta = {
+            **(boost.meta or {}),
+            "boost": {"quest_id": quest.id, "base_coins": base_coins, "granted_coins": allowed_coins},
+        }
+        boost.save(update_fields=["consumed_at", "meta"])
+        reason = f"{reason} (буст ×2: монеты {base_coins} → {allowed_coins})"
     if created:
         if allowed_coins:
             user.coins_balance += allowed_coins
@@ -65,6 +82,20 @@ def complete_quest_idempotent(
         )
         invalidate_rating_views(user.username)
     return progress, created
+
+
+def _already_rewarded(user, quest: Quest) -> bool:
+    return QuestRewardTransaction.objects.filter(user=user, quest=quest).exists()
+
+
+def _lock_boost(user) -> Purchase | None:
+    """Самый ранний неиспользованный буст студента, заблокированный до конца транзакции."""
+    return (
+        unused_boosts(user)
+        .select_for_update()
+        .order_by("created_at", "id")
+        .first()
+    )
 
 
 def update_quest_progress(

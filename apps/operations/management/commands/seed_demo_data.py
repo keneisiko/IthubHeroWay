@@ -112,6 +112,7 @@ class Command(BaseCommand):
                     "title": item_data["title"],
                     "description": item_data.get("description", ""),
                     "item_type": item_data["item_type"],
+                    "slot": item_data.get("slot", ""),
                     "price_coins": item_data["price_coins"],
                     "is_active": True,
                 },

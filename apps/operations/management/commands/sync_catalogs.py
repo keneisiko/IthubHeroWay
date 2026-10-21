@@ -74,6 +74,7 @@ class Command(BaseCommand):
             "title": row["title"],
             "description": row.get("description", ""),
             "item_type": row["item_type"],
+            "slot": row.get("slot", ""),
             "price_coins": row["price_coins"],
             "is_active": True,
         }

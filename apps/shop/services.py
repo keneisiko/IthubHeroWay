@@ -2,26 +2,49 @@
 
 Купленный предмет сам по себе ничего не менял: кнопка «Применить» в интерфейсе
 показывала тост «пока не подключено на бэкенде». Здесь живёт правило, которое
-делает её осмысленной — активной может быть одна покупка на тип товара.
+делает её осмысленной — активной может быть одна покупка на слот товара
+(рамка, свечение, баннер независимы друг от друга).
 Иначе у студента одновременно «надеты» три рамки аватара, и какая из них
 показывается, зависит от порядка выборки.
 """
 
 from __future__ import annotations
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
-from apps.shop.models import Purchase
+from apps.shop.models import BOOST_QUEST_X2_CODE, COSMETIC_SLOTS, Purchase, ShopItemSlot
 
 
 class PurchaseNotOwned(LookupError):
     pass
 
 
+class PurchaseNotApplicable(ValueError):
+    pass
+
+
+def unused_boosts(user):
+    """Неиспользованные рабочие бусты студента.
+
+    Фильтр по слоту и коду, а не по типу: старые покупки снятых «Буст опыта» и
+    «Двойные монеты» имеют тип boost, но ничего не делали и работать не должны.
+    """
+    return Purchase.objects.filter(
+        user=user,
+        item__slot=ShopItemSlot.BOOST,
+        item__code=BOOST_QUEST_X2_CODE,
+        consumed_at__isnull=True,
+    )
+
+
 @transaction.atomic
 def apply_purchase(user, purchase_id: int) -> Purchase:
-    """Сделать покупку активной, сняв прежнюю активную того же типа."""
+    """Сделать покупку активной, сняв прежнюю активную того же слота."""
+    # Блокировка пользователя сериализует параллельные «применить» двух предметов
+    # одного слота: иначе оба видят друг друга неактивными и остаются надетыми.
+    get_user_model().objects.select_for_update().get(pk=user.pk)
     try:
         purchase = (
             Purchase.objects.select_for_update()
@@ -31,12 +54,17 @@ def apply_purchase(user, purchase_id: int) -> Purchase:
     except Purchase.DoesNotExist as exc:
         raise PurchaseNotOwned("Покупка не найдена у этого пользователя.") from exc
 
+    item = purchase.item
+    # Буст не надевается: он срабатывает сам на следующей награде за квест.
+    if item.slot == ShopItemSlot.BOOST:
+        raise PurchaseNotApplicable("Буст нельзя надеть: он сработает сам на награде за следующий квест.")
+    if item.slot not in COSMETIC_SLOTS:
+        raise PurchaseNotApplicable("Этот предмет нельзя применить.")
+
     if purchase.applied_at:
         return purchase
 
-    Purchase.objects.filter(
-        user=user, item__item_type=purchase.item.item_type, applied_at__isnull=False
-    ).exclude(pk=purchase.pk).update(applied_at=None)
+    Purchase.objects.filter(user=user, applied_at__isnull=False, item__slot=item.slot).exclude(pk=purchase.pk).update(applied_at=None)
 
     purchase.applied_at = timezone.now()
     purchase.save(update_fields=["applied_at"])
@@ -58,14 +86,25 @@ def unapply_purchase(user, purchase_id: int) -> Purchase:
 
 
 def applied_purchases(user) -> dict[str, str]:
-    """Активные покупки студента: тип товара → код предмета.
+    """Активные покупки студента: слот → код предмета (только косметические слоты).
 
     В таком виде их удобно отдавать профилю: интерфейсу нужно знать, какую
-    рамку и какое свечение рисовать, а не весь список покупок.
+    рамку, свечение и баннер рисовать, а не весь список покупок.
     """
     rows = (
-        Purchase.objects.filter(user=user, applied_at__isnull=False)
+        Purchase.objects.filter(user=user, applied_at__isnull=False, item__slot__in=COSMETIC_SLOTS)
         .select_related("item")
-        .order_by("item__item_type", "-applied_at")
+        .order_by("applied_at")
     )
-    return {row.item.item_type: row.item.code for row in rows}
+    # Порядок по возрастанию: при сбое «двух на слот» побеждает самая свежая.
+    return {row.item.slot: row.item.code for row in rows}
+
+
+def active_boost(user) -> Purchase | None:
+    """Неиспользованный буст студента (самый ранний)."""
+    return (
+        unused_boosts(user)
+        .select_related("item")
+        .order_by("created_at", "id")
+        .first()
+    )

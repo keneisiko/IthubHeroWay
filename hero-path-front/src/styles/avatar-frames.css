@@ -15,6 +15,112 @@
   animation: framePulseLight 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
+/* --- золотая, неоновая, огненная: тот же белый зазор и кромка по форме
+   аватара, отличаются цветом кромки и ритмом свечения. Цвета — в
+   переменных, чтобы не плодить по набору keyframes на каждую рамку. --- */
+.avatar--frame-gold { --frame-edge: #ffd900; --frame-glow: 255, 217, 0; }
+.avatar--frame-neon { --frame-edge: #2bffb4; --frame-glow: 43, 255, 180; }
+.avatar--frame-flame { --frame-edge: #ff5a1f; --frame-glow: 255, 150, 30; }
+
+.avatar--frame-gold,
+.avatar--frame-neon,
+.avatar--frame-flame {
+  box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 0 10px 2px rgba(var(--frame-glow), 0.35);
+  animation: frameGlow 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* неон мигает резче: короткая вспышка и затухание, как трубка */
+.avatar--frame-neon { animation-name: frameNeon; animation-duration: 3.4s; }
+
+/* пламя дрожит чаще и неровнее, свечение уходит вверх */
+.avatar--frame-flame { animation-name: frameFlame; animation-duration: 1.7s; }
+
+/* на фиолетовой плашке (шапка, карточка профиля) кромка толще и светлее */
+.top-header__avatar.avatar--frame-gold,
+.top-header__avatar.avatar--frame-neon,
+.top-header__avatar.avatar--frame-flame {
+  box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 6px var(--frame-edge), 0 0 12px 3px rgba(var(--frame-glow), 0.5);
+}
+
+.profile-card__avatar--gold,
+.profile-card__avatar--neon,
+.profile-card__avatar--flame {
+  box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 6px var(--frame-edge), 0 0 12px 3px rgba(var(--frame-glow), 0.5);
+  animation: frameGlow 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.profile-card__avatar--gold { --frame-edge: #ffd900; --frame-glow: 255, 217, 0; }
+.profile-card__avatar--neon { --frame-edge: #2bffb4; --frame-glow: 43, 255, 180; animation-name: frameNeon; animation-duration: 3.4s; }
+.profile-card__avatar--flame { --frame-edge: #ff5a1f; --frame-glow: 255, 150, 30; animation-name: frameFlame; animation-duration: 1.7s; }
+
+@keyframes frameGlow {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 0 10px 2px rgba(var(--frame-glow), 0.35); }
+  50% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 0 22px 7px rgba(var(--frame-glow), 0.7); }
+}
+
+@keyframes frameNeon {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px var(--frame-edge), 0 0 14px 4px rgba(var(--frame-glow), 0.6); }
+  46% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px var(--frame-edge), 0 0 26px 9px rgba(var(--frame-glow), 0.9); }
+  50% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px rgba(var(--frame-glow), 0.5), 0 0 8px 2px rgba(var(--frame-glow), 0.3); }
+  54% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px var(--frame-edge), 0 0 26px 9px rgba(var(--frame-glow), 0.9); }
+}
+
+@keyframes frameFlame {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 -4px 14px 4px rgba(var(--frame-glow), 0.55), 0 0 6px 1px rgba(255, 60, 0, 0.5); }
+  30% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px #ffb300, 0 -8px 22px 7px rgba(var(--frame-glow), 0.8), 0 0 8px 2px rgba(255, 60, 0, 0.6); }
+  60% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px #ff3d00, 0 -3px 12px 3px rgba(var(--frame-glow), 0.45), 0 0 5px 1px rgba(255, 60, 0, 0.4); }
+}
+
+/* --- золотая, неоновая, огненная: тот же белый зазор и кромка по форме
+   аватара, отличаются цветом кромки и ритмом свечения. Цвета — в
+   переменных, чтобы не плодить по набору keyframes на каждую рамку. --- */
+.avatar--frame-gold { --frame-edge: #ffd900; --frame-glow: 255, 217, 0; }
+.avatar--frame-neon { --frame-edge: #2bffb4; --frame-glow: 43, 255, 180; }
+.avatar--frame-flame { --frame-edge: #ff5a1f; --frame-glow: 255, 150, 30; }
+
+.avatar--frame-gold,
+.avatar--frame-neon,
+.avatar--frame-flame {
+  box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 0 10px 2px rgba(var(--frame-glow), 0.35);
+  animation: frameGlow 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* неон мигает резче: короткая вспышка и затухание, как трубка */
+.avatar--frame-neon { animation-name: frameNeon; animation-duration: 3.4s; }
+
+/* пламя дрожит чаще и неровнее, свечение уходит вверх */
+.avatar--frame-flame { animation-name: frameFlame; animation-duration: 1.7s; }
+
+/* то же в карточке профиля: рамка на контейнере, а не на самом аватаре */
+.profile-card__avatar--gold,
+.profile-card__avatar--neon,
+.profile-card__avatar--flame {
+  box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 6px var(--frame-edge), 0 0 12px 3px rgba(var(--frame-glow), 0.5);
+  animation: frameGlow 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.profile-card__avatar--gold { --frame-edge: #ffd900; --frame-glow: 255, 217, 0; }
+.profile-card__avatar--neon { --frame-edge: #2bffb4; --frame-glow: 43, 255, 180; animation-name: frameNeon; animation-duration: 3.4s; }
+.profile-card__avatar--flame { --frame-edge: #ff5a1f; --frame-glow: 255, 150, 30; animation-name: frameFlame; animation-duration: 1.7s; }
+
+@keyframes frameGlow {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 0 10px 2px rgba(var(--frame-glow), 0.35); }
+  50% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 0 22px 7px rgba(var(--frame-glow), 0.7); }
+}
+
+@keyframes frameNeon {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px var(--frame-edge), 0 0 14px 4px rgba(var(--frame-glow), 0.6); }
+  46% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px var(--frame-edge), 0 0 26px 9px rgba(var(--frame-glow), 0.9); }
+  50% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px rgba(var(--frame-glow), 0.5), 0 0 8px 2px rgba(var(--frame-glow), 0.3); }
+  54% { box-shadow: 0 0 0 2px var(--ithub-black), 0 0 0 5px var(--frame-edge), 0 0 26px 9px rgba(var(--frame-glow), 0.9); }
+}
+
+@keyframes frameFlame {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px var(--frame-edge), 0 -4px 14px 4px rgba(var(--frame-glow), 0.55), 0 0 6px 1px rgba(255, 60, 0, 0.5); }
+  30% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px #ffb300, 0 -8px 22px 7px rgba(var(--frame-glow), 0.8), 0 0 8px 2px rgba(255, 60, 0, 0.6); }
+  60% { box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 5px #ff3d00, 0 -3px 12px 3px rgba(var(--frame-glow), 0.45), 0 0 5px 1px rgba(255, 60, 0, 0.4); }
+}
+
 /* --- разработчика: рисунок поверх аватара, выходит за край на 20% --- */
 .dev-art {
   position: absolute;
@@ -209,7 +315,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .avatar--frame-purple,
+  .avatar--frame-gold,
+  .avatar--frame-neon,
+  .avatar--frame-flame,
   .profile-card__avatar--purple,
+  .profile-card__avatar--gold,
+  .profile-card__avatar--neon,
+  .profile-card__avatar--flame,
   .dev-art__energy,
   .dev-art__ink--dry,
   .dev-art__flames path,

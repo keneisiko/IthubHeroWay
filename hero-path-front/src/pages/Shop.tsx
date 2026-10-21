@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import palmSky from '../assets/shop/palm-sky.png'
 import api from '../api'
 import { notifyBalanceChanged } from '../lib/balance'
 import { celebrate } from '../lib/celebrate'
@@ -9,8 +8,16 @@ import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList, formatRating
 import { useTabIndicator } from '../useTabIndicator'
 import RollNumber from '../components/RollNumber'
 import Avatar from '../components/Avatar'
-import BadgeEmblem from '../components/BadgeEmblem'
-import { AVATAR_FRAME, BADGE_GLOW, COSMETIC_HINTS } from '../lib/cosmetics'
+import ShopItemEmblem from '../components/ShopItemEmblem'
+import {
+  BANNER_BY_CODE,
+  FRAME_BY_CODE,
+  GLOW_BY_CODE,
+  SLOT_HINTS,
+  isCosmeticSlot,
+  slotOfItem,
+  type CosmeticSlot,
+} from '../lib/cosmetics'
 import PixelText from '../components/PixelText'
 import '../styles/shop.css'
 
@@ -37,7 +44,8 @@ interface Product {
   title: string
   price: string
   desc: string
-  image?: string
+  slot: string
+  itemType: string
 }
 
 interface Purchase {
@@ -49,6 +57,10 @@ interface Purchase {
   status: string
   date: string
   isApplied: boolean
+  /** Слот косметики или 'boost'; '' — услуга/мерч, надевать нечего. */
+  slot: string
+  /** Буст одноразовый: когда сработал, приходит дата. */
+  consumed: boolean
 }
 
 interface HistoryItem {
@@ -107,6 +119,55 @@ function Modal({
   )
 }
 
+// Состояние покупки словами: косметика надевается, буст срабатывает сам.
+function purchaseStateLabel(p: Purchase): string {
+  if (p.slot === 'boost') return p.consumed ? 'Использован' : 'Сработает на следующем квесте'
+  if (isCosmeticSlot(p.slot)) return p.isApplied ? 'Надета' : 'Куплена'
+  return 'Куплена'
+}
+
+// ключ перезапускает анимацию статуса при смене состояния
+const purchaseStateKey = (p: Purchase) => `${p.slot}-${p.isApplied}-${p.consumed}`
+
+function purchaseHint(p: Purchase): string {
+  if (p.slot === 'boost') return 'Одноразовый: сработает на ближайшем квесте и исчезнет'
+  if (isCosmeticSlot(p.slot)) return SLOT_HINTS[p.slot as CosmeticSlot]
+  return ''
+}
+
+// Превью в карточке покупки: рамка, свечение и баннер показывают сам
+// эффект, остальное — иконку товара.
+function PurchasePreview({ purchase: p, me }: { purchase: Purchase; me: { avatar: string | null; name: string } }) {
+  if (p.slot === 'avatar_frame') {
+    return (
+      <span className="shop-purchase__preview">
+        <Avatar src={me.avatar} name={me.name || p.title} frame={FRAME_BY_CODE[p.code] ?? 'purple'} className="shop-purchase__avatar" />
+      </span>
+    )
+  }
+  if (p.slot === 'badge_glow') {
+    const variant = GLOW_BY_CODE[p.code] ?? 'purple'
+    return (
+      <span className={`shop-purchase__preview shop-purchase__preview--glow shop-purchase__preview--glow-${variant}`}>
+        <ShopItemEmblem code={p.code} slot={p.slot} size={40} />
+      </span>
+    )
+  }
+  if (p.slot === 'profile_banner') {
+    const variant = BANNER_BY_CODE[p.code]
+    return (
+      <span className="shop-purchase__preview shop-purchase__preview--banner">
+        <span className={`banner-swatch${variant ? ` banner--${variant}` : ''}`} aria-hidden="true" />
+      </span>
+    )
+  }
+  return (
+    <span className="shop-purchase__preview shop-purchase__preview--emblem">
+      <ShopItemEmblem code={p.code} slot={p.slot} itemType={p.type} size={44} />
+    </span>
+  )
+}
+
 export default function Shop() {
   const [activeTab, setActiveTab] = useState(0)
   const [switching, setSwitching] = useState(false)
@@ -122,9 +183,10 @@ export default function Shop() {
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [coins, setCoins] = useState('0')
   const [purchasedCodes, setPurchasedCodes] = useState<Set<string>>(new Set())
-  // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
-  // двойной клик не отправил применение и снятие подряд.
-  const [applyingId, setApplyingId] = useState<number | null>(null)
+  // id покупок, по которым сейчас идут запросы. Набор, а не один id: пока
+  // летит запрос, в том же слоте нельзя нажать вторую кнопку — иначе
+  // применение и снятие обгоняют друг друга.
+  const [applyingIds, setApplyingIds] = useState<Set<number>>(new Set())
   // кольцо вокруг нажатой кнопки; чередование имени перезапускает анимацию
   const [ring, setRing] = useState<{ id: number; n: number } | null>(null)
   // свой аватар — для превью рамки прямо в карточке покупки
@@ -162,6 +224,8 @@ export default function Shop() {
         title: string
         description?: string
         price_coins: number
+        slot?: string
+        item_type?: string
       }>(itemsRes.data)
 
       setProducts(items.map((item) => ({
@@ -170,6 +234,8 @@ export default function Shop() {
         title: item.title,
         price: String(item.price_coins),
         desc: item.description || '',
+        slot: slotOfItem(item.code, item.slot),
+        itemType: item.item_type ?? itemType,
       })))
 
       const purchaseRows = unwrapList<{
@@ -177,7 +243,9 @@ export default function Shop() {
         coins_spent: number
         created_at: string
         is_applied?: boolean
-        item: { title: string; code?: string; item_type?: string }
+        slot?: string
+        consumed_at?: string | null
+        item: { title: string; code?: string; item_type?: string; slot?: string }
       }>(purchasesRes.data)
 
       setPurchasedCodes(new Set(
@@ -193,6 +261,8 @@ export default function Shop() {
         status: p.created_at ? `Куплено · ${formatDateRu(p.created_at)}` : 'Куплено',
         date: formatDateRu(p.created_at),
         isApplied: Boolean(p.is_applied),
+        slot: slotOfItem(p.item?.code ?? '', p.slot ?? p.item?.slot),
+        consumed: Boolean(p.consumed_at),
       })))
 
       const rewardRows = unwrapList<{
@@ -230,34 +300,50 @@ export default function Shop() {
   }, [loadShop])
 
 
-  // Одновременно активна одна покупка на тип товара — правило на бэкенде,
-  // поэтому после переключения список перезагружаем целиком.
+  // Одновременно надета одна вещь на слот — правило на бэкенде, поэтому
+  // после переключения список перезагружаем целиком.
   // Карточка переключается сразу, не дожидаясь ответа: статус
   // переворачивается, кнопка меняет вид. Ошибка возвращает как было.
   const togglePurchase = useCallback((purchase: Purchase) => {
     const next = !purchase.isApplied
-    const flip = (value: boolean) => setPurchases((list) => list.map((x) => (
-      x.id === purchase.id ? { ...x, isApplied: value } : x
-    )))
-    setApplyingId(purchase.id)
-    flip(next)
+    // снимок до переключения: при ошибке возвращаем его целиком, вместе с
+    // вещью, которую надевание вытеснило из слота
+    const snapshot = purchases
+    setPurchases(snapshot.map((x) => {
+      if (x.id === purchase.id) return { ...x, isApplied: next }
+      // в слоте надета одна вещь: прежнюю снимаем сразу
+      return next && x.slot === purchase.slot ? { ...x, isApplied: false } : x
+    }))
+    setApplyingIds((ids) => new Set(ids).add(purchase.id))
     setRing((r) => ({ id: purchase.id, n: (r?.n ?? 0) + 1 }))
     const request = next
       ? api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
       : api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
     request
       .then(() => {
-        addToast(next ? 'Покупка применена' : 'Покупка снята', 'success')
-        loadShop({ quiet: true })
+        addToast(next ? 'Надето' : 'Снято', 'success')
         // шапка перечитает профиль — рамка у аватара появится сразу
         notifyBalanceChanged()
       })
       .catch(() => {
-        flip(purchase.isApplied)
+        setPurchases(snapshot)
         addToast('Не удалось изменить покупку', 'error')
       })
-      .finally(() => setApplyingId(null))
-  }, [addToast, loadShop])
+      .finally(() => {
+        setApplyingIds((ids) => {
+          const rest = new Set(ids)
+          rest.delete(purchase.id)
+          return rest
+        })
+        // дополнительная сверка с сервером
+        loadShop({ quiet: true })
+      })
+  }, [purchases, addToast, loadShop])
+
+  // слот занят, пока по любой покупке из него идёт запрос
+  const busySlots = useMemo(() => new Set(
+    purchases.filter((p) => applyingIds.has(p.id)).map((p) => p.slot),
+  ), [purchases, applyingIds])
 
   const shownProducts = useMemo(() => {
     const list = products.filter((item) => {
@@ -275,7 +361,7 @@ export default function Shop() {
     const types = SHOP_TAB_TYPES.filter((type) => purchases.some((p) => p.type === type))
     const chips: [string, string, number][] = [['all', 'Все', purchases.length]]
     const applied = purchases.filter((p) => p.isApplied).length
-    if (applied) chips.push(['applied', 'Применённые', applied])
+    if (applied) chips.push(['applied', 'Надетые', applied])
     for (const type of types) chips.push([type, TYPE_LABELS[type], purchases.filter((p) => p.type === type).length])
     return chips
   }, [purchases])
@@ -288,8 +374,6 @@ export default function Shop() {
   const selectedDetail = showDetail !== null ? products.find(p => p.id === showDetail) : undefined
   // сколько монет не хватает на открытый товар (0 — хватает)
   const detailLack = selectedDetail ? Math.max(0, Number(selectedDetail.price) - Number(coins)) : 0
-  // Бэкенд отдаёт одно изображение на товар, галереи в данных нет
-  const detailImages = [selectedDetail?.image ?? palmSky]
 
   const handleBuy = useCallback(() => {
     if (showPurchase === null) return
@@ -352,44 +436,32 @@ export default function Shop() {
             ) : shownPurchases.map((p) => (
               <article
                 key={p.id}
-                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingId === p.id ? ' shop-purchase--pending' : ''}`}
+                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingIds.has(p.id) ? ' shop-purchase--pending' : ''}`}
               >
                 <span className="shop-purchase__frame">
-                  {p.code === AVATAR_FRAME ? (
-                    <span className="shop-purchase__preview">
-                      <Avatar src={me.avatar} name={me.name || p.title} frame={p.isApplied ? 'purple' : null} className="shop-purchase__avatar" />
-                    </span>
-                  ) : p.code === BADGE_GLOW ? (
-                    <span className={`shop-purchase__preview${p.isApplied ? ' shop-purchase__preview--glow' : ''}`}>
-                      <BadgeEmblem code="glow" rarity="epic" size={40} />
-                    </span>
-                  ) : (
-                    <img src={palmSky} alt="" className="shop-purchase__image" />
-                  )}
+                  <PurchasePreview purchase={p} me={me} />
                 </span>
                 <span className="shop-purchase__name">{p.title}</span>
-                {COSMETIC_HINTS[p.code] && (
-                  <span className="shop-purchase__hint">
-                    {p.isApplied ? COSMETIC_HINTS[p.code] : 'Примените, чтобы увидеть'}
-                  </span>
-                )}
-                <span key={String(p.isApplied)} className="shop-purchase__state">
+                {purchaseHint(p) && <span className="shop-purchase__hint">{purchaseHint(p)}</span>}
+                <span key={purchaseStateKey(p)} className="shop-purchase__state">
                   <i className="shop-purchase__tick" aria-hidden="true" />
-                  {p.isApplied ? 'Применена' : 'Куплена'}
+                  {purchaseStateLabel(p)}
                 </span>
-                <button
-                  type="button"
-                  className={`shop-purchase__apply btn-press${ring?.id === p.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''}`}
-                  onClick={() => togglePurchase(p)}
-                  disabled={applyingId === p.id}
-                  aria-pressed={p.isApplied}
-                  aria-busy={applyingId === p.id}
-                >
-                  <span key={String(p.isApplied)} className="shop-purchase__apply-label">
-                    {p.isApplied ? 'Снять' : 'Применить'}
-                  </span>
-                  <span className="shop-purchase__apply-dots" aria-hidden="true"><i /><i /><i /></span>
-                </button>
+                {isCosmeticSlot(p.slot) && (
+                  <button
+                    type="button"
+                    className={`shop-purchase__apply btn-press${ring?.id === p.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''}`}
+                    onClick={() => togglePurchase(p)}
+                    disabled={busySlots.has(p.slot)}
+                    aria-pressed={p.isApplied}
+                    aria-busy={applyingIds.has(p.id)}
+                  >
+                    <span key={String(p.isApplied)} className="shop-purchase__apply-label">
+                      {p.isApplied ? 'Снять' : 'Надеть'}
+                    </span>
+                    <span className="shop-purchase__apply-dots" aria-hidden="true"><i /><i /><i /></span>
+                  </button>
+                )}
               </article>
             ))}
           </div>
@@ -407,12 +479,9 @@ export default function Shop() {
 
         <div className="shop-detail__body">
           <div className="shop-detail__gallery">
-            <div className="shop-detail__thumbs">
-              {detailImages.map((src, i) => (
-                <img key={i} src={src} alt="" className="shop-detail__thumb" />
-              ))}
+            <div className="shop-detail__emblem">
+              <ShopItemEmblem code={selectedDetail.code} slot={selectedDetail.slot} itemType={selectedDetail.itemType} size={200} />
             </div>
-            <img src={detailImages[0]} alt="" className="shop-detail__image" />
           </div>
 
           <div className="shop-detail__info">
@@ -547,7 +616,9 @@ export default function Shop() {
             style={{ animationDelay: `${i * 50}ms` }}
             onClick={() => setShowDetail(item.id)}
           >
-            <img className="shop-card__thumb" src={item.image ?? palmSky} alt="" width={300} height={184} loading="lazy" />
+            <div className="shop-card__emblem">
+              <ShopItemEmblem code={item.code} slot={item.slot} itemType={item.itemType} size={120} />
+            </div>
             <h2 className="shop-card__title">{item.title}</h2>
             <div className="shop-card__price">
               <span className="shop-card__coin" aria-hidden="true" />

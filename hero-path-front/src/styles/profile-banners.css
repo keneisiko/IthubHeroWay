@@ -1,0 +1,181 @@
+/* =========================
+   БАННЕРЫ ПРОФИЛЯ (applied_items.profile_banner)
+   Заменяют фиолетовый фон шапки профиля, как в Discord. Шесть пресетов
+   целиком на CSS: градиенты и пиксельные узоры без картинок.
+   Узор лежит в ::after и анимируется через transform (композитор), а не
+   через background-position на большой карточке — тот перерисовывает
+   фон каждый кадр. Поверх узора — затемняющая подложка (::before).
+   ========================= */
+
+.profile-card--banner {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: #1d1b4b;
+  /* текст на узоре читается и без подложки; на плашках тень не нужна */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+
+.profile-card--banner .profile-row__chip,
+.profile-card--banner .profile-card__fio,
+.profile-card--banner .profile-card__nickname,
+.profile-card--banner .boost-plaque { text-shadow: none; }
+
+/* узор */
+.profile-card--banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* подложка под текст: темнее к низу, где строки с треком и отрядом */
+.profile-card--banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.2) 0%, rgba(18, 18, 18, 0.5) 100%);
+}
+
+/* --- Ночной город: небо со звёздами и пиксельный горизонт --- */
+.banner--night::after {
+  background-image:
+    radial-gradient(2px 2px at 10% 14%, #fff 50%, transparent 52%),
+    radial-gradient(2px 2px at 34% 24%, #cdeeff 50%, transparent 52%),
+    radial-gradient(2px 2px at 62% 12%, #fff 50%, transparent 52%),
+    radial-gradient(2px 2px at 86% 28%, #fff 50%, transparent 52%),
+    radial-gradient(2px 2px at 76% 8%, #ffd900 50%, transparent 52%),
+    linear-gradient(90deg, #0b0a26 0 16px, transparent 16px),
+    linear-gradient(90deg, #12103a 0 24px, transparent 24px),
+    linear-gradient(90deg, #0b0a26 0 12px, transparent 12px),
+    linear-gradient(180deg, #0d0b2e 0%, #2a1a6e 70%, #4b1488 100%);
+  background-size:
+    auto, auto, auto, auto, auto,
+    90px 34%, 140px 46%, 110px 24%, 100% 100%;
+  background-position:
+    0 0, 0 0, 0 0, 0 0, 0 0,
+    8px 100%, 44px 100%, 70px 100%, 0 0;
+  background-repeat:
+    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    repeat-x, repeat-x, repeat-x, no-repeat;
+}
+
+/* --- Закат: полосатое солнце над горизонтом --- */
+.banner--sunset::after {
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0 9px, rgba(75, 20, 136, 0.95) 9px 12px),
+    radial-gradient(circle at 78% 62%, #ffd900 0 54px, transparent 55px),
+    linear-gradient(180deg, #4b1488 0%, #ff00ee 38%, #ff5a1f 72%, #ffd900 100%);
+  background-size: 100% 52%, auto, 100% 100%;
+  background-position: 0 100%, 0 0, 0 0;
+  background-repeat: no-repeat;
+}
+
+.banner--sunset::before {
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.3) 0%, rgba(18, 18, 18, 0.65) 100%);
+}
+
+/* --- Матрица: падающие зелёные «символы» --- */
+.banner--matrix { background-color: #04100a; }
+
+.banner--matrix::after {
+  inset: -26px 0 0 0;
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0 11px, rgba(43, 255, 106, 0.4) 11px 15px, transparent 15px 26px),
+    repeating-linear-gradient(180deg, transparent 0 18px, rgba(43, 255, 106, 0.22) 18px 21px, transparent 21px 26px),
+    repeating-linear-gradient(90deg, rgba(43, 255, 106, 0.08) 0 6px, transparent 6px 18px);
+  background-size: 18px 26px, 18px 26px, 18px 100%;
+  background-position: 0 0, 9px 0, 0 0;
+  animation: matrixFall 3.2s linear infinite;
+}
+
+/* сдвиг ровно на период узора (26px): цикл бесшовный */
+@keyframes matrixFall {
+  from { transform: translateY(0); }
+  to { transform: translateY(26px); }
+}
+
+/* --- Пиксели: шахматка крупных клеток, медленно плывёт --- */
+.banner--pixels { background-color: #4b1488; }
+
+.banner--pixels::after {
+  inset: -48px 0 0 -48px;
+  background-image:
+    conic-gradient(rgba(255, 0, 238, 0.5) 25%, transparent 0 50%, rgba(56, 221, 221, 0.35) 0 75%, transparent 0);
+  background-size: 48px 48px;
+  animation: pixelsDrift 7s linear infinite;
+}
+
+.banner--pixels::before {
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.35) 0%, rgba(18, 18, 18, 0.65) 100%);
+}
+
+@keyframes pixelsDrift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(48px, 48px); }
+}
+
+/* --- Северное сияние: полотна света на ночном небе --- */
+.banner--aurora { background-color: #06132a; }
+
+.banner--aurora::after {
+  inset: -20%;
+  background-image:
+    radial-gradient(45% 40% at 25% 65%, rgba(43, 255, 180, 0.7), transparent 70%),
+    radial-gradient(40% 45% at 60% 40%, rgba(56, 221, 221, 0.55), transparent 70%),
+    radial-gradient(38% 42% at 88% 60%, rgba(154, 51, 244, 0.7), transparent 70%);
+  animation: auroraWave 12s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes auroraWave {
+  from { transform: translate(-6%, 4%) rotate(-3deg) scale(1); }
+  to { transform: translate(6%, -4%) rotate(3deg) scale(1.1); }
+}
+
+/* --- Легенда: золото с диагональным бликом --- */
+.banner--gold::after {
+  background-image:
+    repeating-linear-gradient(135deg, transparent 0 28px, rgba(255, 255, 255, 0.22) 28px 36px),
+    linear-gradient(135deg, #ffb800 0%, #ffd900 35%, #fff2a0 50%, #ffd900 65%, #d99200 100%);
+}
+
+/* золото светлое: подложка плотнее, иначе белые подписи теряются */
+.banner--gold::before {
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.5) 0%, rgba(18, 18, 18, 0.72) 100%);
+}
+
+/* миниатюра баннера: превью в «Моих покупках». Рисуется в четыре раза
+   крупнее и сжимается: узоры (солнце, дома) рассчитаны на большую шапку */
+.banner-swatch {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 224px;
+  height: 176px;
+  transform: scale(0.25);
+  transform-origin: 0 0;
+  overflow: hidden;
+  background-color: #1d1b4b;
+}
+
+.banner-swatch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* на телефоне узор статичен: экономим батарею, текст важнее */
+@media (max-width: 900px) {
+  .banner--matrix::after,
+  .banner--pixels::after,
+  .banner--aurora::after { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner--matrix::after,
+  .banner--pixels::after,
+  .banner--aurora::after { animation: none; }
+}

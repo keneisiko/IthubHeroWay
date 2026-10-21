@@ -33,7 +33,7 @@ class AvatarFrameTests(TestCase):
         )
         UserBadge.objects.create(user=self.dev, badge=dev_badge)
         frame = ShopItem.objects.create(
-            code="cosmetic-avatar-frame", title="Рамка", item_type=ShopItemType.COSMETIC, price_coins=30
+            code="cosmetic-avatar-frame", title="Рамка", item_type=ShopItemType.COSMETIC, slot="avatar_frame", price_coins=30
         )
         # у разработчика куплена и фиолетовая — побеждает нашивка
         for user in (self.dev, self.buyer):

@@ -329,14 +329,14 @@ class ShopItemFormTests(AdminTestCase):
              "is_active": "on", "code": ""},
         )
 
-    def test_boost_without_mechanics_is_refused(self):
-        """Купленное усиление нигде не читается — монеты ушли бы в никуда."""
+    def test_boost_without_boost_slot_is_refused(self):
+        """Буст без слота не сработает — монеты ушли бы в никуда."""
         from apps.shop.models import ShopItem, ShopItemType
 
         response = self.post(ShopItemType.BOOST)
 
         self.assertFalse(ShopItem.objects.filter(title="Кружка IThub").exists())
-        self.assertContains(response, "нет механики")
+        self.assertContains(response, "слот")
 
     def test_code_is_made_from_the_title(self):
         from apps.shop.models import ShopItem, ShopItemType

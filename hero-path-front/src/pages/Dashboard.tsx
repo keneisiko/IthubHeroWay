@@ -20,6 +20,7 @@ import RollNumber from '../components/RollNumber'
 import RadarHud, { type RadarGeo } from '../components/RadarHud'
 import SkillSummary from '../components/SkillSummary'
 import PixelText from '../components/PixelText'
+import ActiveBoostNotice from '../components/BoostPlaque'
 import '../styles/dashboard.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -252,6 +253,8 @@ export default function Dashboard() {
     <div className="dashboard dashboard--home page-enter">
       <div className="dash-glow dash-glow--a" aria-hidden="true" />
       <div className="dash-glow dash-glow--b" aria-hidden="true" />
+
+      <ActiveBoostNotice />
 
       <div className="dashboard__top">
         <div className="dashboard__left-col">

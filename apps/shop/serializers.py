@@ -12,6 +12,7 @@ class ShopItemSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "item_type",
+            "slot",
             "price_coins",
             "is_active",
             "available_from",
@@ -27,7 +28,7 @@ class PurchaseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Purchase
-        fields = ["id", "item", "coins_spent", "created_at", "applied_at", "is_applied", "meta"]
+        fields = ["id", "item", "coins_spent", "created_at", "applied_at", "is_applied", "consumed_at", "meta"]
 
 
 class PurchaseCreateSerializer(serializers.Serializer):

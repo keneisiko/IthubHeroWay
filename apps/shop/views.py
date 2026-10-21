@@ -7,9 +7,9 @@ from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
 from apps.operations.services.cache import invalidate_profile
 
-from .models import Purchase, ShopItem
+from .models import Purchase, ShopItem, ShopItemSlot
 from .serializers import PurchaseCreateSerializer, PurchaseSerializer, ShopItemSerializer
-from .services import PurchaseNotOwned, apply_purchase, unapply_purchase
+from .services import PurchaseNotApplicable, PurchaseNotOwned, apply_purchase, unapply_purchase, unused_boosts
 
 
 class ShopItemListView(generics.ListAPIView):
@@ -51,6 +51,12 @@ class PurchaseCreateView(views.APIView):
 
         with transaction.atomic():
             user = User.objects.select_for_update().get(pk=request.user.pk)
+            # Второй буст при неиспользованном первом не нужен: сработает только один.
+            if item.slot == ShopItemSlot.BOOST and unused_boosts(user).exists():
+                return Response(
+                    {"detail": "У вас уже есть неиспользованный буст. Дождитесь, пока он сработает."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if user.coins_balance < item.price_coins:
                 return Response({"detail": "Insufficient coins."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -95,6 +101,8 @@ class PurchaseApplyView(views.APIView):
             purchase = apply_purchase(request.user, purchase_id)
         except PurchaseNotOwned as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except PurchaseNotApplicable as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         invalidate_profile(request.user.username)
         return Response(PurchaseSerializer(purchase).data)
 
