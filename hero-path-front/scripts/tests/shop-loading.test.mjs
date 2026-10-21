@@ -37,7 +37,7 @@ assert.ok(tabClick, 'Shop tabs must expose their selection handler')
 const compile = (text) => ts.transpileModule(text, {
   compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
 }).outputText
-const code = compile(`function makeCallbacks(activeTab: number, products, showPurchase) {
+const code = compile(`function makeCallbacks(activeTab: number, products, purchases, showPurchase) {
   ${callbackDeclarations.map((node) => `const ${node.getText(ast)}`).join('\n')}
   return {
     ${callbacks.join(', ')},
@@ -51,7 +51,7 @@ const apiData = await import(`data:text/javascript;base64,${Buffer.from(compile(
 const flush = () => new Promise((done) => setImmediate(done))
 
 function fixture() {
-  const state = { products: [], purchases: [], history: [], coins: '0', loading: true, switching: false }
+  const state = { products: [], purchases: [], history: [], coins: '0', loading: true, switching: false, applyingId: null }
   const toasts = []
   const pending = []
   const savedRefs = []
@@ -88,17 +88,19 @@ function fixture() {
   function render(tab, showPurchase = null) {
     activeTab = tab
     refIndex = 0
-    return sandbox.makeCallbacks(tab, state.products, showPurchase)
+    return sandbox.makeCallbacks(tab, state.products, state.purchases, showPurchase)
   }
 
   function batch(requests) {
     assert.equal(requests.length, 4)
     return {
       category: requests[0].config.params.item_type,
-      async resolve(code, coins = 100) {
+      async resolve(code, coins = 100, purchaseRows = [
+        { id: 1, coins_spent: 10, created_at: '2026-10-20', item: { code, title: code, item_type: 'other' } },
+      ]) {
         const responses = [
           [{ id: 1, code, title: code, price_coins: 10 }],
-          [{ id: 1, coins_spent: 10, created_at: '2026-10-20', item: { code, title: code, item_type: 'other' } }],
+          purchaseRows,
           [],
           { coins_balance: coins, username: code },
         ]
@@ -123,11 +125,14 @@ function fixture() {
       assert.equal(result.category, ['cosmetic', 'boost', 'other', 'service'][tab])
       return result
     },
-    mutate(kind, purchase) {
+    mutate(kind, purchase, repeat = 1) {
       const start = pending.length
       const callbacks = render(activeTab, kind === 'buy' ? 1 : null)
-      if (kind === 'buy') callbacks.handleBuy()
-      else callbacks.togglePurchase(purchase)
+      for (let i = 0; i < repeat; i++) {
+        if (kind === 'buy') callbacks.handleBuy()
+        else callbacks.togglePurchase(purchase)
+      }
+      if (pending.length === start) return null
       assert.equal(pending.length, start + 1)
       const mutation = pending[start]
       assert.equal(mutation.method, kind === 'unapply' ? 'DELETE' : 'POST')
@@ -137,6 +142,10 @@ function fixture() {
           mutation.resolve({ data: {} })
           await flush()
           return batch(pending.slice(reloadStart))
+        },
+        async reject() {
+          mutation.reject(new Error('Mutation failed'))
+          await flush()
         },
       }
     },
@@ -207,3 +216,79 @@ for (const kind of ['apply', 'unapply', 'buy']) {
     assert.equal(state.switching, false)
   })
 }
+
+const owned = () => [
+  { id: 1, code: 'frame-first', title: 'First frame', type: 'cosmetic', isApplied: true },
+  { id: 2, code: 'frame-second', title: 'Second frame', type: 'cosmetic', isApplied: false },
+  { id: 3, code: 'boost', title: 'Boost', type: 'boost', isApplied: true },
+]
+const applied = (state) => state.purchases.map((purchase) => [purchase.id, purchase.isApplied])
+
+test('same-tick repeated apply sends one mutation', async () => {
+  const { load, mutate, state } = fixture()
+  await load(0).resolve('cosmetic-item')
+  state.purchases = owned()
+  const mutation = mutate('apply', state.purchases[1], 2)
+
+  assert.equal(state.applyingId, 2)
+  await mutation.reject()
+})
+
+test('a conflicting toggle cannot replace the current pending operation', async () => {
+  const { load, mutate, state } = fixture()
+  await load(0).resolve('cosmetic-item')
+  state.purchases = owned()
+  const mutation = mutate('apply', state.purchases[1])
+  const conflicting = mutate('unapply', state.purchases[0])
+
+  assert.equal(conflicting, null)
+  assert.equal(state.applyingId, 2)
+  await mutation.reject()
+})
+
+test('optimistic apply keeps one active purchase per type and restores its snapshot on error', async () => {
+  const { load, mutate, state, toasts } = fixture()
+  await load(0).resolve('cosmetic-item')
+  state.purchases = owned()
+  const mutation = mutate('apply', state.purchases[1])
+
+  assert.deepEqual(applied(state), [[1, false], [2, true], [3, true]])
+  await mutation.reject()
+  assert.deepEqual(applied(state), [[1, true], [2, false], [3, true]])
+  assert.equal(state.applyingId, null)
+  assert.deepEqual(toasts, [{ message: 'Не удалось изменить покупку', type: 'error' }])
+  assert.notEqual(mutate('unapply', state.purchases[0]), null)
+})
+
+test('optimistic unapply restores the active purchase when the request fails', async () => {
+  const { load, mutate, state } = fixture()
+  await load(0).resolve('cosmetic-item')
+  state.purchases = owned()
+  const mutation = mutate('unapply', state.purchases[0])
+
+  assert.deepEqual(applied(state), [[1, false], [2, false], [3, true]])
+  await mutation.reject()
+  assert.deepEqual(applied(state), [[1, true], [2, false], [3, true]])
+  assert.equal(state.applyingId, null)
+})
+
+test('the apply lock lasts through server reconciliation and then permits the next toggle', async () => {
+  const { load, mutate, state } = fixture()
+  await load(0).resolve('cosmetic-item')
+  state.purchases = owned()
+  const mutation = mutate('apply', state.purchases[1])
+  const reload = await mutation.resolve()
+
+  assert.equal(state.applyingId, 2)
+  assert.equal(mutate('unapply', state.purchases[1]), null)
+  await reload.resolve('cosmetic-item', 100, owned().map((purchase) => ({
+    id: purchase.id,
+    coins_spent: 10,
+    created_at: '2026-10-20',
+    is_applied: purchase.id === 2,
+    item: { code: purchase.code, title: purchase.title, item_type: purchase.type },
+  })))
+  assert.deepEqual(applied(state), [[1, false], [2, true], [3, false]])
+  assert.equal(state.applyingId, null)
+  assert.notEqual(mutate('unapply', state.purchases[1]), null)
+})

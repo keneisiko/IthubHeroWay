@@ -183,10 +183,10 @@ export default function Shop() {
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [coins, setCoins] = useState('0')
   const [purchasedCodes, setPurchasedCodes] = useState<Set<string>>(new Set())
-  // id покупок, по которым сейчас идут запросы. Набор, а не один id: пока
-  // летит запрос, в том же слоте нельзя нажать вторую кнопку — иначе
-  // применение и снятие обгоняют друг друга.
-  const [applyingIds, setApplyingIds] = useState<Set<number>>(new Set())
+  // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
+  // двойной клик не отправил применение и снятие подряд.
+  const [applyingId, setApplyingId] = useState<number | null>(null)
+  const applyingRef = useRef(false)
   // кольцо вокруг нажатой кнопки; чередование имени перезапускает анимацию
   const [ring, setRing] = useState<{ id: number; n: number } | null>(null)
   // свой аватар — для превью рамки прямо в карточке покупки
@@ -214,7 +214,7 @@ export default function Shop() {
     const requestId = ++loadRequestId.current
     const itemType = SHOP_TAB_TYPES[activeTab]
 
-    Promise.all([
+    return Promise.all([
       api.get('/api/v1/shop/items/', { params: { item_type: itemType } }),
       api.get('/api/v1/shop/my-purchases/'),
       api.get('/api/v1/quests/rewards/history/'),
@@ -315,16 +315,16 @@ export default function Shop() {
   // Карточка переключается сразу, не дожидаясь ответа: статус
   // переворачивается, кнопка меняет вид. Ошибка возвращает как было.
   const togglePurchase = useCallback((purchase: Purchase) => {
-    const next = !purchase.isApplied
-    // снимок до переключения: при ошибке возвращаем его целиком, вместе с
-    // вещью, которую надевание вытеснило из слота
+    if (applyingRef.current) return
+    applyingRef.current = true
     const snapshot = purchases
-    setPurchases(snapshot.map((x) => {
-      if (x.id === purchase.id) return { ...x, isApplied: next }
-      // в слоте надета одна вещь: прежнюю снимаем сразу
-      return next && x.slot === purchase.slot ? { ...x, isApplied: false } : x
+    const next = !purchase.isApplied
+    setApplyingId(purchase.id)
+    setPurchases((list) => list.map((item) => {
+      if (item.id === purchase.id) return { ...item, isApplied: next }
+      if (next && item.slot === purchase.slot) return { ...item, isApplied: false }
+      return item
     }))
-    setApplyingIds((ids) => new Set(ids).add(purchase.id))
     setRing((r) => ({ id: purchase.id, n: (r?.n ?? 0) + 1 }))
     const request = next
       ? api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
@@ -334,26 +334,17 @@ export default function Shop() {
         addToast(next ? 'Надето' : 'Снято', 'success')
         // шапка перечитает профиль — рамка у аватара появится сразу
         notifyBalanceChanged()
+        return loadShopRef.current({ quiet: true })
       })
       .catch(() => {
         setPurchases(snapshot)
         addToast('Не удалось изменить покупку', 'error')
       })
       .finally(() => {
-        setApplyingIds((ids) => {
-          const rest = new Set(ids)
-          rest.delete(purchase.id)
-          return rest
-        })
-        // дополнительная сверка с сервером
-        loadShopRef.current({ quiet: true })
+        applyingRef.current = false
+        setApplyingId(null)
       })
-  }, [purchases, addToast])
-
-  // слот занят, пока по любой покупке из него идёт запрос
-  const busySlots = useMemo(() => new Set(
-    purchases.filter((p) => applyingIds.has(p.id)).map((p) => p.slot),
-  ), [purchases, applyingIds])
+  }, [addToast, purchases])
 
   const shownProducts = useMemo(() => {
     const list = products.filter((item) => {
@@ -446,7 +437,7 @@ export default function Shop() {
             ) : shownPurchases.map((p) => (
               <article
                 key={p.id}
-                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingIds.has(p.id) ? ' shop-purchase--pending' : ''}`}
+                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingId === p.id ? ' shop-purchase--pending' : ''}`}
               >
                 <span className="shop-purchase__frame">
                   <PurchasePreview purchase={p} me={me} />
@@ -462,9 +453,9 @@ export default function Shop() {
                     type="button"
                     className={`shop-purchase__apply btn-press${ring?.id === p.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''}`}
                     onClick={() => togglePurchase(p)}
-                    disabled={busySlots.has(p.slot)}
+                    disabled={applyingId !== null}
                     aria-pressed={p.isApplied}
-                    aria-busy={applyingIds.has(p.id)}
+                    aria-busy={applyingId === p.id}
                   >
                     <span key={String(p.isApplied)} className="shop-purchase__apply-label">
                       {p.isApplied ? 'Снять' : 'Надеть'}
