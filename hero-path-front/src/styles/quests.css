@@ -94,3 +94,64 @@
 @media (prefers-reduced-motion: reduce) {
   .q1__card-bar span { animation: none; }
 }
+
+/* --- цель недели: выбранная карточка получает знак IThub --- */
+.q1__option { position: relative; }
+
+/* карусель обрезает всё за краем карточки — знак стоит внутри,
+   заголовок отступает от него */
+.q1__option-mark + .q1__option-title { padding-right: 30px; }
+
+.q1__option-mark {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  border: 4px solid var(--purple-500);
+  border-radius: 3px;
+  background: var(--ithub-white);
+  box-shadow: inset 0 0 0 3px var(--ithub-white), inset 0 0 0 9px var(--purple-500);
+  animation: optionStamp 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  pointer-events: none;
+}
+
+.q1__option-pick {
+  overflow: hidden;
+  transition: background 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.q1__option-pick-label {
+  display: inline-block;
+  animation: pickLabel 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes optionStamp {
+  0% { opacity: 0; transform: scale(2.2) rotate(-35deg); }
+  60% { opacity: 1; transform: scale(0.9) rotate(4deg); }
+  100% { transform: none; }
+}
+
+@keyframes pickLabel {
+  from { opacity: 0; transform: translateY(80%); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q1__option-mark,
+  .q1__option-pick-label { animation: none; }
+}
+
+/* выбор цели: кольцо расходится от кнопки, пока ждём сервер — пульсирует */
+.q1__option-pick--current { animation: pickRing 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.q1__option-pick--busy { animation: pickRing 0.9s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+
+@keyframes pickRing {
+  0% { box-shadow: var(--card-shadow), 0 0 0 0 rgba(154, 51, 244, 0.8), 0 0 0 0 rgba(255, 217, 0, 0.7); }
+  100% { box-shadow: var(--card-shadow), 0 0 0 16px rgba(154, 51, 244, 0), 0 0 0 8px rgba(255, 217, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q1__option-pick--current,
+  .q1__option-pick--busy { animation: none; }
+}

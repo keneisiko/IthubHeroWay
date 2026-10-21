@@ -1,0 +1,209 @@
+/* =========================
+   МОИ ПОКУПКИ: применить / снять
+   Карточка переключается сразу. Применённая — в рамке IThub, с
+   пиксельной галочкой, кнопка становится контурной.
+   ========================= */
+
+.shop-purchase {
+  transition: border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: purchaseIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.shop-purchase:nth-child(2) { animation-delay: 60ms; }
+.shop-purchase:nth-child(3) { animation-delay: 120ms; }
+.shop-purchase:nth-child(n + 4) { animation-delay: 180ms; }
+
+.shop-purchase:not(.shop-purchase--on) { border-color: #d6d6d6; }
+
+.shop-purchase--on {
+  box-shadow: var(--card-shadow), 0 0 0 4px rgba(154, 51, 244, 0.14);
+}
+
+/* картинка в рамке: при применении рамка смыкается квадратом IThub */
+.shop-purchase__frame {
+  position: relative;
+  flex-shrink: 0;
+  display: block;
+  border-radius: var(--radius-8);
+}
+
+.shop-purchase__frame::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 3px solid var(--purple-500);
+  border-radius: 11px;
+  opacity: 0;
+  transform: scale(1.25);
+  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.shop-purchase--on .shop-purchase__frame::after {
+  opacity: 1;
+  transform: none;
+}
+
+.shop-purchase__image {
+  display: block;
+  filter: grayscale(0.55) brightness(1.05);
+  transition: filter 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-purchase--on .shop-purchase__image { filter: none; }
+
+/* статус переворачивается при смене (новый ключ — новое появление) */
+.shop-purchase__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transform-origin: 50% 100%;
+  animation: stateFlip 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.shop-purchase:not(.shop-purchase--on) .shop-purchase__state {
+  background: transparent;
+  color: #6b6b6b;
+  box-shadow: inset 0 0 0 2px #cfcfcf;
+}
+
+.shop-purchase__tick {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  border: 2.5px solid currentColor;
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+}
+
+.shop-purchase__tick::after {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  transform: scale(0);
+}
+
+.shop-purchase--on .shop-purchase__tick::after {
+  animation: tickCore 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+/* кнопка: «Применить» — заливка, «Снять» — контур */
+.shop-purchase__apply {
+  position: relative;
+  overflow: hidden;
+  min-width: 150px;
+  border: 3px solid var(--purple-500);
+  transition: background 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-purchase--on .shop-purchase__apply {
+  background: var(--ithub-white);
+  color: var(--purple-500);
+}
+
+.shop-purchase__apply:disabled { cursor: progress; }
+
+.shop-purchase__apply-label {
+  display: inline-block;
+  animation: labelIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: opacity 0.2s, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-purchase__apply-dots {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  gap: 5px;
+  transform: translate(-50%, 60%);
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-purchase__apply-dots i {
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+}
+
+/* пока сервер отвечает — подпись уезжает, идут пиксели; быстрый
+   ответ проскакивает незаметно благодаря задержке */
+.shop-purchase--pending .shop-purchase__apply-label {
+  opacity: 0;
+  transform: translateY(-120%);
+  transition-delay: 0.25s;
+}
+
+.shop-purchase--pending .shop-purchase__apply-dots {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+  transition-delay: 0.25s;
+}
+
+.shop-purchase--pending .shop-purchase__apply-dots i { animation: pxStep 0.9s cubic-bezier(0.76, 0, 0.24, 1) infinite both; }
+.shop-purchase--pending .shop-purchase__apply-dots i:nth-child(2) { animation-delay: 0.12s; }
+.shop-purchase--pending .shop-purchase__apply-dots i:nth-child(3) { animation-delay: 0.24s; }
+
+@media (hover: hover) and (pointer: fine) {
+  .shop-purchase--on .shop-purchase__apply:hover:not(:disabled) { background: #f1e6fe; }
+}
+
+@keyframes purchaseIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes stateFlip {
+  from { opacity: 0; transform: perspective(300px) rotateX(-80deg); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes tickCore {
+  from { transform: scale(0) rotate(-90deg); }
+  to { transform: scale(1); }
+}
+
+@keyframes labelIn {
+  from { opacity: 0; transform: translateY(70%); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 900px) {
+  .shop-purchase__frame { grid-area: img; align-self: center; }
+  .shop-purchase__apply { min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-purchase,
+  .shop-purchase__state,
+  .shop-purchase__apply-label,
+  .shop-purchase--on .shop-purchase__tick::after { animation: none; }
+  .shop-purchase--on .shop-purchase__tick::after { transform: scale(1); }
+}
+
+/* нажатие: вокруг кнопки расходится яркое кольцо; пока сервер
+   отвечает — кольцо пульсирует */
+.shop-purchase__apply.ring-a { animation: applyRingA 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.shop-purchase__apply.ring-b { animation: applyRingB 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+
+.shop-purchase--pending .shop-purchase__apply {
+  animation: applyRingA 0.9s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@keyframes applyRingA {
+  0% { box-shadow: var(--card-shadow), 0 0 0 0 rgba(154, 51, 244, 0.75), 0 0 0 0 rgba(255, 217, 0, 0.6); }
+  100% { box-shadow: var(--card-shadow), 0 0 0 14px rgba(154, 51, 244, 0), 0 0 0 7px rgba(255, 217, 0, 0); }
+}
+
+@keyframes applyRingB {
+  0% { box-shadow: var(--card-shadow), 0 0 0 0 rgba(154, 51, 244, 0.75), 0 0 0 0 rgba(255, 217, 0, 0.6); }
+  100% { box-shadow: var(--card-shadow), 0 0 0 14px rgba(154, 51, 244, 0), 0 0 0 7px rgba(255, 217, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-purchase__apply.ring-a,
+  .shop-purchase__apply.ring-b,
+  .shop-purchase--pending .shop-purchase__apply { animation: none; }
+}

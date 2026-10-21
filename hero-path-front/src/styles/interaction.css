@@ -592,3 +592,17 @@ textarea.popup__input {
 .squad-my__label { min-width: 0; }
 
 .squad-my__row dd { margin-left: auto; }
+
+/* «Моё место» на телефоне: пока своя строка видна, плашка уезжает вниз
+   и не закрывает соседей */
+@media (max-width: 900px) {
+  .leaderboard-myplace {
+    transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .leaderboard-myplace--away {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+    pointer-events: none;
+  }
+}

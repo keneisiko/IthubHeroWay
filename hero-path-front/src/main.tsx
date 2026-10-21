@@ -6,8 +6,10 @@ import { Toaster } from 'react-hot-toast'
 import App from './App.tsx'
 import './index.css'
 import { installTypingFx } from './lib/typingFx'
+import { installSpotlight } from './lib/spotlight'
 
 installTypingFx()
+installSpotlight()
 
 const queryClient = new QueryClient()
 

@@ -66,6 +66,7 @@ export default function Quests() {
   const [focusBonus, setFocusBonus] = useState<{ coins: number; rating: number }>({ coins: 0, rating: 0 })
   // Подсветка карточки до нажатия «Выбрать»: сам выбор отправляется явно.
   const [focusPreview, setFocusPreview] = useState<string | null>(null)
+  const [picking, setPicking] = useState<string | null>(null)
   const [strike, setStrike] = useState<{
     late_strike: number
     bonus_at_7: number
@@ -179,14 +180,24 @@ export default function Quests() {
     confirmModal.show()
   }
 
+  // Выбор отмечается сразу — на карточку ставится знак, кнопка
+  // перекрашивается; ответ сервера только подтверждает, ошибка откатывает.
   const pickWeeklyFocus = useCallback((code: string, title: string) => {
+    const previous = weeklyChoice
+    setWeeklyChoice(code)
+    setFocusPreview(code)
+    setPicking(code)
     api.post('/api/v1/quests/weekly-focus/', { quest_code: code })
       .then(() => {
         addToast(`Цель недели: ${title}`)
         loadQuests({ quiet: true })
       })
-      .catch(() => addToast('Не удалось выбрать цель недели', 'error'))
-  }, [addToast, loadQuests])
+      .catch(() => {
+        setWeeklyChoice(previous)
+        addToast('Не удалось выбрать цель недели', 'error')
+      })
+      .finally(() => setPicking(null))
+  }, [addToast, loadQuests, weeklyChoice])
 
   const rawQuests = activeTab === 0 ? quests : activeTab === 1 ? completedQuests : []
   // Цель недели — первой в списке: студент сам назначил её приоритетом.
@@ -260,7 +271,7 @@ export default function Quests() {
             <h3 className="q1__activity-title">История наград</h3>
             <div className="q1__activity-list">
               {activity.map((a, i) => (
-                <article key={a.id} className="q1__acard hover-lift" style={{ animationDelay: `${i * 80}ms` }}>
+                <article key={a.id} className="q1__acard hover-lift spot" style={{ animationDelay: `${i * 80}ms` }}>
                   <div className="q1__acard-body">
                     <div className="q1__acard-name">{a.title}</div>
                     <div className="q1__acard-reward">{a.reward}</div>
@@ -283,7 +294,7 @@ export default function Quests() {
               </h2>
               <div className={`q1__quests-slot-inner${showAllQuests ? ' q1__quests-slot-inner--all' : ''}`}>
                 {currentQuests.map((q, i) => (
-                  <article key={q.id} className={`q1__card hover-lift ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
+                  <article key={q.id} className={`q1__card hover-lift spot ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
                     <div className="q1__card-body">
                       <div className="q1__card-top">
                         <span className="q1__card-kind">{q.kind}</span>
@@ -379,6 +390,7 @@ export default function Quests() {
                           className={`q1__option${isFocused ? ' q1__option--focused' : ''}`}
                           onClick={() => setFocusPreview(option.code)}
                         >
+                          {option.code === weeklyChoice && <span className="q1__option-mark" aria-hidden="true" />}
                           <h4 className="q1__option-title">{option.title}</h4>
                           <p className="q1__option-task">{option.desc}</p>
                           <div className="q1__option-reward">{option.reward}</div>
@@ -386,11 +398,13 @@ export default function Quests() {
                             type="button"
                             className={`q1__option-pick btn-press${
                               option.code === weeklyChoice ? ' q1__option-pick--current' : ''
-                            }`}
+                            }${picking === option.code ? ' q1__option-pick--busy' : ''}`}
                             onClick={() => pickWeeklyFocus(option.code, option.title)}
                             disabled={option.code === weeklyChoice}
                           >
-                            {option.code === weeklyChoice ? 'Цель недели' : 'Выбрать'}
+                            <span key={String(option.code === weeklyChoice)} className="q1__option-pick-label">
+                              {option.code === weeklyChoice ? 'Цель недели' : 'Выбрать'}
+                            </span>
                           </button>
                         </article>
                       )
@@ -458,7 +472,7 @@ export default function Quests() {
           <h3 className="q1__activity-title">Список выполненных квестов за последние 30 дней</h3>
           <div className="q1__activity-list">
             {recentActivity.slice(0, 3).map((a) => (
-              <article key={a.id} className="q1__acard hover-lift">
+              <article key={a.id} className="q1__acard hover-lift spot">
                 <div className="q1__acard-body">
                   <div className="q1__acard-name">{a.title}</div>
                   <div className="q1__acard-reward">{a.reward}</div>

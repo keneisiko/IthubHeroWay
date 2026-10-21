@@ -94,6 +94,7 @@ export default function Leaderboard() {
   // перезагружалась и поле теряло фокус посреди набора.
   const [appliedSearch, setAppliedSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [meOnScreen, setMeOnScreen] = useState(false)
   const loadedOnce = useRef(false)
 
   const submitSearch = (e: React.FormEvent) => {
@@ -118,6 +119,19 @@ export default function Leaderboard() {
       setTransitioning(false)
     }, 280)
   }
+
+  // своя строка на экране — плашка «Моё место» не нужна и не закрывает
+  // соседей; уехала за край — плашка возвращается
+  useEffect(() => {
+    const row = myRowRef.current
+    if (!row || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([entry]) => setMeOnScreen(entry.isIntersecting), { threshold: 0.6 })
+    io.observe(row)
+    return () => {
+      io.disconnect()
+      setMeOnScreen(false)
+    }
+  }, [agents, activeTab, appliedSearch, loading])
 
   // «Моё место»: если ты в списке — прокрутить к своей строке и мигнуть
   // ей, иначе открыть свой профиль
@@ -366,7 +380,7 @@ export default function Leaderboard() {
 
           <button
             type="button"
-            className="leaderboard-myplace btn-press"
+            className={`leaderboard-myplace btn-press${meOnScreen ? ' leaderboard-myplace--away' : ''}`}
             onClick={goToMyPlace}
           >
             Моё место: <strong>{animMyRank}</strong>

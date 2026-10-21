@@ -7,6 +7,9 @@ import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
 import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList, formatRating } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
+import RollNumber from '../components/RollNumber'
+import PixelText from '../components/PixelText'
+import '../styles/shop.css'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
@@ -104,6 +107,8 @@ export default function Shop() {
   // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
   // двойной клик не отправил применение и снятие подряд.
   const [applyingId, setApplyingId] = useState<number | null>(null)
+  // кольцо вокруг нажатой кнопки; чередование имени перезапускает анимацию
+  const [ring, setRing] = useState<{ id: number; n: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
@@ -201,17 +206,28 @@ export default function Shop() {
 
   // Одновременно активна одна покупка на тип товара — правило на бэкенде,
   // поэтому после переключения список перезагружаем целиком.
+  // Карточка переключается сразу, не дожидаясь ответа: статус
+  // переворачивается, кнопка меняет вид. Ошибка возвращает как было.
   const togglePurchase = useCallback((purchase: Purchase) => {
+    const next = !purchase.isApplied
+    const flip = (value: boolean) => setPurchases((list) => list.map((x) => (
+      x.id === purchase.id ? { ...x, isApplied: value } : x
+    )))
     setApplyingId(purchase.id)
-    const request = purchase.isApplied
-      ? api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
-      : api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+    flip(next)
+    setRing((r) => ({ id: purchase.id, n: (r?.n ?? 0) + 1 }))
+    const request = next
+      ? api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+      : api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
     request
       .then(() => {
-        addToast(purchase.isApplied ? 'Покупка снята' : 'Покупка применена', 'success')
+        addToast(next ? 'Покупка применена' : 'Покупка снята', 'success')
         loadShop({ quiet: true })
       })
-      .catch(() => addToast('Не удалось изменить покупку', 'error'))
+      .catch(() => {
+        flip(purchase.isApplied)
+        addToast('Не удалось изменить покупку', 'error')
+      })
       .finally(() => setApplyingId(null))
   }, [addToast, loadShop])
 
@@ -259,22 +275,35 @@ export default function Shop() {
         </button>
 
         <div className="shop-purchases__card">
-          <h2 className="shop-purchases__title">Мои покупки</h2>
+          <h2 className="shop-purchases__title"><PixelText text="Мои покупки" /></h2>
           <div className="shop-purchases__list">
             {purchases.length === 0 ? (
               <p className="shop-purchases__empty">Покупок пока нет</p>
             ) : purchases.map((p) => (
-              <article key={p.id} className="shop-purchase">
-                <img src={palmSky} alt="" className="shop-purchase__image" />
+              <article
+                key={p.id}
+                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingId === p.id ? ' shop-purchase--pending' : ''}`}
+              >
+                <span className="shop-purchase__frame">
+                  <img src={palmSky} alt="" className="shop-purchase__image" />
+                </span>
                 <span className="shop-purchase__name">{p.title}</span>
-                <span className="shop-purchase__state">{p.isApplied ? 'Применена' : 'Куплена'}</span>
+                <span key={String(p.isApplied)} className="shop-purchase__state">
+                  <i className="shop-purchase__tick" aria-hidden="true" />
+                  {p.isApplied ? 'Применена' : 'Куплена'}
+                </span>
                 <button
                   type="button"
-                  className="shop-purchase__apply btn-press"
+                  className={`shop-purchase__apply btn-press${ring?.id === p.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''}`}
                   onClick={() => togglePurchase(p)}
                   disabled={applyingId === p.id}
+                  aria-pressed={p.isApplied}
+                  aria-busy={applyingId === p.id}
                 >
-                  {p.isApplied ? 'Снять' : 'Применить'}
+                  <span key={String(p.isApplied)} className="shop-purchase__apply-label">
+                    {p.isApplied ? 'Снять' : 'Применить'}
+                  </span>
+                  <span className="shop-purchase__apply-dots" aria-hidden="true"><i /><i /><i /></span>
                 </button>
               </article>
             ))}
@@ -373,7 +402,7 @@ export default function Shop() {
           <p className="shop-wallet__label">Сколько монет у пользователя:</p>
           <div className="shop-wallet__amount">
             <span className="shop-wallet__coin" aria-hidden="true" />
-            <span className="shop-wallet__value">{coins}</span>
+            <RollNumber className="shop-wallet__value" value={coins} />
           </div>
           <button type="button" className="shop-wallet__history btn-press" onClick={() => setShowHistory(true)}>
             <span className="shop-wallet__history-label">История покупок</span>
@@ -393,7 +422,7 @@ export default function Shop() {
           return (
           <article
             key={item.id}
-            className="shop-card hover-lift"
+            className="shop-card hover-lift spot"
             style={{ animationDelay: `${i * 50}ms` }}
             onClick={() => setShowDetail(item.id)}
           >
