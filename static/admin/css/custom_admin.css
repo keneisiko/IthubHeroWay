@@ -101,3 +101,24 @@
   width: 100%;
   max-width: 560px;
 }
+
+/* Поиск по связанной записи (autocomplete_fields). Стили Django берут цвета
+   из переменных его base.css, а Jazzmin этот файл не подключает — без них
+   поле выбора рисовалось без рамки и фона, то есть невидимым. */
+.select2-container--admin-autocomplete {
+  --body-bg: #fff;
+  --body-fg: #212529;
+  --body-quiet-color: #6c757d;
+  --border-color: #ced4da;
+  --darkened-bg: #f8f9fa;
+  --error-fg: #dc3545;
+  --primary: #007bff;
+  --primary-fg: #fff;
+  --selected-bg: #e9ecef;
+}
+
+.select2-container--admin-autocomplete .select2-selection--single {
+  height: calc(2.25rem + 2px);
+  padding: 4px 6px;
+  border-radius: 0.25rem;
+}

@@ -75,3 +75,50 @@
 .review-queue .role-link {
   margin-left: auto;
 }
+
+/* Имя вошедшего сотрудника в шапке бокового меню было тёмно-серым на
+   тёмно-сером (#212529 на #343a40) — практически невидимым. */
+.app-sidebar .info,
+.app-sidebar .info a {
+  color: #e9ecef;
+}
+
+/* Пункты меню обрезались многоточием: «Подтверждения выпол…», «Снимки
+   рейтинга отря…». Полное название важнее ровной колонки — переносим. */
+.app-sidebar .nav-link > p {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+
+/* Промежуточная страница действий: поля во всю ширину карточки. */
+.card form .form-group select,
+.card form .form-group input[type="text"],
+.card form .form-group input[type="date"],
+.card form .form-group input[type="number"],
+.card form .form-group textarea {
+  width: 100%;
+  max-width: 560px;
+}
+
+/* Поиск по связанной записи (autocomplete_fields). Стили Django берут цвета
+   из переменных его base.css, а Jazzmin этот файл не подключает — без них
+   поле выбора рисовалось без рамки и фона, то есть невидимым. */
+.select2-container--admin-autocomplete {
+  --body-bg: #fff;
+  --body-fg: #212529;
+  --body-quiet-color: #6c757d;
+  --border-color: #ced4da;
+  --darkened-bg: #f8f9fa;
+  --error-fg: #dc3545;
+  --primary: #007bff;
+  --primary-fg: #fff;
+  --selected-bg: #e9ecef;
+}
+
+.select2-container--admin-autocomplete .select2-selection--single {
+  height: calc(2.25rem + 2px);
+  padding: 4px 6px;
+  border-radius: 0.25rem;
+}
