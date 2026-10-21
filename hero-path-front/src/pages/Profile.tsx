@@ -85,6 +85,7 @@ interface ProfileData {
   rating_current: number | null
   coins_balance?: number
   rating_zone?: string
+  rating_status?: string
   // Коды пройденных вех карты пути (apps/progress/services/path_map.py).
   path_reached?: string[]
   duel_wins?: number
@@ -724,7 +725,7 @@ export default function Profile() {
               <div className="profile-row">
                 <span className="profile-row__label">Статус и уровень:</span>
                 <span className="profile-row__chip profile-row__chip--dark">
-                  {profile?.rating_zone ? `${profile.rating_zone} ` : ''}ур. {profile?.level ?? 1}
+                  {profile?.rating_status ? `${profile.rating_status} ` : ''}ур. {profile?.level ?? 1}
                 </span>
               </div>
 
