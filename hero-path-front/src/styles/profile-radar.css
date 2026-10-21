@@ -52,6 +52,9 @@
 
 /* --- подписи значений --- */
 .profile-radar__value {
+  /* Холст графика стоит со z-index: 1 и заливка с сеткой ложилась поверх
+     плашек — цифры выглядели полупрозрачными. Плашки — над графиком. */
+  z-index: 2;
   transition:
     opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -67,7 +70,7 @@
 .profile-radar__value--dim { opacity: 0.45; }
 
 .profile-radar__value--focus {
-  z-index: 2;
+  z-index: 3;
   transform: translate(-50%, -50%) scale(1.12);
 }
 
