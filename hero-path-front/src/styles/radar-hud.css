@@ -10,41 +10,66 @@
   pointer-events: none;
 }
 
-.radar-hud__orbit {
+/* поле радара: квадрат вокруг пятиугольника, обрезанный по его форме */
+.radar-hud__scope {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(100%, 460px);
-  max-height: 100%;
-  aspect-ratio: 1;
-  translate: -50% -50%;
-  overflow: visible;
+  overflow: hidden;
+  /* пиксельная сетка — квадратные точки IThub */
+  background-image: conic-gradient(from 270deg at 2px 2px, rgba(154, 51, 244, 0.28) 25%, transparent 0);
+  background-size: 11px 11px;
+  background-position: center;
 }
 
-.radar-hud__ring {
-  fill: none;
-  stroke: var(--purple-500);
-  transform-origin: 50px 50px;
+/* луч: сектор, яркий у переднего края и гаснущий позади */
+.radar-hud__beam {
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 250deg,
+    rgba(154, 51, 244, 0.06) 290deg,
+    rgba(154, 51, 244, 0.32) 345deg,
+    rgba(154, 51, 244, 0.55) 358deg,
+    rgba(255, 255, 255, 0.85) 359.5deg,
+    transparent 360deg
+  );
+  animation: sweep var(--sweep, 6s) linear infinite;
 }
 
-/* внешняя орбита — квадратные точки, медленно идёт по кругу */
-.radar-hud__ring--outer {
-  stroke-width: 1.3;
-  stroke-dasharray: 1.4 4.6;
-  opacity: 0.45;
-  animation: hudSpin 80s linear infinite;
-}
+@keyframes sweep { to { transform: rotate(1turn); } }
 
-.radar-hud__ring--inner {
-  stroke-width: 0.6;
-  stroke-dasharray: 0.8 11.2;
+/* вершина оси: пиксель вспыхивает, когда над ним проходит луч */
+.radar-hud__ping {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  background: var(--purple-500);
+  box-shadow: 0 0 0 2px var(--ithub-white);
   opacity: 0.35;
-  animation: hudSpin 120s linear infinite reverse;
+  animation: ping var(--sweep, 6s) linear infinite;
 }
 
-.radar-hud__tick {
-  fill: var(--purple-500);
-  opacity: 0.85;
+.radar-hud__ping::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--purple-500);
+  opacity: 0;
+  animation: pingRing var(--sweep, 6s) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation-delay: inherit;
+}
+
+@keyframes ping {
+  0% { opacity: 1; transform: scale(1.6); box-shadow: 0 0 0 2px var(--ithub-white), 0 0 14px 4px rgba(154, 51, 244, 0.9); }
+  12% { opacity: 0.9; transform: scale(1); box-shadow: 0 0 0 2px var(--ithub-white), 0 0 6px 2px rgba(154, 51, 244, 0.5); }
+  60%, 100% { opacity: 0.35; transform: scale(1); box-shadow: 0 0 0 2px var(--ithub-white); }
+}
+
+@keyframes pingRing {
+  0% { opacity: 0.9; transform: scale(1); }
+  14%, 100% { opacity: 0; transform: scale(3.2); }
 }
 
 /* уголки прицела по краям поля графика */
@@ -77,8 +102,6 @@
 .radar-hud__corner--tr::after { right: 6px; top: 6px; animation-delay: 1s; }
 .radar-hud__corner--br::after { right: 6px; bottom: 6px; animation-delay: 2s; }
 .radar-hud__corner--bl::after { left: 6px; bottom: 6px; animation-delay: 3s; }
-
-@keyframes hudSpin { to { transform: rotate(1turn); } }
 
 @keyframes hudBlink {
   0%, 70%, 100% { opacity: 0; transform: scale(0.4); }
@@ -212,8 +235,9 @@ button.skill-sum__row:focus-visible { outline: 3px solid var(--purple-500); outl
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .radar-hud__ring--outer,
-  .radar-hud__ring--inner,
+  .radar-hud__beam,
+  .radar-hud__ping,
+  .radar-hud__ping::after,
   .radar-hud__corner::after,
   .skill-sum__bar i.is-on { animation: none; }
 }
@@ -245,11 +269,3 @@ button.skill-sum__row:focus-visible { outline: 3px solid var(--purple-500); outl
   .profile-radar > .skill-sum { margin-top: 48px; }
 }
 
-/* в профиле пятиугольник занимает всё поле — орбита обходит его снаружи */
-.profile-radar__chart .radar-hud__orbit {
-  width: 112%;
-  max-height: none;
-}
-
-.profile-radar__chart .radar-hud__ring--inner,
-.profile-radar__chart .radar-hud__tick { display: none; }

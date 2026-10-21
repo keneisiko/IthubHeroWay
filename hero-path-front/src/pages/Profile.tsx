@@ -924,7 +924,13 @@ export default function Profile() {
       {showCharacteristics && (
       <section className="profile-radar card-entrance" style={{ animationDelay: '0.3s' }}>
         <div className="profile-radar__chart">
-          <RadarHud />
+          <RadarHud
+            geo={vertices.center && vertices.current[0] ? {
+              cx: vertices.center.x,
+              cy: vertices.center.y,
+              r: Math.hypot(vertices.current[0].x - vertices.center.x, vertices.current[0].y - vertices.center.y),
+            } : null}
+          />
           <Radar ref={chartRef} data={radarData} options={radarOptions} />
 
           {/* луч к выбранной оси: видно, о какой характеристике история */}
