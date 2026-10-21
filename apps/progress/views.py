@@ -8,6 +8,7 @@ from rest_framework import generics, views
 from rest_framework.response import Response
 
 from apps.accounts.models import User
+from apps.accounts.frames import badge_frame_subquery
 from apps.accounts.permissions import IsKnownRole
 from apps.shop.models import Purchase, ShopItemType
 
@@ -59,7 +60,7 @@ class AgentLeaderboardView(generics.ListAPIView):
         )
         queryset = (
             User.objects.filter(telegram_link__is_active=True)
-            .annotate(applied_cosmetic=Subquery(applied_cosmetic))
+            .annotate(applied_cosmetic=Subquery(applied_cosmetic), badge_frame=badge_frame_subquery())
             .order_by("-rating_current", "id")
         )
         track = self.request.query_params.get("track")
