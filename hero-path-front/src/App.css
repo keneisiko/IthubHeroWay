@@ -1396,9 +1396,40 @@ body {
 .profile-map__body {
   width: 100%;
   min-height: 157px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  row-gap: 8px;
+}
+
+.profile-map__body > :not(.profile-map__turn) {
+  grid-column: 1;
+}
+
+/* Поворот пути: полукруг от последнего узла верхнего ряда к первому
+   узлу нижнего. Отступы 12px = центр узла (15px) минус полтолщины линии;
+   ширина с запасом — подпись крайнего узла шире самого узла. */
+.profile-map__turn {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  width: 54px;
+  margin: 12px 0 12px -15px;
+  border: 6px solid;
+  border-left: 0;
+  border-radius: 0 999px 999px 0;
+}
+
+.profile-map__turn--done {
+  border-color: #9a33f4;
+}
+
+.profile-map__turn--idle {
+  border-color: #848484;
+}
+
+.profile-map__node {
+  position: relative;
+  z-index: 1;
 }
 
 .profile-map__row {
@@ -1412,8 +1443,15 @@ body {
   display: contents;
 }
 
-.profile-map__row--bottom {
-  grid-template-columns: 83px 30px 97px 30px 97px 30px;
+/* Нижний ряд идёт справа налево: колонки сетки считаются от правого края,
+   первый узел встаёт под последним узлом верхнего ряда. */
+.profile-map__row--bottom,
+.profile-map__labels--bottom {
+  direction: rtl;
+}
+
+.profile-map__labels--bottom span {
+  direction: ltr;
 }
 
 .profile-map__line {
@@ -1427,10 +1465,6 @@ body {
 
 .profile-map__line--idle {
   background: #848484;
-}
-
-.profile-map__line--first {
-  width: 83px;
 }
 
 .profile-map__node {
@@ -1489,7 +1523,7 @@ body {
 }
 
 .profile-map__labels--bottom {
-  grid-template-columns: 83px 30px 97px 30px 97px 30px;
+  grid-template-columns: 30px 97px 30px 97px 30px 97px 30px;
   color: #848484;
 }
 
@@ -1529,15 +1563,15 @@ body {
 }
 
 .profile-map__labels--bottom span:nth-child(1) {
-  grid-column: 2;
+  grid-column: 1;
 }
 
 .profile-map__labels--bottom span:nth-child(2) {
-  grid-column: 4;
+  grid-column: 3;
 }
 
 .profile-map__labels--bottom span:nth-child(3) {
-  grid-column: 6;
+  grid-column: 5;
 }
 
 .profile-card--aside {
@@ -5850,16 +5884,13 @@ body {
   /* --- карта пути в профиле --- */
   /* узлы остаются 30px, соединители тянутся по месту */
   .profile-map__row,
-  .profile-map__labels--top {
+  .profile-map__labels--top,
+  .profile-map__labels--bottom {
     grid-template-columns: 30px minmax(0, 1fr) 30px minmax(0, 1fr) 30px minmax(0, 1fr) 30px;
   }
 
-  .profile-map__row--bottom,
-  .profile-map__labels--bottom {
-    grid-template-columns: minmax(0, 70px) 30px minmax(0, 1fr) 30px minmax(0, 1fr) 30px;
-  }
-
   .profile-map__body {
+    grid-template-columns: minmax(0, 1fr) auto;
     height: auto;
     padding: 0 20px;
     box-sizing: border-box;

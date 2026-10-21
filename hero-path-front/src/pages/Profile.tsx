@@ -95,7 +95,8 @@ interface ProfileData {
 }
 
 // Вехи карты пути — постоянные точки программы (из макета).
-// Верхний ряд идёт слева направо, нижний — продолжение того же пути.
+// Путь — змейкой: верхний ряд слева направо, справа полукругом вниз,
+// нижний ряд справа налево.
 const PATH_TOP = [
   { code: 'entry', label: 'Вход' },
   { code: 'first_win', label: 'Первая\nпобеда' },
@@ -733,10 +734,10 @@ export default function Profile() {
               <div className="profile-map__labels profile-map__labels--top">
                 {PATH_TOP.map((point) => <span key={point.code}>{point.label}</span>)}
               </div>
+              <span
+                className={`profile-map__turn profile-map__turn--${pathReached(PATH_TOP.length) ? 'done' : 'idle'}`}
+              />
               <div className="profile-map__row profile-map__row--bottom">
-                <span
-                  className={`profile-map__line profile-map__line--first profile-map__line--${pathReached(PATH_TOP.length) ? 'done' : 'idle'}`}
-                />
                 {PATH_BOTTOM.map((point, i) => (
                   <Fragment key={point.code}>
                     {i > 0 && (
