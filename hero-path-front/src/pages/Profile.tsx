@@ -662,7 +662,10 @@ export default function Profile() {
               >
                 {/* диск чёрной дыры — под аватаром, аватар как горизонт событий */}
                 {profile.avatar_frame === 'developer' && (
-                  <span key={`hole-${profile.username}`} className="dev-hole dev-hole--intro" aria-hidden="true" />
+                  <>
+                    <span key={`nebula-${profile.username}`} className="dev-nebula" aria-hidden="true" />
+                    <span key={`hole-${profile.username}`} className="dev-hole dev-hole--intro" aria-hidden="true" />
+                  </>
                 )}
                 <Avatar
                   src={profile.avatar}

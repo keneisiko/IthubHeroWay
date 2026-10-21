@@ -279,9 +279,26 @@
   50% { opacity: 1; }
 }
 
-/* в профиле диск крупнее и сначала раскручивается из ничего */
+/* в профиле диск крупнее, темнее и сначала раскручивается из ничего */
 .dev-hole--intro {
-  inset: -42%;
+  inset: -62%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 6%,
+    rgba(40, 6, 80, 0.95) 14%,
+    rgba(122, 31, 204, 0.9) 22%,
+    #fff3b0 28%,
+    rgba(255, 0, 238, 0.7) 34%,
+    rgba(30, 4, 60, 0.95) 46%,
+    transparent 58%,
+    rgba(60, 10, 110, 0.9) 70%,
+    #ffd900 77%,
+    rgba(20, 2, 40, 0.9) 84%,
+    transparent 94%
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 38%, #000 46%, #000 72%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 38%, #000 46%, #000 72%, transparent 100%);
+  filter: blur(2.5px) saturate(1.3);
   opacity: 0;
   transform: scale(1.8) rotate(-120deg);
   animation:
@@ -382,7 +399,8 @@
 @keyframes spiralIn {
   0% { opacity: 0; transform: rotate(var(--a)) translateX(var(--r)) scale(1.2); }
   15% { opacity: 1; }
-  100% { opacity: 0.2; transform: rotate(calc(var(--a) + 540deg)) translateX(0) scale(0.2); }
+  85% { opacity: 0.6; }
+  100% { opacity: 0; transform: rotate(calc(var(--a) + 540deg)) translateX(0) scale(0.2); }
 }
 
 /* аватар выходит из горизонта: из точки, с поворотом и размытием */
@@ -403,3 +421,81 @@
   .dev-intro { display: none; }
   .profile-card__avatar--developer .profile-card__avatar-face { animation: none; }
 }
+
+/* =========================
+   ТУМАННОСТЬ вокруг аватара в профиле
+   Тёмное космическое облако с россыпью звёзд, медленно вращается;
+   край растворяется в карточке.
+   ========================= */
+
+.dev-nebula {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 520%;
+  height: 520%;
+  z-index: -2;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(1.4px 1.4px at 18% 30%, #fff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 72% 22%, #fff 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 64% 78%, #ffd900 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 30% 70%, #fff 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 84% 52%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 44% 14%, #f5d0ff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 12% 58%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 56% 88%, #fff 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 38% 44%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 36%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 24% 82%, #f5d0ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 90% 70%, #fff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 50% 62%, #ffd900 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 44%, #fff 50%, transparent 51%),
+    radial-gradient(closest-side, rgba(4, 0, 12, 0.98) 0%, rgba(12, 1, 30, 0.95) 34%, rgba(34, 6, 72, 0.82) 52%, rgba(80, 16, 150, 0.45) 70%, rgba(154, 51, 244, 0.12) 86%, transparent 100%);
+  opacity: 0;
+  animation:
+    nebulaIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards,
+    nebulaSpin 90s linear 2s infinite;
+}
+
+/* вторая, туманная прослойка — фиолетовые и розовые облака */
+.dev-nebula::after {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background:
+    radial-gradient(40% 30% at 30% 40%, rgba(255, 0, 238, 0.22), transparent 70%),
+    radial-gradient(35% 40% at 70% 65%, rgba(154, 51, 244, 0.35), transparent 70%),
+    radial-gradient(30% 25% at 62% 28%, rgba(56, 221, 221, 0.12), transparent 70%);
+  filter: blur(8px);
+  animation: nebulaDrift 14s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes nebulaIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes nebulaSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+  to { transform: translate(-50%, -50%) rotate(1turn); opacity: 1; }
+}
+
+@keyframes nebulaDrift {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(-25deg) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev-nebula { animation: none; opacity: 1; }
+  .dev-nebula::after { animation: none; }
+}
+
+/* туманность — фон карточки: текст и плашки поверх неё,
+   за край карточки она не выходит */
+.profile-card--primary:has(.dev-nebula) { overflow: hidden; }
+.profile-card--primary:has(.dev-nebula) > *,
+.profile-card--primary:has(.dev-nebula) .profile-card__names { position: relative; z-index: 1; }
