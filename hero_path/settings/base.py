@@ -562,9 +562,13 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.social.tasks.pay_mentorship_weekly",
         "schedule": crontab(hour=20, minute=30, day_of_week="fri"),
     },
-    "check_badges_weekly": {
+    # Каждый вечер, а не по воскресеньям: привязавший Telegram во вторник
+    # ждал нашивку «На связи» до воскресенья и считал, что она сломана.
+    # Имя задачи прежнее — переименование оставило бы в очереди задачи,
+    # которых новый воркер не знает.
+    "check_badges_daily": {
         "task": "apps.badges.tasks.check_badges_weekly",
-        "schedule": crontab(hour=21, minute=0, day_of_week="sun"),
+        "schedule": crontab(hour=21, minute=0),
     },
     # squad_digest_friday и curator_report_monday убраны из расписания:
     # их тела — заглушки, и запись в beat создавала видимость работающих

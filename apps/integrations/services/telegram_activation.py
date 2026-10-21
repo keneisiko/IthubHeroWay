@@ -129,4 +129,13 @@ def activate_telegram_account(
         user.save(update_fields=activation_fields)
 
     reset_attempts(telegram_user_id=telegram_user_id, email=email)
+
+    # Нашивка «На связи» — сразу, а не на вечерней проверке: событие известно
+    # точно, и студент только что сделал ради него действие.
+    from apps.badges.services import award_badges_for_user
+
+    try:
+        award_badges_for_user(user)
+    except Exception:  # noqa: BLE001 — сбой выдачи не должен отменять привязку
+        logger.exception("Нашивки после активации Telegram не выданы (user=%s)", user.pk)
     return True, f"Аккаунт активирован для {user.username}."

@@ -252,3 +252,28 @@ class StaffDeactivationTests(TestCase):
 
         self.student.refresh_from_db()
         self.assertFalse(self.student.login_blocked)
+
+
+class TelegramBadgeOnActivationTests(TestCase):
+    """Нашивка «На связи» — в момент привязки, а не на ближайшей проверке.
+
+    Проверка шла раз в неделю: привязавшие Telegram 20.10 ждали бы нашивку
+    до воскресенья и считали её сломанной.
+    """
+
+    def test_badge_is_awarded_right_after_activate(self):
+        from apps.badges.models import Badge, UserBadge
+
+        badge = Badge.objects.create(
+            code="telegram-linked", title="На связи", condition={"telegram_linked": True}, reward_coins=5
+        )
+        user = _imported_agent()
+
+        ok, _ = activate_telegram_account(
+            email="student@nalchik.ithub.ru", telegram_user_id=707, telegram_chat_id=707, telegram_username=""
+        )
+
+        self.assertTrue(ok)
+        self.assertTrue(UserBadge.objects.filter(user=user, badge=badge).exists())
+        user.refresh_from_db()
+        self.assertEqual(user.coins_balance, 5)
