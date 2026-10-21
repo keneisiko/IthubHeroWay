@@ -107,6 +107,8 @@ export default function Shop() {
   // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
   // двойной клик не отправил применение и снятие подряд.
   const [applyingId, setApplyingId] = useState<number | null>(null)
+  // кольцо вокруг нажатой кнопки; чередование имени перезапускает анимацию
+  const [ring, setRing] = useState<{ id: number; n: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const { toasts, addToast } = useToasts()
 
@@ -213,7 +215,7 @@ export default function Shop() {
     )))
     setApplyingId(purchase.id)
     flip(next)
-    if (next) celebrate('small')
+    setRing((r) => ({ id: purchase.id, n: (r?.n ?? 0) + 1 }))
     const request = next
       ? api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
       : api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
@@ -292,7 +294,7 @@ export default function Shop() {
                 </span>
                 <button
                   type="button"
-                  className="shop-purchase__apply btn-press"
+                  className={`shop-purchase__apply btn-press${ring?.id === p.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''}`}
                   onClick={() => togglePurchase(p)}
                   disabled={applyingId === p.id}
                   aria-pressed={p.isApplied}

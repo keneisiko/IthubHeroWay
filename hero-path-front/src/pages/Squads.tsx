@@ -5,6 +5,7 @@ import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
 import { apiErrorMessage, unwrapList, formatRating } from '../lib/apiData'
 import PixelText from '../components/PixelText'
+import RollNumber from '../components/RollNumber'
 
 type SortKey = 'name' | 'track' | 'status'
 
@@ -403,11 +404,11 @@ export default function Squads() {
           <dl className="squad-my__stats">
             <div className="squad-my__row">
               <dt className="squad-my__label">Рейтинг:</dt>
-              <dd><span className="squad-pill squad-pill--dark squad-pill--firs">{squad.rating}</span></dd>
+              <dd><span className="squad-pill squad-pill--dark squad-pill--firs"><RollNumber value={squad.rating} /></span></dd>
             </div>
             <div className="squad-my__row">
               <dt className="squad-my__label">Агентов:</dt>
-              <dd><span className="squad-pill squad-pill--light">{squad.members_count}</span></dd>
+              <dd><span className="squad-pill squad-pill--light"><RollNumber value={squad.members_count} /></span></dd>
             </div>
             <div className="squad-my__row">
               <dt className="squad-my__label">Дельта роста за неделю:</dt>
@@ -458,7 +459,7 @@ export default function Squads() {
           <section className="squad-actions" aria-label="Действия отряда">
             <div className="squad-actions__coins">
               <span className="squad-actions__coins-text">В этом месяце отряд получил</span>
-              <span className="squad-actions__coins-badge">{squad.coins_month}</span>
+              <span className="squad-actions__coins-badge"><RollNumber value={formatRating(squad.coins_month)} /></span>
               <span className="squad-actions__coins-text">монет</span>
             </div>
             <button type="button" className="squad-actions__btn squad-actions__btn--share btn-press" onClick={handleShare}>Поделиться</button>
@@ -504,7 +505,7 @@ export default function Squads() {
         </div>
 
         <div className="squad-members__panel">
-          <ul className="squad-members__list">
+          <ul key={sortKey} className="squad-members__list">
             {visibleMembers.map((m, i) => (
               <li key={m.id} className="squad-member-row hover-lift spot" style={{ animationDelay: `${i * 40}ms` }}>
                 <div className="squad-member-row__main">
