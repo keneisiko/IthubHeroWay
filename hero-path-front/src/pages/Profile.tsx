@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Radar } from 'react-chartjs-2'
 import type { Chart as ChartType } from 'chart.js'
 import {
@@ -204,6 +204,7 @@ function useModal(initial = false) {
 
 export default function Profile() {
   const { username: routeUsername } = useParams<{ username?: string }>()
+  const navigate = useNavigate()
   const isOwnProfile = !routeUsername
   const tabs = useMemo(() => ['Путь', 'Ритм', 'Мастерство', 'Сообщество', 'Вклад', 'Статус', 'Особые'], [])
   const [activeTab, setActiveTab] = useState('Путь')
@@ -264,12 +265,25 @@ export default function Profile() {
   // quiet — обновить данные после действия на странице (закрепить нашивку,
   // принять дуэль): без лоадера на весь экран и без прыжка прокрутки.
   const loadProfile = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    let redirected = false
     const profileUrl = isOwnProfile
       ? '/api/v1/profile/me/'
       : `/api/v1/profile/${encodeURIComponent(routeUsername!)}/`
 
+    const profileRequest = isOwnProfile
+      ? api.get(profileUrl)
+      : api.get('/api/v1/profile/me/').then((me) => {
+        if (me.data.username === routeUsername) {
+          redirected = true
+          navigate('/profile', { replace: true })
+          return null
+        }
+        return api.get(profileUrl)
+      })
+
     const requests: Promise<unknown>[] = [
-      api.get(profileUrl).then((res) => {
+      profileRequest.then((res) => {
+        if (!res) return
         const data = res.data as ProfileData
         setProfile(data)
         setEditForm({ callsign: data.callsign || '' })
@@ -329,8 +343,8 @@ export default function Profile() {
           setLoadError(true)
         }
       })
-      .finally(() => setLoading(false))
-  }, [isOwnProfile, routeUsername, applyDuels, addToast])
+      .finally(() => { if (!redirected) setLoading(false) })
+  }, [isOwnProfile, routeUsername, applyDuels, addToast, navigate])
 
   // Сброс «загружается» — при смене открытого профиля, во время отрисовки,
   // а не синхронным setState в эффекте (лишний каскадный рендер). Эффект
