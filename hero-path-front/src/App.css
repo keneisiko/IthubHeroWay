@@ -3170,7 +3170,8 @@ body {
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(0, 340px));
+  /* три колонки на компьютере: при фиксированных 340px влезало только две */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-20);
 }
 
