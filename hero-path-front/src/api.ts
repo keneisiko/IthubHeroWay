@@ -71,7 +71,17 @@ api.interceptors.request.use((config) => {
         .catch(() => {})
         .finally(() => inflight.delete(key))
     }
-    return pending.then((response) => ({ ...response, data: copy(response.data), config: cfg }))
+    return pending.then(
+      (response) => ({ ...response, data: copy(response.data), config: cfg }),
+      (error: unknown) => {
+        if (!axios.isAxiosError(error) || !error.response) throw error
+        throw axios.AxiosError.from(error, error.code, cfg, error.request, {
+          ...error.response,
+          data: copy(error.response.data),
+          config: cfg,
+        })
+      },
+    )
   }
   return config
 })
