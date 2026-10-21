@@ -151,7 +151,7 @@ export default function Squads() {
           avatar?: string | null
           rating_current?: number | null
         }>(membersRes.data)
-        setMembers(mapMembers(rows))
+        return mapMembers(rows)
       })
   }, [])
 
@@ -210,9 +210,15 @@ export default function Squads() {
 
   useEffect(() => {
     if (!squad?.code || loading) return
-    loadMembers(squad.code, '', sortKey).catch(() => {
-      addToast('Не удалось обновить список участников', 'error')
-    })
+    let active = true
+    loadMembers(squad.code, '', sortKey)
+      .then((rows) => {
+        if (active) setMembers(rows)
+      })
+      .catch(() => {
+        if (active) addToast('Не удалось обновить список участников', 'error')
+      })
+    return () => { active = false }
   }, [squad?.code, sortKey, loading, loadMembers, addToast])
 
   const handleJoin = useCallback((code: string) => {
@@ -257,11 +263,16 @@ export default function Squads() {
   // секунды паузы в наборе уходил запрос, и список перерисовывался сам,
   // будто поиск «отправили» за человека.
   const memberNeedle = memberQuery.trim().toLowerCase()
-  const visibleMembers = memberNeedle
+  const filteredMembers = memberNeedle
     ? members.filter((m) =>
         [m.name, m.track, m.status].some((field) => field.toLowerCase().includes(memberNeedle)),
       )
     : members
+  const visibleMembers = [...filteredMembers].sort((left, right) =>
+    left[sortKey].localeCompare(right[sortKey], 'ru', { sensitivity: 'base' })
+    || left.name.localeCompare(right.name, 'ru', { sensitivity: 'base' })
+    || left.username.localeCompare(right.username, 'ru', { sensitivity: 'base' }),
+  )
 
   const handleShare = useCallback(() => {
     const shareUrl = `${window.location.origin}${squad?.share_url ?? '/squads'}`

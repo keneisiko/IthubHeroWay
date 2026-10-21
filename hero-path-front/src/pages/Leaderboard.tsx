@@ -98,6 +98,7 @@ export default function Leaderboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [meOnScreen, setMeOnScreen] = useState(false)
   const loadedOnce = useRef(false)
+  const requestSequence = useRef(0)
 
   // «Обновляю» ставится там, где меняется фильтр, а не в эффекте загрузки.
   // Только при реальной смене: повторный Enter с тем же запросом не
@@ -168,6 +169,7 @@ export default function Leaderboard() {
   }
 
   const loadLeaderboard = useCallback(() => {
+    const requestId = ++requestSequence.current
     // экран загрузки — только в первый раз; дальше список обновляется
     // на месте и не пропадает из-под пальца
     const agentsParams: Record<string, string | number> = { page: 1, page_size: 20 }
@@ -179,6 +181,7 @@ export default function Leaderboard() {
       api.get('/api/v1/squads/leaderboard/', { params: { limit: 10 } }),
       api.get('/api/v1/rating/me/'),
     ]).then(([agentsRes, squadsRes, meRes]) => {
+      if (requestId !== requestSequence.current) return
       const page = 1
       const pageSize = 20
       const agentsData = unwrapList<{
@@ -224,17 +227,25 @@ export default function Leaderboard() {
         delta: formatRating(meRes.data?.rating_current),
         username: meRes.data?.username ?? '',
       })
+      loadedOnce.current = true
     }).catch(() => {
+      if (requestId !== requestSequence.current) return
       if (loadedOnce.current) return
       setAgents([])
       setSquads([])
       setLoadError(true)
     }).finally(() => {
-      loadedOnce.current = true
+      if (requestId !== requestSequence.current) return
       setLoading(false)
       setRefreshing(false)
     })
   }, [selectedCourse, appliedSearch])
+
+  const retryLeaderboard = () => {
+    setLoading(true)
+    setLoadError(false)
+    loadLeaderboard()
+  }
 
   useEffect(() => {
     loadLeaderboard()
@@ -252,7 +263,10 @@ export default function Leaderboard() {
   const items = activeTab === 'agents' ? agents : squads
   const needle = searchQuery.trim().toLowerCase()
   const filteredItems = needle
-    ? items.filter(item => item.title.toLowerCase().includes(needle))
+    ? items.filter(item => (
+      item.title.toLowerCase().includes(needle)
+      || (activeTab === 'agents' && item.username.toLowerCase().includes(needle))
+    ))
     : items
   const canSearchWider = activeTab === 'agents' && needle !== '' && needle !== appliedSearch.toLowerCase()
 
@@ -276,7 +290,7 @@ export default function Leaderboard() {
   if (loadError) {
     return (
       <div className="dashboard leaderboard-page page-enter">
-        <LoadError className="leaderboard-loading" onRetry={loadLeaderboard} />
+        <LoadError className="leaderboard-loading" onRetry={retryLeaderboard} />
       </div>
     )
   }

@@ -49,6 +49,7 @@ class MeProfileSerializer(serializers.ModelSerializer):
             "respects_received",
             "policy_accepted",
         ]
+        read_only_fields = ("rating_current", "coins_balance", "level")
 
     def get_rating_status(self, obj: User) -> str:
         return rating_status_label(obj.rating_current)

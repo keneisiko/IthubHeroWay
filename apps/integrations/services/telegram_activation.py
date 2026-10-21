@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import IntegrityError
 
+from apps.accounts.activation import is_unused_lxp_import
 from apps.integrations.models import TelegramAccountLink
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ def activate_telegram_account(
     user = User.objects.filter(email__iexact=email).first()
     if not user:
         return False, "Пользователь с такой почтой не найден в платформе."
-    if getattr(user, "login_blocked", False):
+    if user.login_blocked or (not user.is_active and not is_unused_lxp_import(user)):
         return False, "Вход закрыт. Обратитесь к администратору."
 
     # Этот Telegram-аккаунт мог быть привязан к другому студенту: поле уникально,
@@ -115,9 +116,6 @@ def activate_telegram_account(
     except IntegrityError:
         return False, "Не удалось привязать аккаунт: конфликт Telegram-идентификаторов."
 
-    # Привязка Telegram — единственный момент, когда студент подтвердил, что
-    # аккаунт его. До этого импортированная из LXP карточка неактивна и войти
-    # по ней нельзя (см. import_lxp_students).
     activation_fields: list[str] = []
     if not user.is_active:
         user.is_active = True

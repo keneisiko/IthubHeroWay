@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api'
 import LoadError from '../components/LoadError'
+import DialogClose from '../components/DialogClose'
+import { useModal } from '../useModal'
 import { useTabIndicator } from '../useTabIndicator'
 import { plural } from '../lib/plural'
 import { celebrate } from '../lib/celebrate'
@@ -25,29 +27,6 @@ interface Activity {
   time: string
 }
 
-function useModal(initial = false) {
-  const [open, setOpen] = useState(initial)
-  const ref = useRef<HTMLDivElement>(null)
-  const show = () => setOpen(true)
-  const hide = () => setOpen(false)
-
-  useEffect(() => {
-    if (!open) return
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') hide() }
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) hide()
-    }
-    document.addEventListener('keydown', handleEsc)
-    document.addEventListener('mousedown', handleClick)
-    return () => {
-      document.removeEventListener('keydown', handleEsc)
-      document.removeEventListener('mousedown', handleClick)
-    }
-  }, [open])
-
-  return { open, ref, show, hide }
-}
-
 // Склонение дней для подписи серии
 // сколько квестов видно до «Показать все»
 const MOBILE_QUESTS = 3
@@ -67,6 +46,7 @@ export default function Quests() {
   // Подсветка карточки до нажатия «Выбрать»: сам выбор отправляется явно.
   const [focusPreview, setFocusPreview] = useState<string | null>(null)
   const [picking, setPicking] = useState<string | null>(null)
+  const pickingRef = useRef(false)
   const [strike, setStrike] = useState<{
     late_strike: number
     bonus_at_7: number
@@ -103,7 +83,7 @@ export default function Quests() {
   // quiet — обновить после отправки отчёта или выбора цели без лоадера
   // на всю страницу и без прыжка прокрутки
   const loadQuests = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
-    Promise.all([
+    return Promise.all([
       api.get('/api/v1/quests/active/'),
       api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
       api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
@@ -193,6 +173,8 @@ export default function Quests() {
   // Выбор отмечается сразу — на карточку ставится знак, кнопка
   // перекрашивается; ответ сервера только подтверждает, ошибка откатывает.
   const pickWeeklyFocus = useCallback((code: string, title: string) => {
+    if (pickingRef.current) return
+    pickingRef.current = true
     const previous = weeklyChoice
     setWeeklyChoice(code)
     setFocusPreview(code)
@@ -200,13 +182,17 @@ export default function Quests() {
     api.post('/api/v1/quests/weekly-focus/', { quest_code: code })
       .then(() => {
         addToast(`Цель недели: ${title}`)
-        loadQuests({ quiet: true })
+        return loadQuests({ quiet: true })
       })
       .catch(() => {
         setWeeklyChoice(previous)
+        setFocusPreview(previous)
         addToast('Не удалось выбрать цель недели', 'error')
       })
-      .finally(() => setPicking(null))
+      .finally(() => {
+        pickingRef.current = false
+        setPicking(null)
+      })
   }, [addToast, loadQuests, weeklyChoice])
 
   const rawQuests = activeTab === 0 ? quests : activeTab === 1 ? completedQuests : []
@@ -410,7 +396,7 @@ export default function Quests() {
                               option.code === weeklyChoice ? ' q1__option-pick--current' : ''
                             }${picking === option.code ? ' q1__option-pick--busy' : ''}`}
                             onClick={() => pickWeeklyFocus(option.code, option.title)}
-                            disabled={option.code === weeklyChoice}
+                            disabled={picking !== null || option.code === weeklyChoice}
                           >
                             <span key={String(option.code === weeklyChoice)} className="q1__option-pick-label">
                               {option.code === weeklyChoice ? 'Цель недели' : 'Выбрать'}
@@ -499,7 +485,8 @@ export default function Quests() {
       {/* Модалка самоотчёта */}
       {reportModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={reportModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={reportModalRef} role="dialog" aria-modal="true" aria-label="Самоотчёт" tabIndex={-1}>
+            <DialogClose onClose={reportModal.hide} />
             <h3 className="popup__title">Самоотчёт</h3>
             <label className="popup__label">Комментарий или ссылка на работу</label>
             <textarea
@@ -518,7 +505,8 @@ export default function Quests() {
       {/* Модалка подтверждения квеста */}
       {confirmModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={confirmModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={confirmModalRef} role="dialog" aria-modal="true" aria-label={confirmQuestTitle || 'Подтверждение квеста'} tabIndex={-1}>
+            <DialogClose onClose={confirmModal.hide} />
             <h3 className="popup__title">{confirmQuestTitle || 'Подтверждение квеста'}</h3>
             <label className="popup__label">
               Прикрепите ссылку на работу — её проверит куратор, награда придёт после одобрения

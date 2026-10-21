@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Radar } from 'react-chartjs-2'
 import type { Chart as ChartType } from 'chart.js'
 import {
@@ -29,6 +29,9 @@ import { bannerVariant, glowVariant, type ActiveBoost, type AppliedItems } from 
 import { BoostPlaque } from '../components/BoostPlaque'
 import DevFrame from '../components/DevFrame'
 import RollNumber from '../components/RollNumber'
+import DialogClose from '../components/DialogClose'
+import { useModal } from '../useModal'
+import { notifyBalanceChanged } from '../lib/balance'
 import '../styles/profile-radar.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -85,6 +88,7 @@ interface ProfileData {
   rating_current: number | null
   coins_balance?: number
   rating_zone?: string
+  rating_status?: string
   // Коды пройденных вех карты пути (apps/progress/services/path_map.py).
   path_reached?: string[]
   duel_wins?: number
@@ -178,31 +182,9 @@ interface CharacteristicItem {
   history: number[]
 }
 
-function useModal(initial = false) {
-  const [open, setOpen] = useState(initial)
-  const ref = useRef<HTMLDivElement>(null)
-  const show = () => setOpen(true)
-  const hide = () => setOpen(false)
-
-  useEffect(() => {
-    if (!open) return
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') hide() }
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) hide()
-    }
-    document.addEventListener('keydown', handleEsc)
-    document.addEventListener('mousedown', handleClick)
-    return () => {
-      document.removeEventListener('keydown', handleEsc)
-      document.removeEventListener('mousedown', handleClick)
-    }
-  }, [open])
-
-  return { open, ref, show, hide }
-}
-
 export default function Profile() {
   const { username: routeUsername } = useParams<{ username?: string }>()
+  const navigate = useNavigate()
   const isOwnProfile = !routeUsername
   const tabs = useMemo(() => ['Путь', 'Ритм', 'Мастерство', 'Сообщество', 'Вклад', 'Статус', 'Особые'], [])
   const [activeTab, setActiveTab] = useState('Путь')
@@ -263,12 +245,25 @@ export default function Profile() {
   // quiet — обновить данные после действия на странице (закрепить нашивку,
   // принять дуэль): без лоадера на весь экран и без прыжка прокрутки.
   const loadProfile = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    let redirected = false
     const profileUrl = isOwnProfile
       ? '/api/v1/profile/me/'
       : `/api/v1/profile/${encodeURIComponent(routeUsername!)}/`
 
+    const profileRequest = isOwnProfile
+      ? api.get(profileUrl)
+      : api.get('/api/v1/profile/me/').then((me) => {
+        if (me.data.username === routeUsername) {
+          redirected = true
+          navigate('/profile', { replace: true })
+          return null
+        }
+        return api.get(profileUrl)
+      })
+
     const requests: Promise<unknown>[] = [
-      api.get(profileUrl).then((res) => {
+      profileRequest.then((res) => {
+        if (!res) return
         const data = res.data as ProfileData
         setProfile(data)
         setEditForm({ callsign: data.callsign || '' })
@@ -328,8 +323,8 @@ export default function Profile() {
           setLoadError(true)
         }
       })
-      .finally(() => setLoading(false))
-  }, [isOwnProfile, routeUsername, applyDuels, addToast])
+      .finally(() => { if (!redirected) setLoading(false) })
+  }, [isOwnProfile, routeUsername, applyDuels, addToast, navigate])
 
   // Сброс «загружается» — при смене открытого профиля, во время отрисовки,
   // а не синхронным setState в эффекте (лишний каскадный рендер). Эффект
@@ -463,6 +458,7 @@ export default function Profile() {
     api.patch('/api/v1/profile/me/', { callsign: editForm.callsign.trim() })
       .then((res) => {
         setProfile((prev) => prev ? { ...prev, callsign: res.data.callsign } : null)
+        notifyBalanceChanged()
         editModal.hide()
         addToast('Профиль сохранён!', 'success')
       })
@@ -479,6 +475,7 @@ export default function Profile() {
     })
       .then(res => {
         setProfile(prev => prev ? { ...prev, avatar: res.data.avatar } : null)
+        notifyBalanceChanged()
         avatarModal.hide()
         setAvatarFile(null)
         addToast('Аватар обновлён!', 'success')
@@ -628,14 +625,14 @@ export default function Profile() {
   const ratingGap = profile?.rating_current != null && myRating != null
     ? Math.abs(myRating - profile.rating_current)
     : null
-  const duelBlockReason = isOwnProfile || ratingGap == null
+  const duelBlockReason = isOwnProfile
     ? ''
     : hasActiveDuel
       ? 'У тебя уже идёт дуэль — новая станет доступна после неё'
-      : duelInfo.maxDiff > 0 && ratingGap > duelInfo.maxDiff
+      : ratingGap != null && duelInfo.maxDiff > 0 && ratingGap > duelInfo.maxDiff
         ? `Разница рейтинга ${ratingGap}, а для дуэли нужна не больше ${duelInfo.maxDiff}`
         : ''
-  const canDuel = !isOwnProfile && ratingGap != null && !duelBlockReason
+  const canDuel = !isOwnProfile && !duelBlockReason
 
   if (loading) {
     return (
@@ -724,7 +721,7 @@ export default function Profile() {
               <div className="profile-row">
                 <span className="profile-row__label">Статус и уровень:</span>
                 <span className="profile-row__chip profile-row__chip--dark">
-                  {profile?.rating_zone ? `${profile.rating_zone} ` : ''}ур. {profile?.level ?? 1}
+                  {profile?.rating_status ? `${profile.rating_status} ` : ''}ур. {profile?.level ?? 1}
                 </span>
               </div>
 
@@ -1176,7 +1173,8 @@ export default function Profile() {
       {/* Модалка настройки профиля */}
       {editModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={editModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={editModalRef} role="dialog" aria-modal="true" aria-label="Настроить профиль" tabIndex={-1}>
+            <DialogClose onClose={editModal.hide} />
             <h3 className="popup__title">Настроить профиль</h3>
             <label className="popup__label">Позывной</label>
             <input
@@ -1200,7 +1198,8 @@ export default function Profile() {
       {/* Модалка вызова на дуэль: соперника ищем, а не ищем его профиль вручную */}
       {duelModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={duelModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={duelModalRef} role="dialog" aria-modal="true" aria-label="Вызвать на дуэль" tabIndex={-1}>
+            <DialogClose onClose={duelModal.hide} />
             <h3 className="popup__title">Вызвать на дуэль</h3>
             <label className="popup__label">
               Ставка {duelInfo.bet} {plural(duelInfo.bet, ['монета', 'монеты', 'монет'])}. Побеждает тот, кто за {duelInfo.days} дн. прибавит
@@ -1240,7 +1239,8 @@ export default function Profile() {
       {/* Модалка стать наставником */}
       {mentorModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={mentorModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={mentorModalRef} role="dialog" aria-modal="true" aria-label="Стать наставником" tabIndex={-1}>
+            <DialogClose onClose={mentorModal.hide} />
             <h3 className="popup__title">Стать наставником</h3>
             <label className="popup__label">Найдите студента по позывному или имени</label>
             <AgentPicker picked={menteeUsername} onPick={(agent) => setMenteeUsername(agent.username)} autoFocus />
@@ -1273,7 +1273,8 @@ export default function Profile() {
       {/* Подтверждение: завершить шефство */}
       {endModal.open && endTarget && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={endModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={endModalRef} role="dialog" aria-modal="true" aria-label="Завершить шефство" tabIndex={-1}>
+            <DialogClose onClose={endModal.hide} />
             <h3 className="popup__title">Завершить шефство?</h3>
             <p className="popup__label">
               {agentName(endTarget.mentee)} больше не будет числиться твоим подшефным, а еженедельные монеты
@@ -1294,7 +1295,8 @@ export default function Profile() {
       {/* Модалка смены аватара */}
       {avatarModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={avatarModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={avatarModalRef} role="dialog" aria-modal="true" aria-label="Сменить аватар" tabIndex={-1}>
+            <DialogClose onClose={avatarModal.hide} />
             <h3 className="popup__title">Сменить аватар</h3>
             <p className="popup__label">Загрузите изображение профиля</p>
             <div className="avatar-upload-zone" onClick={() => document.getElementById('avatar-file-input')?.click()}>

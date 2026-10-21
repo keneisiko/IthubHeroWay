@@ -6,6 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from apps.accounts.activation import is_unused_lxp_import
 from apps.integrations.services.lxp_auth import verify_lxp_credentials
 
 User = get_user_model()
@@ -42,7 +43,7 @@ class LoginSerializer(TokenObtainPairSerializer):
         )
         if not user:
             raise AuthenticationFailed("Invalid credentials.")
-        if user.login_blocked:
+        if user.login_blocked or (not user.is_active and not is_unused_lxp_import(user)):
             raise AuthenticationFailed("Вход закрыт. Обратитесь к администратору.")
         if not user.email:
             raise AuthenticationFailed("User email is not configured for LXP verification.")
@@ -52,17 +53,9 @@ class LoginSerializer(TokenObtainPairSerializer):
             raise AuthenticationFailed(reason)
 
         if not user.is_active:
-            # Первый вход активирует аккаунт. Раньше импортированная карточка
-            # открывалась только через /activate в боте — и к 21.10 так вошли
-            # двое из 557. Бот проверяет ровно то же: учебную почту и пароль от
-            # LXP, так что вход с верным паролем подтверждает личность не хуже.
-            # Отключённых сотрудником отсекает login_blocked выше.
             user.is_active = True
-            update_fields = ["is_active"]
-            if user.status == "imported_lxp":
-                user.status = "activated_web"
-                update_fields.append("status")
-            user.save(update_fields=update_fields)
+            user.status = "activated_web"
+            user.save(update_fields=["is_active", "status"])
             logger.info("Аккаунт %s активирован первым входом на сайт", user.username)
 
         refresh = self.get_token(user)

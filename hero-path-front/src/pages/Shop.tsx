@@ -182,11 +182,11 @@ export default function Shop() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [coins, setCoins] = useState('0')
-  const [purchasedCodes, setPurchasedCodes] = useState<Set<string>>(new Set())
-  // id покупок, по которым сейчас идут запросы. Набор, а не один id: пока
-  // летит запрос, в том же слоте нельзя нажать вторую кнопку — иначе
-  // применение и снятие обгоняют друг друга.
-  const [applyingIds, setApplyingIds] = useState<Set<number>>(new Set())
+  // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
+  // двойной клик не отправил применение и снятие подряд.
+  const [applyingId, setApplyingId] = useState<number | null>(null)
+  const [buying, setBuying] = useState(false)
+  const mutationRef = useRef(false)
   // кольцо вокруг нажатой кнопки; чередование имени перезапускает анимацию
   const [ring, setRing] = useState<{ id: number; n: number } | null>(null)
   // свой аватар — для превью рамки прямо в карточке покупки
@@ -209,15 +209,18 @@ export default function Shop() {
   // прятала всю страницу вместе с вкладками и рисовала заново; теперь
   // сетка товаров гаснет на месте и проявляется с новыми.
   const loadedOnce = useRef(false)
+  const loadRequestId = useRef(0)
   const loadShop = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    const requestId = ++loadRequestId.current
     const itemType = SHOP_TAB_TYPES[activeTab]
 
-    Promise.all([
+    return Promise.all([
       api.get('/api/v1/shop/items/', { params: { item_type: itemType } }),
       api.get('/api/v1/shop/my-purchases/'),
       api.get('/api/v1/quests/rewards/history/'),
       api.get('/api/v1/profile/me/'),
     ]).then(([itemsRes, purchasesRes, rewardsRes, profileRes]) => {
+      if (requestId !== loadRequestId.current) return
       const items = unwrapList<{
         id: number
         code: string
@@ -248,10 +251,6 @@ export default function Shop() {
         item: { title: string; code?: string; item_type?: string; slot?: string }
       }>(purchasesRes.data)
 
-      setPurchasedCodes(new Set(
-        purchaseRows.map((p) => p.item?.code).filter((code): code is string => Boolean(code)),
-      ))
-
       setPurchases(purchaseRows.map((p) => ({
         id: p.id,
         code: p.item?.code ?? '',
@@ -274,28 +273,35 @@ export default function Shop() {
       const purchaseHistory: HistoryItem[] = purchaseRows.map((p) => ({
         name: p.item?.title ?? 'Покупка',
         amount: `-${formatRating(p.coins_spent)}`,
-        date: formatDateRu(p.created_at),
+        date: p.created_at,
       }))
       const rewardHistory: HistoryItem[] = rewardRows.map((r) => ({
         name: r.quest_title,
         amount: r.coins_delta >= 0 ? `+${formatRating(r.coins_delta)}` : formatRating(r.coins_delta),
-        date: formatDateRu(r.granted_at),
+        date: r.granted_at,
       }))
       setHistory([...purchaseHistory, ...rewardHistory].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-      ))
+      ).map((row) => ({ ...row, date: formatDateRu(row.date) })))
 
       setCoins(formatRating(profileRes.data.coins_balance))
       setMe({ avatar: profileRes.data.avatar ?? null, name: profileRes.data.callsign || profileRes.data.username || '' })
-    }).catch(() => addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error'))
+    }).catch(() => {
+      if (requestId === loadRequestId.current) {
+        addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error')
+      }
+    })
       .finally(() => {
+        if (requestId !== loadRequestId.current) return
         loadedOnce.current = true
         setLoading(false)
         setSwitching(false)
       })
   }, [activeTab, addToast])
 
+  const loadShopRef = useRef(loadShop)
   useEffect(() => {
+    loadShopRef.current = loadShop
     loadShop()
   }, [loadShop])
 
@@ -305,16 +311,16 @@ export default function Shop() {
   // Карточка переключается сразу, не дожидаясь ответа: статус
   // переворачивается, кнопка меняет вид. Ошибка возвращает как было.
   const togglePurchase = useCallback((purchase: Purchase) => {
-    const next = !purchase.isApplied
-    // снимок до переключения: при ошибке возвращаем его целиком, вместе с
-    // вещью, которую надевание вытеснило из слота
+    if (mutationRef.current) return
+    mutationRef.current = true
     const snapshot = purchases
-    setPurchases(snapshot.map((x) => {
-      if (x.id === purchase.id) return { ...x, isApplied: next }
-      // в слоте надета одна вещь: прежнюю снимаем сразу
-      return next && x.slot === purchase.slot ? { ...x, isApplied: false } : x
+    const next = !purchase.isApplied
+    setApplyingId(purchase.id)
+    setPurchases((list) => list.map((item) => {
+      if (item.id === purchase.id) return { ...item, isApplied: next }
+      if (next && item.slot === purchase.slot) return { ...item, isApplied: false }
+      return item
     }))
-    setApplyingIds((ids) => new Set(ids).add(purchase.id))
     setRing((r) => ({ id: purchase.id, n: (r?.n ?? 0) + 1 }))
     const request = next
       ? api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
@@ -324,37 +330,66 @@ export default function Shop() {
         addToast(next ? 'Надето' : 'Снято', 'success')
         // шапка перечитает профиль — рамка у аватара появится сразу
         notifyBalanceChanged()
+        return loadShopRef.current({ quiet: true })
       })
       .catch(() => {
         setPurchases(snapshot)
         addToast('Не удалось изменить покупку', 'error')
       })
       .finally(() => {
-        setApplyingIds((ids) => {
-          const rest = new Set(ids)
-          rest.delete(purchase.id)
-          return rest
-        })
-        // дополнительная сверка с сервером
-        loadShop({ quiet: true })
+        mutationRef.current = false
+        setApplyingId(null)
       })
-  }, [purchases, addToast, loadShop])
+  }, [addToast, purchases])
 
-  // слот занят, пока по любой покупке из него идёт запрос
-  const busySlots = useMemo(() => new Set(
-    purchases.filter((p) => applyingIds.has(p.id)).map((p) => p.slot),
-  ), [purchases, applyingIds])
+  // Чем владеет студент по коду товара. Сработавший буст уже не его —
+  // такой товар снова можно купить. Из двух одинаковых побеждает надетый.
+  const ownedByCode = useMemo(() => {
+    const map = new Map<string, Purchase>()
+    for (const p of purchases) {
+      if (!p.code || (p.slot === 'boost' && p.consumed)) continue
+      if (!map.has(p.code) || p.isApplied) map.set(p.code, p)
+    }
+    return map
+  }, [purchases])
+
+  // Купленную косметику надевают и снимают прямо в каталоге и карточке
+  // товара, не уходя в «Мои покупки».
+  const renderOwned = (owned: Purchase, base: string) => {
+    if (!isCosmeticSlot(owned.slot)) {
+      return (
+        <button type="button" className={base} disabled onClick={(e) => e.stopPropagation()}>
+          {owned.slot === 'boost' ? 'Ждёт квеста' : 'Куплено'}
+        </button>
+      )
+    }
+    const pending = applyingId === owned.id
+    return (
+      <button
+        type="button"
+        className={`${base} shop-buy--toggle${owned.isApplied ? ' shop-buy--on' : ''}${pending ? ' shop-buy--pending' : ''}${ring?.id === owned.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''} btn-press`}
+        onClick={(e) => { e.stopPropagation(); togglePurchase(owned) }}
+        disabled={applyingId !== null || buying}
+        aria-pressed={owned.isApplied}
+        aria-busy={pending}
+      >
+        <span key={String(owned.isApplied)} className="shop-buy__label">
+          {owned.isApplied ? 'Снять' : 'Надеть'}
+        </span>
+      </button>
+    )
+  }
 
   const shownProducts = useMemo(() => {
     const list = products.filter((item) => {
-      if (catalogFilter === 'afford') return !purchasedCodes.has(item.code) && Number(item.price) <= Number(coins)
-      if (catalogFilter === 'fresh') return !purchasedCodes.has(item.code)
+      if (catalogFilter === 'afford') return !ownedByCode.has(item.code) && Number(item.price) <= Number(coins)
+      if (catalogFilter === 'fresh') return !ownedByCode.has(item.code)
       return true
     })
     if (priceSort === 'none') return list
     const dir = priceSort === 'asc' ? 1 : -1
     return [...list].sort((a, b) => (Number(a.price) - Number(b.price)) * dir)
-  }, [products, catalogFilter, priceSort, purchasedCodes, coins])
+  }, [products, catalogFilter, priceSort, ownedByCode, coins])
 
   // фильтр покупок: все, применённые и по типу — только типы, что есть
   const purchaseChips = useMemo<[string, string, number][]>(() => {
@@ -376,19 +411,25 @@ export default function Shop() {
   const detailLack = selectedDetail ? Math.max(0, Number(selectedDetail.price) - Number(coins)) : 0
 
   const handleBuy = useCallback(() => {
-    if (showPurchase === null) return
+    if (showPurchase === null || mutationRef.current) return
     const product = products.find((p) => p.id === showPurchase)
     if (!product) return
+    mutationRef.current = true
+    setBuying(true)
     api.post('/api/v1/shop/purchase/', { item_code: product.code })
       .then(() => {
         addToast('Покупка оформлена!', 'success')
         celebrate('big')
         notifyBalanceChanged()
-        loadShop({ quiet: true })
+        return loadShopRef.current({ quiet: true })
       })
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось оформить покупку'), 'error'))
-      .finally(() => setShowPurchase(null))
-  }, [showPurchase, products, addToast, loadShop])
+      .finally(() => {
+        mutationRef.current = false
+        setBuying(false)
+        setShowPurchase(null)
+      })
+  }, [showPurchase, products, addToast])
 
   return (
     <div className="dashboard shop-page page-enter">
@@ -436,7 +477,7 @@ export default function Shop() {
             ) : shownPurchases.map((p) => (
               <article
                 key={p.id}
-                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingIds.has(p.id) ? ' shop-purchase--pending' : ''}`}
+                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingId === p.id ? ' shop-purchase--pending' : ''}`}
               >
                 <span className="shop-purchase__frame">
                   <PurchasePreview purchase={p} me={me} />
@@ -452,9 +493,9 @@ export default function Shop() {
                     type="button"
                     className={`shop-purchase__apply btn-press${ring?.id === p.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''}`}
                     onClick={() => togglePurchase(p)}
-                    disabled={busySlots.has(p.slot)}
+                    disabled={applyingId !== null || buying}
                     aria-pressed={p.isApplied}
-                    aria-busy={applyingIds.has(p.id)}
+                    aria-busy={applyingId === p.id}
                   >
                     <span key={String(p.isApplied)} className="shop-purchase__apply-label">
                       {p.isApplied ? 'Снять' : 'Надеть'}
@@ -496,10 +537,8 @@ export default function Shop() {
                 {selectedDetail.desc || 'Описание пока не заполнено.'}
               </p>
             </div>
-            {purchasedCodes.has(selectedDetail.code) ? (
-              <button type="button" className="shop-detail__buy" disabled>
-                Куплено
-              </button>
+            {ownedByCode.has(selectedDetail.code) ? (
+              renderOwned(ownedByCode.get(selectedDetail.code)!, 'shop-detail__buy')
             ) : detailLack > 0 ? (
               <button type="button" className="shop-detail__buy shop-card__buy--lack" disabled>
                 {`Не хватает ${detailLack} ${plural(detailLack, ['монеты', 'монет', 'монет'])}`}
@@ -509,6 +548,7 @@ export default function Shop() {
                 type="button"
                 className="shop-detail__buy btn-press"
                 onClick={() => setShowPurchase(selectedDetail.id)}
+                disabled={buying || applyingId !== null}
               >
                 Купить
               </button>
@@ -604,7 +644,8 @@ export default function Shop() {
             {catalogFilter === 'afford' ? 'Пока не хватает монет ни на что из этого раздела' : 'Всё из этого раздела уже куплено'}
           </p>
         ) : shownProducts.map((item, i) => {
-          const isPurchased = purchasedCodes.has(item.code)
+          const owned = ownedByCode.get(item.code)
+          const isPurchased = Boolean(owned)
           // В макете товар, на который не хватает монет, сразу показывает
           // серую кнопку с недостающей суммой, а не ошибку после нажатия.
           const lack = Number(item.price) - Number(coins)
@@ -625,18 +666,18 @@ export default function Shop() {
               <span className="shop-card__price-value">{item.price}</span>
             </div>
             <div className="shop-card__actions">
+              {owned ? renderOwned(owned, 'shop-card__buy') : (
               <button
                 type="button"
                 className={`shop-card__buy${tooExpensive ? ' shop-card__buy--lack' : ''} btn-press`}
                 onClick={(e) => { e.stopPropagation(); setShowPurchase(item.id) }}
-                disabled={isPurchased || tooExpensive}
+                disabled={isPurchased || tooExpensive || buying || applyingId !== null}
               >
-                {isPurchased
-                  ? 'Куплено'
-                  : tooExpensive
-                    ? `Не хватает ${lack} ${plural(lack, ['монеты', 'монет', 'монет'])}`
-                    : 'Купить'}
+                {tooExpensive
+                  ? `Не хватает ${lack} ${plural(lack, ['монеты', 'монет', 'монет'])}`
+                  : 'Купить'}
               </button>
+              )}
             </div>
           </article>
         )})}
@@ -654,7 +695,7 @@ export default function Shop() {
           <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={() => setShowPurchase(null)}>
             Отмена
           </button>
-          <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={handleBuy}>
+          <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={handleBuy} disabled={buying || applyingId !== null} aria-busy={buying}>
             Купить
           </button>
         </div>

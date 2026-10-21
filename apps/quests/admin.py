@@ -6,6 +6,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.models import ADDITION, CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.html import format_html
@@ -398,6 +399,17 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             return "—"
         return text if len(text) <= 140 else f"{text[:140]}…"
 
+    def get_list_display(self, request):
+        can_change = self.has_change_permission(request)
+
+        @admin.display(description="Решение")
+        def decision(obj):
+            if not can_change or not self.has_change_permission(request, obj):
+                return "—"
+            return self.decision(obj)
+
+        return tuple(decision if field == "decision" else field for field in super().get_list_display(request))
+
     @admin.display(description="Решение")
     def decision(self, obj: SelfReportProof):
         """Кнопки внутри формы списка: у неё уже есть CSRF-токен, а нажатие
@@ -418,9 +430,13 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
             for field, handler in (("row_approve", self.approve_proofs), ("row_reject", self.reject_proofs)):
                 pk = request.POST.get(field)
                 if pk and pk.isdigit():
-                    # get_queryset ограничивает видимость: чужую заявку по
-                    # подменённому номеру не одобрить.
-                    handler(request, self.get_queryset(request).filter(pk=int(pk)))
+                    if not self.has_change_permission(request):
+                        raise PermissionDenied
+                    queryset = self.get_queryset(request).filter(pk=int(pk))
+                    proof = queryset.first()
+                    if proof is None or not self.has_change_permission(request, proof):
+                        raise PermissionDenied
+                    handler(request, queryset)
                     return HttpResponseRedirect(request.get_full_path())
         return super().changelist_view(request, extra_context)
 
