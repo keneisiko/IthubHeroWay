@@ -278,16 +278,16 @@ export default function Shop() {
       const purchaseHistory: HistoryItem[] = purchaseRows.map((p) => ({
         name: p.item?.title ?? 'Покупка',
         amount: `-${formatRating(p.coins_spent)}`,
-        date: formatDateRu(p.created_at),
+        date: p.created_at,
       }))
       const rewardHistory: HistoryItem[] = rewardRows.map((r) => ({
         name: r.quest_title,
         amount: r.coins_delta >= 0 ? `+${formatRating(r.coins_delta)}` : formatRating(r.coins_delta),
-        date: formatDateRu(r.granted_at),
+        date: r.granted_at,
       }))
       setHistory([...purchaseHistory, ...rewardHistory].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-      ))
+      ).map((row) => ({ ...row, date: formatDateRu(row.date) })))
 
       setCoins(formatRating(profileRes.data.coins_balance))
       setMe({ avatar: profileRes.data.avatar ?? null, name: profileRes.data.callsign || profileRes.data.username || '' })

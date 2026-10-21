@@ -97,11 +97,11 @@ function fixture() {
       category: requests[0].config.params.item_type,
       async resolve(code, coins = 100, purchaseRows = [
         { id: 1, coins_spent: 10, created_at: '2026-10-20', item: { code, title: code, item_type: 'other' } },
-      ]) {
+      ], rewardRows = []) {
         const responses = [
           [{ id: 1, code, title: code, price_coins: 10 }],
           purchaseRows,
-          [],
+          rewardRows,
           { coins_balance: coins, username: code },
         ]
         requests.forEach((request, index) => request.resolve({ data: responses[index] }))
@@ -346,4 +346,23 @@ test('a failed buy releases its lock and allows retry', async () => {
   assert.equal(state.showPurchase, null)
   assert.deepEqual(toasts, [{ message: 'Не удалось оформить покупку', type: 'error' }])
   assert.notEqual(mutate('buy'), null)
+})
+
+test('history combines purchases and rewards by their ISO timestamps while preserving Russian date labels', async () => {
+  const { load, state } = fixture()
+  await load(0).resolve('cosmetic-item', 100, [
+    { id: 1, coins_spent: 10, created_at: '2026-10-19T10:00:00Z', item: { title: 'Old purchase' } },
+    { id: 2, coins_spent: 30, created_at: '2026-10-21T08:00:00Z', item: { title: 'Morning purchase' } },
+  ], [
+    { quest_title: 'Evening reward', coins_delta: 5, granted_at: '2026-10-21T18:00:00Z' },
+    { quest_title: 'Middle reward', coins_delta: 7, granted_at: '2026-10-20T12:00:00Z' },
+  ])
+
+  assert.deepEqual(Array.from(state.history, (row) => row.name), [
+    'Evening reward', 'Morning purchase', 'Middle reward', 'Old purchase',
+  ])
+  assert.deepEqual(Array.from(state.history, (row) => row.date), [
+    '21 октября 2026 г.', '21 октября 2026 г.', '20 октября 2026 г.', '19 октября 2026 г.',
+  ])
+  assert.deepEqual(Array.from(state.history, (row) => row.amount), ['+5', '-30', '+7', '-10'])
 })
