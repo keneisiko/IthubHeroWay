@@ -20,8 +20,8 @@ const sameDeps = (previous, current) => previous && current
   && previous.length === current.length
   && current.every((value, index) => Object.is(value, previous[index]))
 const alpha = [
-  { username: 'ivanov', callsign: 'Иван', rating_current: 10 },
-  { username: 'petrov', callsign: 'Пётр', rating_current: 20 },
+  { username: 'ivanov', callsign: 'Иван', track: 'Веб', status: 'Опытный', rating_current: 10 },
+  { username: 'petrov', callsign: 'Пётр', track: 'Аналитика', status: 'Новичок', rating_current: 20 },
 ]
 
 async function flush() {
@@ -141,13 +141,17 @@ function findAll(node, predicate) {
   ]
 }
 
-async function sortByRating(harness) {
+async function selectSort(harness, key) {
   findAll(harness.render(), (node) => node.type === 'button' && node.props.children === 'Сортировка')[0].props.onClick()
   const dropdown = findAll(harness.render(), (node) => typeof node.props?.onSelect === 'function')[0]
-  dropdown.props.onSelect('track')
+  dropdown.props.onSelect(key)
   dropdown.props.onClose()
   harness.render()
   await harness.runEffects()
+}
+
+async function sortByRating(harness) {
+  await selectSort(harness, 'track')
   assert.deepEqual(harness.pending.map((request) => request.ordering), ['alpha', 'rating'])
 }
 
@@ -189,3 +193,29 @@ test('a failure of the selected ordering still shows its error', async () => {
   assert.equal(errors(harness).length, 1)
   assert.equal(errors(harness)[0].props.children, 'Не удалось обновить список участников')
 })
+
+const distinctOrders = [
+  { username: 'anna', callsign: 'Анна', track: 'Дизайн', status: 'Опытный', rating_current: 10 },
+  { username: 'boris', callsign: 'Борис', track: 'Веб', status: 'Новичок', rating_current: 30 },
+  { username: 'vera', callsign: 'Вера', track: 'Веб', status: 'Активный', rating_current: 40 },
+  { username: 'gleb', callsign: 'Глеб', track: 'Аналитика', status: 'Активный', rating_current: 20 },
+]
+
+for (const [key, expected] of [
+  ['name', ['Анна', 'Борис', 'Вера', 'Глеб']],
+  ['track', ['Глеб', 'Борис', 'Вера', 'Анна']],
+  ['status', ['Вера', 'Глеб', 'Борис', 'Анна']],
+]) {
+  test(`sort by ${key} uses that member field with an alphabetical fallback`, async () => {
+    const harness = await squads()
+    harness.pending[0].resolve({ data: distinctOrders })
+    await flush()
+    if (key !== 'name') {
+      await selectSort(harness, key)
+      harness.pending[1].resolve({ data: [distinctOrders[2], distinctOrders[1], distinctOrders[3], distinctOrders[0]] })
+      await flush()
+    }
+
+    assert.deepEqual(memberNames(harness), expected)
+  })
+}
