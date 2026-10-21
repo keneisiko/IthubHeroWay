@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Radar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -17,7 +17,7 @@ import api from '../api'
 import { useToasts } from '../useToasts'
 import { formatDateTimeRu, formatRating } from '../lib/apiData'
 import RollNumber from '../components/RollNumber'
-import RadarHud from '../components/RadarHud'
+import RadarHud, { type RadarGeo } from '../components/RadarHud'
 import SkillSummary from '../components/SkillSummary'
 import PixelText from '../components/PixelText'
 import '../styles/dashboard.css'
@@ -131,6 +131,23 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const { ref: tiltRef, ...tilt } = useTilt()
+
+  // центр и радиус пятиугольника — для луча радара под графиком;
+  // Chart.js сообщает их после каждой раскладки (и при ресайзе)
+  const [radarGeo, setRadarGeo] = useState<RadarGeo | null>(null)
+  const geoPlugin = useMemo(() => ({
+    id: 'hudGeo',
+    afterLayout(chart: ChartJS) {
+      const scale = chart.scales.r as unknown as { xCenter: number; yCenter: number; drawingArea: number } | undefined
+      if (!scale) return
+      const next = { cx: scale.xCenter, cy: scale.yCenter, r: scale.drawingArea }
+      setRadarGeo((prev) => (
+        prev && Math.abs(prev.cx - next.cx) < 0.5 && Math.abs(prev.cy - next.cy) < 0.5 && Math.abs(prev.r - next.r) < 0.5
+          ? prev
+          : next
+      ))
+    },
+  }), [])
   // На тач-экране наведения нет: подсказку по оси не увидеть, и радар
   // читается как фигура без смысла. Там подписываем оси прямо на графике.
   const [touchOnly] = useState(() => window.matchMedia('(hover: none)').matches)
@@ -307,8 +324,9 @@ export default function Dashboard() {
               {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
             </span>
             <div className="radar-card__canvas">
-              <RadarHud />
+              <RadarHud geo={radarGeo} />
               <Radar
+                plugins={[geoPlugin]}
                 data={radarData}
                 options={{
                   ...radarOptions,
