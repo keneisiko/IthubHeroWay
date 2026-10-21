@@ -88,20 +88,22 @@ export default function Header() {
         <span className="top-header__title">Путь героя</span>
       </div>
       <div className="top-header__user" style={{ position: 'relative', zIndex: 100 }} ref={menuRef}>
-        <div className="top-header__user-meta">
-          <div className="top-header__username">{username}</div>
-          <div className={`top-header__money${pulse ? ` top-header__money--${pulse}` : ''}`}>
-            <span className="top-header__coin" aria-hidden="true" ref={coinRef} />
-            <strong><RollNumber value={formatRating(coins)} /></strong>
-          </div>
-        </div>
+        {/* имя, монеты и аватар — одна кнопка меню: попасть можно
+            в любую часть блока, а не только в кружок аватара */}
         <button
           type="button"
+          className="top-header__trigger"
           onClick={() => setMenuOpen((v) => !v)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, position: 'relative', zIndex: 101 }}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
         >
+          <span className="top-header__user-meta">
+            <span className="top-header__username">{username}</span>
+            <span className={`top-header__money${pulse ? ` top-header__money--${pulse}` : ''}`}>
+              <span className="top-header__coin" aria-hidden="true" ref={coinRef} />
+              <strong><RollNumber value={formatRating(coins)} /></strong>
+            </span>
+          </span>
           {avatarUrl ? (
             <img src={avatarUrl} alt="Аватар пользователя" className="top-header__avatar" style={{ pointerEvents: 'none' }} />
           ) : (

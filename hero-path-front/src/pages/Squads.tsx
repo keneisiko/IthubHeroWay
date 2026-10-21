@@ -507,7 +507,12 @@ export default function Squads() {
         <div className="squad-members__panel">
           <ul key={sortKey} className="squad-members__list">
             {visibleMembers.map((m, i) => (
-              <li key={m.id} className="squad-member-row hover-lift spot" style={{ animationDelay: `${i * 40}ms` }}>
+              <li
+                key={m.id}
+                className="squad-member-row squad-member-row--link hover-lift spot"
+                style={{ animationDelay: `${i * 40}ms` }}
+                onClick={() => navigate(`/profile/${m.username}`)}
+              >
                 <div className="squad-member-row__main">
                   {/* без своего аватара — инициалы, как в лидерах: одна и та же
                       стоковая фотография у всех путала, кто есть кто */}
@@ -526,8 +531,8 @@ export default function Squads() {
                 </div>
                 <button
                   type="button"
-                  className="squad-member-row__rating btn-press"
-                  onClick={() => navigate(`/profile/${m.username}`)}
+                  className="squad-member-row__rating"
+                  aria-label={`Профиль: ${m.name}`}
                 >
                   {m.rating != null ? formatRating(m.rating) : 'Рейтинг'}
                 </button>

@@ -324,8 +324,9 @@ export default function Leaderboard() {
               const isMe = activeTab === 'agents' && item.username === myRank.username
               return (
               <div
-                className={`leaderboard-item hover-lift${isMe ? ' leaderboard-item--me' : ''}`}
+                className={`leaderboard-item hover-lift${isMe ? ' leaderboard-item--me' : ''}${activeTab === 'agents' ? ' leaderboard-item--link' : ''}`}
                 key={item.username}
+                onClick={activeTab === 'agents' ? () => navigate(`/profile/${item.username}`) : undefined}
                 ref={isMe ? myRowRef : undefined}
                 style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
               >
@@ -346,10 +347,13 @@ export default function Leaderboard() {
                       {item.status && <span className="tag tag--status">{item.status}</span>}
                     </div>
                   </div>
+                  {/* переход — по всей строке; кнопка остаётся для клавиатуры,
+                      её нажатие всплывает к строке */}
                   <button
                     type="button"
-                    className="leaderboard-item__rating btn-press"
-                    onClick={() => activeTab === 'agents' && navigate(`/profile/${item.username}`)}
+                    className="leaderboard-item__rating"
+                    aria-label={activeTab === 'agents' ? `Профиль: ${item.title}, рейтинг ${item.delta}` : undefined}
+                    tabIndex={activeTab === 'agents' ? 0 : -1}
                   >
                     {item.delta}
                   </button>
