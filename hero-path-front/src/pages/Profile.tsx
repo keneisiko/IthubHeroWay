@@ -643,14 +643,14 @@ export default function Profile() {
   const ratingGap = profile?.rating_current != null && myRating != null
     ? Math.abs(myRating - profile.rating_current)
     : null
-  const duelBlockReason = isOwnProfile || ratingGap == null
+  const duelBlockReason = isOwnProfile
     ? ''
     : hasActiveDuel
       ? 'У тебя уже идёт дуэль — новая станет доступна после неё'
-      : duelInfo.maxDiff > 0 && ratingGap > duelInfo.maxDiff
+      : ratingGap != null && duelInfo.maxDiff > 0 && ratingGap > duelInfo.maxDiff
         ? `Разница рейтинга ${ratingGap}, а для дуэли нужна не больше ${duelInfo.maxDiff}`
         : ''
-  const canDuel = !isOwnProfile && ratingGap != null && !duelBlockReason
+  const canDuel = !isOwnProfile && !duelBlockReason
 
   if (loading) {
     return (
