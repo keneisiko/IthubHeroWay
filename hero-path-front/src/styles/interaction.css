@@ -685,3 +685,32 @@ textarea.popup__input {
     pointer-events: none;
   }
 }
+
+/* --- кликабельные карточки, сделанные не кнопками --- */
+.shop-card,
+.q1__option { cursor: pointer; }
+
+/* --- строки рейтинга без дрожи ---
+   Поднималась сама строка — та, на которую наведён курсор. Курсор у нижнего
+   края оказывался вне поднятой строки, наведение снималось, строка падала
+   обратно под курсор, и так по кругу: строка тряслась. Теперь строка стоит
+   на месте, а поднимается карточка внутри неё. */
+@media (hover: hover) and (pointer: fine) {
+  .leaderboard-item.hover-lift:hover,
+  .leaderboard-item:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .leaderboard-item:hover .leaderboard-item__card {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.leaderboard-item__card {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+}
+
+/* нажатие главнее подъёма: правило выше иначе перебило бы «вдавливание» */
+.leaderboard-item--link:active .leaderboard-item__card { transform: scale(0.985); }
