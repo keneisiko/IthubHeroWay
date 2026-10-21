@@ -60,7 +60,9 @@ class InactiveAccountActivationGateTests(TestCase):
         self.assertEqual(list(TelegramAccountLink.objects.values()), links_before)
 
     def test_previously_activated_accounts_cannot_reactivate_with_lxp_password(self):
-        for account_status in ("activated_web", "activated_telegram", "disabled", ""):
+        # Пустого статуса здесь нет: так импорт всего колледжа заводил нетронутые
+        # карточки, и первый вход должен их активировать.
+        for account_status in ("activated_web", "activated_telegram", "disabled"):
             with self.subTest(status=account_status):
                 self.user.status = account_status
                 self.user.save(update_fields=["status"])

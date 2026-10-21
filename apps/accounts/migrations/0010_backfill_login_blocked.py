@@ -12,7 +12,8 @@ def block_previously_disabled_accounts(apps, schema_editor):
         role="agent",
         is_staff=False,
         is_superuser=False,
-        status="imported_lxp",
+        # Импорт всего колледжа статус не ставил: пустой — тоже нетронутый импорт.
+        status__in=("imported_lxp", ""),
         last_login__isnull=True,
         telegram_link__isnull=True,
         policy_acceptances__isnull=True,

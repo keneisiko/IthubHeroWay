@@ -1,8 +1,10 @@
 from django.contrib.auth.hashers import make_password
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-from django.test import TransactionTestCase
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
+
+from apps.accounts.models import User
 
 
 class LegacyInactiveAccountBackfillTests(TransactionTestCase):
@@ -47,7 +49,8 @@ class LegacyInactiveAccountBackfillTests(TransactionTestCase):
         blocked_users = [
             self.create_import(status="activated_web"),
             self.create_import(status="activated_telegram"),
-            self.create_import(status=""),
+            # Пустой статус не признак отключения: так импорт всего колледжа
+            # заводил карточки (555 из 572 на проде) — см. EmptyStatusImportTests.
             self.create_import(status="disabled"),
             self.create_import(role="curator"),
             self.create_import(is_staff=True),
@@ -98,3 +101,43 @@ class LegacyInactiveAccountBackfillTests(TransactionTestCase):
         legacy_disabled.refresh_from_db()
         self.assertTrue(existing_block.login_blocked)
         self.assertTrue(legacy_disabled.login_blocked)
+
+
+class EmptyStatusImportTests(TestCase):
+    """Импорт всего колледжа не ставил статус — такие карточки тоже нетронутые."""
+
+    def make_import(self, **extra):
+        user = User(
+            username=extra.pop("username", "student-1"),
+            role="agent",
+            status="",
+            is_active=False,
+            lxp_user_id="lxp-1",
+            **extra,
+        )
+        user.set_unusable_password()
+        user.save()
+        return user
+
+    def test_empty_status_import_counts_as_unused(self):
+        from apps.accounts.activation import is_unused_lxp_import
+
+        self.assertTrue(is_unused_lxp_import(self.make_import()))
+
+    def test_backfill_keeps_empty_status_import_open(self):
+        import importlib
+
+        from django.apps import apps as django_apps
+        from django.db import connection
+
+        user = self.make_import()
+        module = importlib.import_module("apps.accounts.migrations.0010_backfill_login_blocked")
+
+        class Editor:
+            pass
+
+        editor = Editor()
+        editor.connection = connection
+        module.block_previously_disabled_accounts(django_apps, editor)
+        user.refresh_from_db()
+        self.assertFalse(user.login_blocked)

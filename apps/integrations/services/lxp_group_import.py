@@ -83,6 +83,7 @@ def _create_user(lxp_user_id: str, email: str, first_name: str, last_name: str) 
         last_name=last_name,
         callsign=callsign,
         role=Role.AGENT,
+        status="imported_lxp",
         lxp_user_id=lxp_user_id or None,
         # Карточка создаётся закрытой: пароль от LXP знает и сам студент,
         # подтверждением личности служит привязка Telegram.

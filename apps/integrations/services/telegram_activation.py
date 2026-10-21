@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import IntegrityError
 
-from apps.accounts.activation import is_unused_lxp_import
+from apps.accounts.activation import IMPORT_STATUSES, is_unused_lxp_import
 from apps.integrations.models import TelegramAccountLink
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ def activate_telegram_account(
     if not user.is_active:
         user.is_active = True
         activation_fields.append("is_active")
-    if user.status == "imported_lxp":
+    if user.status in IMPORT_STATUSES:
         user.status = "activated_telegram"
         activation_fields.append("status")
     if activation_fields:
