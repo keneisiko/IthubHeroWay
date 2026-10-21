@@ -9,6 +9,7 @@ import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList, formatRating
 import { useTabIndicator } from '../useTabIndicator'
 import RollNumber from '../components/RollNumber'
 import PixelText from '../components/PixelText'
+import '../styles/shop.css'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
@@ -203,17 +204,28 @@ export default function Shop() {
 
   // Одновременно активна одна покупка на тип товара — правило на бэкенде,
   // поэтому после переключения список перезагружаем целиком.
+  // Карточка переключается сразу, не дожидаясь ответа: статус
+  // переворачивается, кнопка меняет вид. Ошибка возвращает как было.
   const togglePurchase = useCallback((purchase: Purchase) => {
+    const next = !purchase.isApplied
+    const flip = (value: boolean) => setPurchases((list) => list.map((x) => (
+      x.id === purchase.id ? { ...x, isApplied: value } : x
+    )))
     setApplyingId(purchase.id)
-    const request = purchase.isApplied
-      ? api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
-      : api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+    flip(next)
+    if (next) celebrate('small')
+    const request = next
+      ? api.post(`/api/v1/shop/purchases/${purchase.id}/apply/`)
+      : api.delete(`/api/v1/shop/purchases/${purchase.id}/apply/`)
     request
       .then(() => {
-        addToast(purchase.isApplied ? 'Покупка снята' : 'Покупка применена', 'success')
+        addToast(next ? 'Покупка применена' : 'Покупка снята', 'success')
         loadShop({ quiet: true })
       })
-      .catch(() => addToast('Не удалось изменить покупку', 'error'))
+      .catch(() => {
+        flip(purchase.isApplied)
+        addToast('Не удалось изменить покупку', 'error')
+      })
       .finally(() => setApplyingId(null))
   }, [addToast, loadShop])
 
@@ -266,17 +278,30 @@ export default function Shop() {
             {purchases.length === 0 ? (
               <p className="shop-purchases__empty">Покупок пока нет</p>
             ) : purchases.map((p) => (
-              <article key={p.id} className="shop-purchase">
-                <img src={palmSky} alt="" className="shop-purchase__image" />
+              <article
+                key={p.id}
+                className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingId === p.id ? ' shop-purchase--pending' : ''}`}
+              >
+                <span className="shop-purchase__frame">
+                  <img src={palmSky} alt="" className="shop-purchase__image" />
+                </span>
                 <span className="shop-purchase__name">{p.title}</span>
-                <span className="shop-purchase__state">{p.isApplied ? 'Применена' : 'Куплена'}</span>
+                <span key={String(p.isApplied)} className="shop-purchase__state">
+                  <i className="shop-purchase__tick" aria-hidden="true" />
+                  {p.isApplied ? 'Применена' : 'Куплена'}
+                </span>
                 <button
                   type="button"
                   className="shop-purchase__apply btn-press"
                   onClick={() => togglePurchase(p)}
                   disabled={applyingId === p.id}
+                  aria-pressed={p.isApplied}
+                  aria-busy={applyingId === p.id}
                 >
-                  {p.isApplied ? 'Снять' : 'Применить'}
+                  <span key={String(p.isApplied)} className="shop-purchase__apply-label">
+                    {p.isApplied ? 'Снять' : 'Применить'}
+                  </span>
+                  <span className="shop-purchase__apply-dots" aria-hidden="true"><i /><i /><i /></span>
                 </button>
               </article>
             ))}
