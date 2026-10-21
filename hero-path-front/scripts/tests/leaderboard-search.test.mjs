@@ -35,12 +35,19 @@ async function flush() {
   for (let i = 0; i < 12; i++) await Promise.resolve()
 }
 
+const sameDeps = (previous, current) => previous && current
+  && previous.length === current.length
+  && current.every((value, index) => Object.is(value, previous[index]))
+
 async function leaderboard(request = apiResponse) {
   const state = []
   const refs = []
+  const callbacks = []
+  const effectDeps = []
   const effects = []
   let cursor = 0
-  let firstRender = true
+  let callbackCursor = 0
+  let effectCursor = 0
   const react = {
     useState(initial) {
       const index = cursor++
@@ -53,9 +60,16 @@ async function leaderboard(request = apiResponse) {
       const index = cursor++
       return refs[index] ??= { current: initial }
     },
-    useCallback: (callback) => callback,
-    useEffect(effect) {
-      if (firstRender) effects.push(effect)
+    useCallback(callback, deps) {
+      const index = callbackCursor++
+      if (!sameDeps(callbacks[index]?.deps, deps)) callbacks[index] = { callback, deps }
+      return callbacks[index].callback
+    },
+    useEffect(effect, deps) {
+      const index = effectCursor++
+      if (sameDeps(effectDeps[index], deps)) return
+      effectDeps[index] = deps
+      effects.push(effect)
     },
   }
   const api = { get: request }
@@ -80,14 +94,17 @@ async function leaderboard(request = apiResponse) {
   })
   const render = () => {
     cursor = 0
-    const tree = module.exports.default()
-    firstRender = false
-    return tree
+    callbackCursor = 0
+    effectCursor = 0
+    return module.exports.default()
+  }
+  const runEffects = async () => {
+    for (const effect of effects.splice(0)) effect()
+    await flush()
   }
   render()
-  for (const effect of effects) effect()
-  await flush()
-  return { render, LoadError }
+  await runEffects()
+  return { render, runEffects, LoadError }
 }
 
 function find(node, predicate) {
@@ -141,4 +158,100 @@ test('failed initial load keeps retry available until a later attempt succeeds',
   const loaded = harness.render()
   assert.equal(find(loaded, (node) => node.type === harness.LoadError), undefined)
   assert.ok(find(loaded, (node) => node.props?.className === 'tag tag--title'), 'retry can recover the leaderboard')
+})
+
+function deferred() {
+  let resolve
+  let reject
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
+function agentResponse(username, callsign) {
+  return { data: { results: [{ username, callsign, rating_current: 10, level: 1 }] } }
+}
+
+async function submitSearch(harness, query) {
+  find(harness.render(), (node) => node.type === 'input' && node.props.type === 'search')
+    .props.onChange({ target: { value: query } })
+  find(harness.render(), (node) => node.type === 'form' && node.props.role === 'search')
+    .props.onSubmit({ preventDefault() {} })
+  harness.render()
+  await harness.runEffects()
+}
+
+async function pendingSearches() {
+  const pending = new Map()
+  const harness = await leaderboard((url, config) => {
+    if (url === '/api/v1/leaderboard/agents/' && config?.params.search) {
+      const response = deferred()
+      pending.set(config.params.search, response)
+      return response.promise
+    }
+    return apiResponse(url)
+  })
+  await submitSearch(harness, 'ivanov')
+  await submitSearch(harness, 'petrov')
+  return { harness, pending }
+}
+
+test('an older search success cannot overwrite the newer search result', async () => {
+  const { harness, pending } = await pendingSearches()
+  pending.get('petrov').resolve(agentResponse('petrov', 'Орёл'))
+  await flush()
+  assert.equal(find(harness.render(), (node) => node.props?.className === 'tag tag--title')?.props.children, 'Орёл')
+
+  pending.get('ivanov').resolve(agentResponse('ivanov', 'Сокол'))
+  await flush()
+  assert.equal(find(harness.render(), (node) => node.props?.className === 'tag tag--title')?.props.children, 'Орёл')
+})
+
+for (const olderOutcome of ['success', 'failure']) {
+  test(`an older search ${olderOutcome} cannot stop the newer request's loading indicator`, async () => {
+    const { harness, pending } = await pendingSearches()
+    if (olderOutcome === 'success') pending.get('ivanov').resolve(agentResponse('ivanov', 'Сокол'))
+    else pending.get('ivanov').reject(new Error('Older request failed'))
+    await flush()
+
+    assert.equal(find(harness.render(), (node) => node.props?.['aria-busy'] !== undefined)?.props['aria-busy'], true)
+    pending.get('petrov').resolve(agentResponse('petrov', 'Орёл'))
+    await flush()
+    const loaded = harness.render()
+    assert.equal(find(loaded, (node) => node.props?.['aria-busy'] !== undefined)?.props['aria-busy'], false)
+    assert.equal(find(loaded, (node) => node.props?.className === 'tag tag--title')?.props.children, 'Орёл')
+  })
+}
+
+test('an older retry failure cannot leave an error over a newer successful retry', async () => {
+  let initial = true
+  const retries = []
+  const harness = await leaderboard((url, config) => {
+    if (url === '/api/v1/leaderboard/agents/' && config?.params.page_size === 20) {
+      if (initial) {
+        initial = false
+        return Promise.reject(new Error('Initial request failed'))
+      }
+      const response = deferred()
+      retries.push(response)
+      return response.promise
+    }
+    return apiResponse(url)
+  })
+  const retry = find(harness.render(), (node) => node.type === harness.LoadError)?.props.onRetry
+  assert.equal(typeof retry, 'function')
+  retry()
+  retry()
+  assert.equal(retries.length, 2)
+
+  retries[0].reject(new Error('Older retry failed'))
+  await flush()
+  assert.ok(find(harness.render(), (node) => node.props?.className === 'loading-spinner'))
+  retries[1].resolve(agentResponse('ivanov', 'Сокол'))
+  await flush()
+  const loaded = harness.render()
+  assert.equal(find(loaded, (node) => node.type === harness.LoadError), undefined)
+  assert.equal(find(loaded, (node) => node.props?.className === 'tag tag--title')?.props.children, 'Сокол')
 })
