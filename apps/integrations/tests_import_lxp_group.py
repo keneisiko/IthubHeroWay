@@ -18,14 +18,40 @@ GROUP = [
     {"id": "s1", "user": {"id": "u1", "email": "Ivanov@nalchik.ithub.ru", "firstName": "Иван", "lastName": "Иванов"}},
     {"id": "s2", "user": {"id": "u2", "email": "petrov@nalchik.ithub.ru", "firstName": "Пётр", "lastName": "Петров"}},
 ]
+GROUPS = [
+    {"id": "g-other", "name": "2ИТР.9.25", "suborganization": "Колледж"},
+    {"id": "g1", "name": "3ПИ.9.24", "suborganization": "Колледж"},
+]
 
 
 def run(**kwargs):
-    with mock.patch("apps.integrations.management.commands.import_lxp_group.group_students", return_value=GROUP):
+    with (
+        mock.patch("apps.integrations.management.commands.import_lxp_group.group_students", return_value=GROUP),
+        mock.patch("apps.integrations.management.commands.import_lxp_group.list_groups", return_value=GROUPS),
+    ):
         call_command("import_lxp_group", **kwargs)
 
 
 class ImportGroupTests(TestCase):
+    def test_name_and_course_come_from_the_requested_lxp_group(self):
+        run(group_id="g1")
+
+        squad = Squad.objects.get(lxp_group_id="g1")
+        self.assertEqual((squad.code, squad.name, squad.course), ("3pi.9.24", "3ПИ.9.24", 3))
+        self.assertEqual(squad.members.count(), 2)
+
+    def test_explicit_squad_options_override_lxp_group_defaults(self):
+        run(group_id="g1", squad_code="custom-squad", squad_name="Особый отряд", course=2)
+
+        squad = Squad.objects.get(lxp_group_id="g1")
+        self.assertEqual((squad.code, squad.name, squad.course), ("custom-squad", "Особый отряд", 2))
+
+    def test_unknown_group_uses_fallback_name_and_explicit_course(self):
+        run(group_id="unknown", squad_code="fallback-squad", course=2)
+
+        squad = Squad.objects.get(lxp_group_id="unknown")
+        self.assertEqual((squad.name, squad.course), ("Группа unknown", 2))
+
     def test_group_becomes_a_squad_with_its_students(self):
         run(group_id="g1", squad_code="pi-31", squad_name="ПИ-31", course=3)
 
@@ -64,7 +90,7 @@ class ImportGroupTests(TestCase):
         self.assertEqual(User.objects.filter(squad__code="pi-31").count(), 2)
 
     def test_course_outside_the_college_range_is_rejected(self):
-        with self.assertRaises(CommandError):
+        with self.assertRaisesMessage(CommandError, "--course от 1 до 4"):
             run(group_id="g1", squad_code="pi-31", course=9)
 
     def test_dry_run_writes_nothing(self):
