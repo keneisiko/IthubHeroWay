@@ -27,16 +27,17 @@ let glyphSeq = 0
 // новые символы получают новый ключ — анимируются только они,
 // даже если вставка пришлась в середину строки
 function diffGlyphs(prev: Glyph[], next: string): Glyph[] {
-  const old = prev.map((g) => g.ch).join('')
+  const old = prev.map((g) => g.ch)
+  const chars = Array.from(next)
   let head = 0
-  while (head < old.length && head < next.length && old[head] === next[head]) head++
+  while (head < old.length && head < chars.length && old[head] === chars[head]) head++
   let tail = 0
   while (
     tail < old.length - head &&
-    tail < next.length - head &&
-    old[old.length - 1 - tail] === next[next.length - 1 - tail]
+    tail < chars.length - head &&
+    old[old.length - 1 - tail] === chars[chars.length - 1 - tail]
   ) tail++
-  const fresh = Array.from(next.slice(head, next.length - tail), (ch) => ({ ch, id: ++glyphSeq }))
+  const fresh = chars.slice(head, chars.length - tail).map((ch) => ({ ch, id: ++glyphSeq }))
   return [...prev.slice(0, head), ...fresh, ...prev.slice(prev.length - tail)]
 }
 
