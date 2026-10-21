@@ -252,7 +252,10 @@ export default function Leaderboard() {
   const items = activeTab === 'agents' ? agents : squads
   const needle = searchQuery.trim().toLowerCase()
   const filteredItems = needle
-    ? items.filter(item => item.title.toLowerCase().includes(needle))
+    ? items.filter(item => (
+      item.title.toLowerCase().includes(needle)
+      || (activeTab === 'agents' && item.username.toLowerCase().includes(needle))
+    ))
     : items
   const canSearchWider = activeTab === 'agents' && needle !== '' && needle !== appliedSearch.toLowerCase()
 
