@@ -24,6 +24,14 @@ import '../styles/dashboard.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
 
+// холст рисует подписи один раз: если фирменный шрифт ещё грузился,
+// они остались бы запасным — после загрузки шрифтов перерисовываем
+if (typeof document !== 'undefined' && document.fonts) {
+  document.fonts.ready.then(() => {
+    Object.values(ChartJS.instances).forEach((chart) => chart.update('none'))
+  })
+}
+
 const AXIS_LABELS = ['Ритм', 'Фокус', 'Мощность', 'Связь', 'Отдача']
 
 const radarOptions = {
@@ -337,7 +345,7 @@ export default function Dashboard() {
                       pointLabels: {
                         display: touchOnly,
                         color: '#9a33f4',
-                        font: { family: 'Montserrat', size: 13, weight: 700 },
+                        font: { family: 'Montserrat, sans-serif', size: 13, weight: 700 },
                         padding: 8,
                       },
                     },
@@ -352,8 +360,8 @@ export default function Dashboard() {
                       bodyColor: '#121212',
                       borderColor: 'rgba(154, 51, 244, 0.18)',
                       borderWidth: 1,
-                      titleFont: { family: 'TT Firs Neue', size: 16, weight: 700 },
-                      bodyFont: { family: 'Montserrat', size: 13, weight: 600 },
+                      titleFont: { family: '"TT Firs Neue", Montserrat, sans-serif', size: 16, weight: 700 },
+                      bodyFont: { family: 'Montserrat, sans-serif', size: 13, weight: 600 },
                       padding: 12,
                       cornerRadius: 14,
                       caretSize: 0,

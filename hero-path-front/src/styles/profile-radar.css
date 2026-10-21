@@ -564,3 +564,9 @@
    поверх подсказки */
 .profile-radar__axis:hover,
 .profile-radar__axis:focus-visible { z-index: 6; }
+
+/* без мыши подсказки нет: тап по оси открывает историю, а всплывшая
+   по касанию карточка висела бы до следующего тапа */
+@media (hover: none) {
+  .axis-tip { display: none; }
+}

@@ -110,6 +110,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
+  min-height: 40px;
   padding: 6px 8px;
   margin: 0 -8px;
   border: 0;
@@ -209,6 +210,23 @@ button.skill-sum__row:focus-visible { outline: 3px solid var(--purple-500); outl
 }
 
 @media (max-width: 900px) {
-  .profile-radar > .skill-sum { margin-top: 48px; }
+  /* подписи нижних осей выступают под холст — сводка ниже них */
+  .profile-radar > .skill-sum { margin-top: 76px; }
 }
 
+
+/* главная на телефоне: холст по ширине экрана, без пустых полос
+   сверху и между графиком и сводкой */
+@media (max-width: 900px) {
+  .radar-card.radar-card--summary {
+    min-height: 0;
+    margin-top: 20px;
+    gap: 10px;
+  }
+
+  .radar-card--summary .radar-card__canvas {
+    width: 100%;
+    max-width: 424px;
+    height: min(340px, 86vw);
+  }
+}
