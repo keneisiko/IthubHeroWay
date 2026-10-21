@@ -9,12 +9,20 @@ from .services import award_badges_for_user
 
 
 class BadgeListView(generics.ListAPIView):
+    # Сайт читает только первую страницу ответа, а по умолчанию она — 20
+    # записей: 25-ю нашивку студент не видел, выполненные квесты после 20-го
+    # возвращались в «активные». Список личный или каталожный — отдаём целиком.
+    pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = BadgeSerializer
     queryset = Badge.objects.filter(is_active=True).order_by("id")
 
 
 class MyBadgeListView(generics.ListAPIView):
+    # Сайт читает только первую страницу ответа, а по умолчанию она — 20
+    # записей: 25-ю нашивку студент не видел, выполненные квесты после 20-го
+    # возвращались в «активные». Список личный или каталожный — отдаём целиком.
+    pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = UserBadgeSerializer
 

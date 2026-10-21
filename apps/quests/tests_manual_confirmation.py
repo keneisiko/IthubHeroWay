@@ -166,6 +166,6 @@ class ManualConfirmationTests(APITestCase):
 
         response = self.client.get(reverse("quests-my-progress"), {"completed": "false"})
 
-        rows = response.json()["results"]
+        rows = response.json()
         row = next(r for r in rows if r["quest"]["code"] == self.manual.code)
         self.assertEqual(row["review_status"], SelfReportProofStatus.PENDING)

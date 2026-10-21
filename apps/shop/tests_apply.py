@@ -135,5 +135,5 @@ class ApplyPurchaseApiTests(APITestCase):
         response = self.client.get(reverse("shop-my-purchases"))
 
         self.assertEqual(response.status_code, 200)
-        rows = response.json()["results"]
+        rows = response.json()
         self.assertTrue(rows[0]["is_applied"])

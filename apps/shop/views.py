@@ -13,6 +13,10 @@ from .services import PurchaseNotOwned, apply_purchase, unapply_purchase
 
 
 class ShopItemListView(generics.ListAPIView):
+    # Сайт читает только первую страницу ответа, а по умолчанию она — 20
+    # записей: 25-ю нашивку студент не видел, выполненные квесты после 20-го
+    # возвращались в «активные». Список личный или каталожный — отдаём целиком.
+    pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = ShopItemSerializer
 
@@ -65,6 +69,10 @@ class PurchaseCreateView(views.APIView):
 
 
 class MyPurchaseListView(generics.ListAPIView):
+    # Сайт читает только первую страницу ответа, а по умолчанию она — 20
+    # записей: 25-ю нашивку студент не видел, выполненные квесты после 20-го
+    # возвращались в «активные». Список личный или каталожный — отдаём целиком.
+    pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = PurchaseSerializer
 

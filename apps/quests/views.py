@@ -31,6 +31,10 @@ from .services.weekly_focus import FocusNotAllowed, current_period_key, get_focu
 
 
 class ActiveQuestListView(generics.ListAPIView):
+    # Сайт читает только первую страницу ответа, а по умолчанию она — 20
+    # записей: 25-ю нашивку студент не видел, выполненные квесты после 20-го
+    # возвращались в «активные». Список личный или каталожный — отдаём целиком.
+    pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = QuestSerializer
 
@@ -47,6 +51,10 @@ class ActiveQuestListView(generics.ListAPIView):
 
 
 class MyQuestProgressListView(generics.ListAPIView):
+    # Сайт читает только первую страницу ответа, а по умолчанию она — 20
+    # записей: 25-ю нашивку студент не видел, выполненные квесты после 20-го
+    # возвращались в «активные». Список личный или каталожный — отдаём целиком.
+    pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = UserQuestProgressSerializer
 
@@ -164,6 +172,10 @@ class QuestCompleteView(views.APIView):
 
 
 class QuestRewardHistoryView(generics.ListAPIView):
+    # Сайт читает только первую страницу ответа, а по умолчанию она — 20
+    # записей: 25-ю нашивку студент не видел, выполненные квесты после 20-го
+    # возвращались в «активные». Список личный или каталожный — отдаём целиком.
+    pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = QuestRewardTransactionSerializer
 
