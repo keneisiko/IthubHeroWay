@@ -17,6 +17,7 @@ interface Member {
   track: string
   status: string
   avatar?: string | null
+  frame?: string
   rating?: number | null
 }
 
@@ -121,6 +122,7 @@ export default function Squads() {
     track?: string
     status?: string
     avatar?: string | null
+    avatar_frame?: string
     rating_current?: number | null
   }[]) => rows.map((m, index) => ({
     id: index + 1,
@@ -130,6 +132,7 @@ export default function Squads() {
     track: m.track || '',
     status: m.status || '',
     avatar: m.avatar,
+    frame: m.avatar_frame,
     rating: m.rating_current ?? null,
   }))
 
@@ -511,7 +514,7 @@ export default function Squads() {
                 onClick={() => navigate(`/profile/${m.username}`)}
               >
                 <div className="squad-member-row__main">
-                  <Avatar src={m.avatar} name={m.name} className="squad-member-row__avatar squad-member-row__avatar--initials" />
+                  <Avatar src={m.avatar} name={m.name} frame={m.frame} className="squad-member-row__avatar squad-member-row__avatar--initials" />
                   <div className="squad-member-row__tags">
                     <span className="squad-member-tag squad-member-tag--dark">{m.name}</span>
                     {m.track && <span className="squad-member-tag squad-member-tag--purple">{m.track}</span>}

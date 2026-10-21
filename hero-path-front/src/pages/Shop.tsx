@@ -359,7 +359,7 @@ export default function Shop() {
                 <span className="shop-purchase__frame">
                   {p.code === AVATAR_FRAME ? (
                     <span className="shop-purchase__preview">
-                      <Avatar src={me.avatar} name={me.name || p.title} framed={p.isApplied} className="shop-purchase__avatar" />
+                      <Avatar src={me.avatar} name={me.name || p.title} frame={p.isApplied ? 'purple' : null} className="shop-purchase__avatar" />
                     </span>
                   ) : p.code === BADGE_GLOW ? (
                     <span className={`shop-purchase__preview${p.isApplied ? ' shop-purchase__preview--glow' : ''}`}>

@@ -17,6 +17,7 @@ import './styles/interaction.css'
 import './styles/motion.css'
 import './styles/avatar.css'
 import './styles/cosmetics.css'
+import './styles/avatar-frames.css'
 
 const pages = {
   dashboard: () => import('./pages/Dashboard'),

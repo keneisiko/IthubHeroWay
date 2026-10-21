@@ -25,7 +25,8 @@ import RadarHud from '../components/RadarHud'
 import SkillSummary from '../components/SkillSummary'
 import PixelText from '../components/PixelText'
 import Avatar from '../components/Avatar'
-import { hasFrame, hasGlow, type AppliedItems } from '../lib/cosmetics'
+import { hasGlow, type AppliedItems } from '../lib/cosmetics'
+import DevFrame from '../components/DevFrame'
 import RollNumber from '../components/RollNumber'
 import '../styles/profile-radar.css'
 
@@ -86,6 +87,7 @@ interface ProfileData {
   duel_wins?: number
   respects_received?: number
   applied_items?: AppliedItems
+  avatar_frame?: string
   // Только в чужом профиле: свой профиль берёт это из отдельных запросов.
   quests_completed?: number
   badges?: UserBadge[]
@@ -649,7 +651,7 @@ export default function Profile() {
           <section className="profile-card profile-card--primary card-entrance">
             <div className="profile-card__header">
               <div
-                className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}${hasFrame(profile.applied_items) ? ' profile-card__avatar--framed' : ''}`}
+                className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}${profile.avatar_frame ? ` profile-card__avatar--${profile.avatar_frame}` : ''}`}
                 role={isOwnProfile ? 'button' : 'img'}
                 tabIndex={isOwnProfile ? 0 : undefined}
                 aria-label={isOwnProfile ? 'Сменить аватар' : 'Аватар'}
@@ -664,6 +666,7 @@ export default function Profile() {
                   className="profile-card__avatar-face"
                 />
                 {isOwnProfile && <span className="profile-card__avatar-edit" aria-hidden="true">Сменить</span>}
+                {profile.avatar_frame === 'developer' && <DevFrame key={profile.username} />}
               </div>
               <div className="profile-card__names">
                 <div className="profile-card__nickname">{profile?.callsign ?? '—'}</div>

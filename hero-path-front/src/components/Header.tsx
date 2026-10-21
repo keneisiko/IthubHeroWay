@@ -6,7 +6,6 @@ import { clearAuthTokens } from '../auth'
 import { onBalanceChanged } from '../lib/balance'
 import RollNumber from './RollNumber'
 import Avatar from './Avatar'
-import { hasFrame, type AppliedItems } from '../lib/cosmetics'
 import { formatRating } from '../lib/apiData'
 import { flyCoins } from '../lib/coinFly'
 
@@ -14,7 +13,7 @@ interface ProfileData {
   callsign: string
   coins_balance: number
   avatar?: string | null
-  applied_items?: AppliedItems
+  avatar_frame?: string
 }
 
 export default function Header() {
@@ -108,7 +107,7 @@ export default function Header() {
           <Avatar
             src={profile?.avatar}
             name={username}
-            framed={hasFrame(profile?.applied_items)}
+            frame={profile?.avatar_frame}
             className="top-header__avatar top-header__avatar--initials"
           />
         </button>
