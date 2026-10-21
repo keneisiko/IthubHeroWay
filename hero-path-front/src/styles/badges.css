@@ -367,12 +367,14 @@
 }
 
 .bd-summary__plate strong {
+  color: var(--ithub-white);
   font-size: 40px;
   font-weight: 800;
   line-height: 1;
 }
 
-.bd-summary__plate span {
+/* только подпись «из N»: внутренние span одометра не трогаем */
+.bd-summary__plate > span {
   font-size: 20px;
   font-weight: 700;
   color: rgba(245, 245, 245, 0.6);
@@ -826,7 +828,7 @@
   }
 
   .bd-summary__plate strong { font-size: 30px; }
-  .bd-summary__plate span { font-size: 16px; }
+  .bd-summary__plate > span { font-size: 16px; }
 
   .bd-summary__cells,
   .bd-summary__bar,
