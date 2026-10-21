@@ -4,16 +4,35 @@
    слой с буквами под фото и мягкое проявление фото поверх.
    ========================= */
 
-.avatar {
+/* корень не обрезает — за край может выходить рамка; фото и буквы
+   обрезает внутренний слой по тому же скруглению */
+.avatar.avatar {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  overflow: hidden;
-  isolation: isolate;
+  overflow: visible;
   pointer-events: none;
 }
+
+.avatar__clip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  overflow: hidden;
+  background: inherit;
+}
+
+/* форма — скруглённый квадрат, как в карточке профиля и знаке IThub */
+.leaderboard-item__avatar.avatar,
+.squad-member-row__avatar.avatar,
+.top-header__avatar.avatar,
+.agent-picker__avatar.avatar,
+.shop-purchase__avatar.avatar { border-radius: 28%; }
 
 .avatar__initials {
   font-family: var(--font-display);
@@ -94,7 +113,7 @@
   grid-area: ava;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 28%;
   background: rgba(154, 51, 244, 0.16);
   color: var(--purple-500);
   font-size: 16px;

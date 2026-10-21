@@ -8,6 +8,8 @@ from apps.shop.services import applied_purchases
 from apps.social.services.duels import duel_wins
 from apps.social.services.rewards import respects_received_count
 
+from .frames import avatar_frame_for
+
 from .models import User
 
 
@@ -18,6 +20,7 @@ class MeProfileSerializer(serializers.ModelSerializer):
     path_reached = serializers.SerializerMethodField()
     # Активные покупки: какая рамка аватара и какое свечение значка надеты.
     applied_items = serializers.SerializerMethodField()
+    avatar_frame = serializers.SerializerMethodField()
     duel_wins = serializers.SerializerMethodField()
     respects_received = serializers.SerializerMethodField()
     # Статус по разделу 8 Положения: его название, а не только код зоны.
@@ -39,6 +42,7 @@ class MeProfileSerializer(serializers.ModelSerializer):
             "coins_balance",
             "path_reached",
             "applied_items",
+            "avatar_frame",
             "duel_wins",
             "respects_received",
             "policy_accepted",
@@ -54,6 +58,9 @@ class MeProfileSerializer(serializers.ModelSerializer):
 
     def get_path_reached(self, obj: User) -> list[str]:
         return path_reached(obj)
+
+    def get_avatar_frame(self, obj: User) -> str:
+        return avatar_frame_for(obj)
 
     def get_applied_items(self, obj: User) -> dict:
         return applied_purchases(obj)
@@ -72,6 +79,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     rating_current = serializers.SerializerMethodField()
     path_reached = serializers.SerializerMethodField()
     applied_items = serializers.SerializerMethodField()
+    avatar_frame = serializers.SerializerMethodField()
     # Профиль показывает «Побед в дуэлях» — раньше поля не существовало,
     # и в интерфейсе всегда было пусто.
     duel_wins = serializers.SerializerMethodField()
@@ -98,6 +106,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "rating_current",
             "path_reached",
             "applied_items",
+            "avatar_frame",
             "duel_wins",
             "respects_received",
             "quests_completed",
@@ -123,6 +132,9 @@ class PublicProfileSerializer(serializers.ModelSerializer):
 
     def get_path_reached(self, obj: User) -> list[str]:
         return path_reached(obj)
+
+    def get_avatar_frame(self, obj: User) -> str:
+        return avatar_frame_for(obj)
 
     def get_applied_items(self, obj: User) -> dict:
         return applied_purchases(obj)
@@ -156,10 +168,14 @@ class AgentSearchSerializer(serializers.ModelSerializer):
     squad = serializers.CharField(source="squad.name", read_only=True, default="")
     track = serializers.CharField(source="track.name", read_only=True, default="")
     full_name = serializers.SerializerMethodField()
+    avatar_frame = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["username", "callsign", "full_name", "avatar", "squad", "track", "rating_current"]
+        fields = ["username", "callsign", "full_name", "avatar", "avatar_frame", "squad", "track", "rating_current"]
+
+    def get_avatar_frame(self, obj: User) -> str:
+        return avatar_frame_for(obj)
 
     def get_full_name(self, obj: User) -> str:
         return f"{obj.last_name} {obj.first_name}".strip()

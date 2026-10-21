@@ -46,7 +46,7 @@ class BadgeAdminForm(forms.ModelForm):
 
     class Meta:
         model = Badge
-        fields = ("title", "description", "category", "rarity", "reward_coins", "is_active", "code")
+        fields = ("title", "description", "category", "rarity", "reward_coins", "is_active", "avatar_frame", "code")
         help_texts = {
             "code": "Латиницей, без пробелов, например rating-250. Можно оставить пустым — "
             "соберётся из названия.",
@@ -116,7 +116,7 @@ class BadgeAdmin(ManagedRoleAdminMixin):
     deactivate_instead_of_delete = True
     list_display = ("title", "how_awarded", "category", "rarity", "reward_coins", "is_active")
     fieldsets = (
-        (None, {"fields": ("title", "description", "category", "rarity", "reward_coins", "is_active", "code")}),
+        (None, {"fields": ("title", "description", "category", "rarity", "reward_coins", "is_active", "avatar_frame", "code")}),
         (
             "Когда выдаётся",
             {

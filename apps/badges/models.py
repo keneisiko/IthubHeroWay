@@ -16,6 +16,11 @@ class BadgeRarity(models.TextChoices):
     LEGENDARY = "legendary", "Легендарный"
 
 
+class AvatarFrame(models.TextChoices):
+    NONE = "", "Без рамки"
+    DEVELOPER = "developer", "Рамка разработчика"
+
+
 class Badge(models.Model):
     code = models.CharField("Код", max_length=64, unique=True)
     title = models.CharField("Название", max_length=255)
@@ -29,6 +34,14 @@ class Badge(models.Model):
     condition = models.JSONField("Условие", default=dict, blank=True)
     reward_coins = models.PositiveIntegerField("Награда (монеты)", default=0)
     is_active = models.BooleanField("Активен", default=True)
+    avatar_frame = models.CharField(
+        "Рамка аватара",
+        max_length=16,
+        choices=AvatarFrame.choices,
+        default=AvatarFrame.NONE,
+        blank=True,
+        help_text="Владелец нашивки получает особую рамку аватара на всём сайте.",
+    )
     created_at = models.DateTimeField("Создан", auto_now_add=True)
 
     class Meta:

@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import generics, views
 from rest_framework.response import Response
 
+from apps.accounts.frames import badge_frame_subquery
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsKnownRole
 from apps.shop.models import Purchase, ShopItemType
@@ -63,7 +64,7 @@ class AgentLeaderboardView(generics.ListAPIView):
             # Активированные студенты, а не привязавшие Telegram (двое из 557).
             # Роль обязательна: по активности в рейтинг попали бы сотрудники.
             User.objects.filter(role=Role.AGENT, is_active=True)
-            .annotate(applied_cosmetic=Subquery(applied_cosmetic))
+            .annotate(applied_cosmetic=Subquery(applied_cosmetic), badge_frame=badge_frame_subquery())
             .order_by("-rating_current", "id")
         )
         track = self.request.query_params.get("track")

@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import DevFrameArt from './DevFrameArt'
 
 interface AvatarProps {
   src?: string | null
   name: string
   className?: string
-  /** Применена рамка аватара из магазина. */
-  framed?: boolean
+  /** Рамка из API (avatar_frame): 'purple' из магазина, 'developer' от нашивки. */
+  frame?: string | null
 }
 
 const TONES = ['light', 'purple', 'dark'] as const
@@ -19,7 +20,7 @@ function avatarUrl(src?: string | null): string | null {
 }
 
 // две буквы, только если позывной из двух слов; одно слово — одна
-// крупная буква, так знак читается и в кружке на 40px
+// крупная буква, так знак читается и в квадрате на 40px
 function initialsOf(name: string): string {
   const words = name.trim().split(/[\s_\-.@]+/).filter(Boolean)
   const first = (word: string) => Array.from(word).find((ch) => /[\p{L}\d]/u.test(ch)) ?? ''
@@ -37,8 +38,9 @@ function toneOf(name: string): (typeof TONES)[number] {
  * Аватар человека. Пока фото грузится — под ним уже стоит знак с
  * буквами, фото проявляется поверх. Не загрузилось (битый файл, нет
  * доступа) — остаётся знак, а не значок сломанной картинки.
+ * Фото обрезает внутренний слой, поэтому рамка может выходить за край.
  */
-export default function Avatar({ src, name, className, framed }: AvatarProps) {
+export default function Avatar({ src, name, className, frame }: AvatarProps) {
   const url = avatarUrl(src)
   const [loaded, setLoaded] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
@@ -46,22 +48,26 @@ export default function Avatar({ src, name, className, framed }: AvatarProps) {
 
   return (
     <span
-      className={`avatar${className ? ` ${className}` : ''}${showImage && loaded === url ? ' avatar--photo' : ''}${framed ? ' avatar--framed' : ''}`}
+      className={`avatar${className ? ` ${className}` : ''}${showImage && loaded === url ? ' avatar--photo' : ''}${frame ? ` avatar--frame-${frame}` : ''}`}
       data-tone={toneOf(name)}
     >
-      <span className="avatar__initials" aria-hidden="true">{initialsOf(name)}</span>
-      {showImage && (
-        <img
-          key={url}
-          className="avatar__img"
-          src={url}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          onLoad={() => setLoaded(url)}
-          onError={() => setFailed(url)}
-        />
-      )}
+      {frame === 'developer' && <span className="dev-hole" aria-hidden="true" />}
+      <span className="avatar__clip">
+        <span className="avatar__initials" aria-hidden="true">{initialsOf(name)}</span>
+        {showImage && (
+          <img
+            key={url}
+            className="avatar__img"
+            src={url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoaded(url)}
+            onError={() => setFailed(url)}
+          />
+        )}
+      </span>
+      {frame === 'developer' && <DevFrameArt />}
     </span>
   )
 }

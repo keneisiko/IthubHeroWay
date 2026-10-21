@@ -9,6 +9,7 @@ export interface AgentSuggestion {
   squad: string
   rating_current: number
   avatar?: string | null
+  avatar_frame?: string
 }
 
 interface Props {
@@ -83,7 +84,7 @@ export default function AgentPicker({
               disabled={Boolean(reason)}
               title={reason || undefined}
             >
-              <Avatar src={agent.avatar} name={agent.callsign || agent.username} className="agent-picker__avatar" />
+              <Avatar src={agent.avatar} name={agent.callsign || agent.username} frame={agent.avatar_frame} className="agent-picker__avatar" />
               <span className="agent-picker__name">{agent.callsign || agent.username}</span>
               <span className="agent-picker__meta">
                 {reason || [agent.full_name, agent.squad].filter(Boolean).join(' · ')}

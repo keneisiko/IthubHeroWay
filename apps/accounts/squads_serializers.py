@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from .frames import avatar_frame_for
 from .models import Squad, User
 
 
@@ -43,6 +44,7 @@ class SquadCreateSerializer(serializers.Serializer):
 
 class SquadMemberSerializer(serializers.ModelSerializer):
     track = serializers.CharField(source="track.code", read_only=True)
+    avatar_frame = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -50,15 +52,20 @@ class SquadMemberSerializer(serializers.ModelSerializer):
             "username",
             "callsign",
             "avatar",
+            "avatar_frame",
             "track",
             "status",
             "role",
             "rating_current",
         ]
 
+    def get_avatar_frame(self, obj: User) -> str:
+        return avatar_frame_for(obj)
+
 
 class SquadMemberPublicSerializer(serializers.ModelSerializer):
     track = serializers.CharField(source="track.code", read_only=True)
+    avatar_frame = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -66,7 +73,12 @@ class SquadMemberPublicSerializer(serializers.ModelSerializer):
             "username",
             "callsign",
             "avatar",
+            "avatar_frame",
             "track",
             "status",
             "role",
         ]
+
+    def get_avatar_frame(self, obj: User) -> str:
+        return avatar_frame_for(obj)
+
