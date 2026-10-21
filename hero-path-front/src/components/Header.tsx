@@ -5,6 +5,7 @@ import api from '../api'
 import { clearAuthTokens } from '../auth'
 import { onBalanceChanged } from '../lib/balance'
 import RollNumber from './RollNumber'
+import Avatar from './Avatar'
 import { formatRating } from '../lib/apiData'
 import { flyCoins } from '../lib/coinFly'
 
@@ -77,8 +78,6 @@ export default function Header() {
     const timer = setTimeout(() => setPulse(null), 700)
     return () => clearTimeout(timer)
   }, [coins, profile])
-  const avatarUrl = profile?.avatar
-  const initials = username.slice(0, 2).toUpperCase()
 
   return (
     <header className="top-header" style={{ position: 'relative', zIndex: 90 }}>
@@ -88,27 +87,23 @@ export default function Header() {
         <span className="top-header__title">Путь героя</span>
       </div>
       <div className="top-header__user" style={{ position: 'relative', zIndex: 100 }} ref={menuRef}>
-        <div className="top-header__user-meta">
-          <div className="top-header__username">{username}</div>
-          <div className={`top-header__money${pulse ? ` top-header__money--${pulse}` : ''}`}>
-            <span className="top-header__coin" aria-hidden="true" ref={coinRef} />
-            <strong><RollNumber value={formatRating(coins)} /></strong>
-          </div>
-        </div>
+        {/* имя, монеты и аватар — одна кнопка меню: попасть можно
+            в любую часть блока, а не только в кружок аватара */}
         <button
           type="button"
+          className="top-header__trigger"
           onClick={() => setMenuOpen((v) => !v)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, position: 'relative', zIndex: 101 }}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
         >
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="Аватар пользователя" className="top-header__avatar" style={{ pointerEvents: 'none' }} />
-          ) : (
-            <div className="top-header__avatar top-header__avatar--initials" style={{ pointerEvents: 'none' }}>
-              {initials}
-            </div>
-          )}
+          <span className="top-header__user-meta">
+            <span className="top-header__username">{username}</span>
+            <span className={`top-header__money${pulse ? ` top-header__money--${pulse}` : ''}`}>
+              <span className="top-header__coin" aria-hidden="true" ref={coinRef} />
+              <strong><RollNumber value={formatRating(coins)} /></strong>
+            </span>
+          </span>
+          <Avatar src={profile?.avatar} name={username} className="top-header__avatar top-header__avatar--initials" />
         </button>
 
         {menuOpen && (

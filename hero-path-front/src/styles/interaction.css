@@ -18,16 +18,95 @@ a, button, [role='button'], [role='tab'], label, input, select, textarea, summar
 .q1__tab,
 .shop-tab,
 .profile-path__tab {
-  padding-block: 12px;
-  margin-block: -12px;
+  padding: 12px 8px;
+  margin: -12px -8px;
 }
 
-/* --- кнопка аватара в шапке: 38px — меньше пальца --- */
-.top-header__user > button {
+/* --- блок пользователя в шапке: имя, монеты и аватар — одна кнопка --- */
+.top-header__trigger {
   position: relative;
+  z-index: 101;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: calc(100% + 18px);
+  margin: -6px -6px -6px -12px;
+  padding: 6px 6px 6px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+  transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.top-header__user > button::after {
+.top-header__trigger .top-header__username,
+.top-header__trigger .top-header__money { display: block; }
+
+.top-header__trigger:active { transform: scale(0.97); }
+.top-header__trigger:focus-visible { outline: 3px solid var(--ithub-white); outline-offset: 0; }
+.top-header__trigger[aria-expanded='true'] { background: rgba(255, 255, 255, 0.14); }
+
+@media (hover: hover) and (pointer: fine) {
+  .top-header__trigger:hover { background: rgba(255, 255, 255, 0.12); }
+}
+
+@media (max-width: 900px) {
+  .top-header__trigger { width: auto; max-width: calc(100% + 18px); justify-content: flex-end; min-width: 0; }
+  .top-header__trigger .top-header__user-meta { min-width: 0; }
+}
+
+/* --- строки-ссылки: в профиль ведёт вся строка, а не только цифра --- */
+.leaderboard-item--link,
+.squad-member-row--link { cursor: pointer; }
+
+/* кнопка с цифрой — для клавиатуры; касание попадает в строку */
+.leaderboard-item--link .leaderboard-item__rating,
+.squad-member-row--link .squad-member-row__rating {
+  pointer-events: none;
+  transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.leaderboard-item:not(.leaderboard-item--link) .leaderboard-item__rating { cursor: default; }
+
+.leaderboard-item--link .leaderboard-item__card,
+.squad-member-row--link {
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.leaderboard-item--link:active .leaderboard-item__card,
+.squad-member-row--link:active { transform: scale(0.985); }
+
+.leaderboard-item--link:active .leaderboard-item__rating,
+.squad-member-row--link:active .squad-member-row__rating { background: var(--purple-500); }
+
+.leaderboard-item--link .leaderboard-item__rating:focus-visible,
+.squad-member-row--link .squad-member-row__rating:focus-visible {
+  outline: 3px solid var(--purple-500);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .leaderboard-item--link:hover .leaderboard-item__rating,
+  .squad-member-row--link:hover .squad-member-row__rating {
+    background: var(--purple-500);
+    transform: translateX(-3px);
+  }
+}
+
+/* --- мелкие цели профиля: зона касания шире самой подписи --- */
+.skill-history__close { position: relative; }
+
+.profile-radar__axis::after {
+  content: '';
+  position: absolute;
+  inset: -6px -4px;
+}
+
+.skill-history__close::after {
   content: '';
   position: absolute;
   inset: -8px;

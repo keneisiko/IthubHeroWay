@@ -4,6 +4,7 @@ import api from '../api'
 import LoadError from '../components/LoadError'
 import { useCountUp } from '../useCountUp'
 import { unwrapList, formatRating } from '../lib/apiData'
+import Avatar from '../components/Avatar'
 
 type LeaderTab = 'agents' | 'squads'
 
@@ -324,8 +325,9 @@ export default function Leaderboard() {
               const isMe = activeTab === 'agents' && item.username === myRank.username
               return (
               <div
-                className={`leaderboard-item hover-lift${isMe ? ' leaderboard-item--me' : ''}`}
+                className={`leaderboard-item hover-lift${isMe ? ' leaderboard-item--me' : ''}${activeTab === 'agents' ? ' leaderboard-item--link' : ''}`}
                 key={item.username}
+                onClick={activeTab === 'agents' ? () => navigate(`/profile/${item.username}`) : undefined}
                 ref={isMe ? myRowRef : undefined}
                 style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
               >
@@ -333,11 +335,7 @@ export default function Leaderboard() {
                 <div className={`leaderboard-item__card leaderboard-item__card--rank-${Math.min(item.rank, 4)}`}>
                   <div className="leaderboard-item__tags">
                     {activeTab === 'agents' && (
-                      <span className="leaderboard-item__avatar" aria-hidden="true">
-                        {item.avatar
-                          ? <img src={item.avatar} alt="" />
-                          : item.title.slice(0, 2).toUpperCase()}
-                      </span>
+                      <Avatar src={item.avatar} name={item.title} className="leaderboard-item__avatar" />
                     )}
                     <div className="leaderboard-item__meta">
                       <span className="tag tag--title">{item.title}</span>
@@ -346,10 +344,13 @@ export default function Leaderboard() {
                       {item.status && <span className="tag tag--status">{item.status}</span>}
                     </div>
                   </div>
+                  {/* переход — по всей строке; кнопка остаётся для клавиатуры,
+                      её нажатие всплывает к строке */}
                   <button
                     type="button"
-                    className="leaderboard-item__rating btn-press"
-                    onClick={() => activeTab === 'agents' && navigate(`/profile/${item.username}`)}
+                    className="leaderboard-item__rating"
+                    aria-label={activeTab === 'agents' ? `Профиль: ${item.title}, рейтинг ${item.delta}` : undefined}
+                    tabIndex={activeTab === 'agents' ? 0 : -1}
                   >
                     {item.delta}
                   </button>

@@ -248,3 +248,31 @@ class CourseFairnessTests(TestCase):
         third = User.objects.get(username="stu3")
         self.assertEqual(first.rating_current, 310, "40 тем в году → 10 за тему")
         self.assertEqual(third.rating_current, 340, "10 тем в году → 40 за тему")
+
+
+class AgentLeaderboardAvatarTests(TestCase):
+    """Рейтинг агентов отдаёт аватар: без него строки показывали инициалы."""
+
+    def test_avatar_in_leaderboard_row(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from rest_framework.test import APIClient
+
+        User = get_user_model()
+        viewer = User.objects.create_user(username="viewer", password="pass12345")
+        hero = User.objects.create_user(username="hero", password="pass12345", callsign="Герой")
+        for n, user in enumerate((viewer, hero)):
+            TelegramAccountLink.objects.create(
+                user=user, telegram_user_id=880 + n, telegram_chat_id=880 + n, is_active=True
+            )
+        hero.avatar = SimpleUploadedFile("hero.gif", b"GIF89a\x01\x00\x01\x00\x00\x00\x00;", content_type="image/gif")
+        hero.save()
+        self.addCleanup(hero.avatar.delete, save=False)
+
+        client = APIClient()
+        client.force_authenticate(viewer)
+        rows = client.get("/api/v1/leaderboard/agents/").json()
+        rows = rows.get("results", rows)
+        by_name = {row["username"]: row for row in rows}
+        self.assertIn("avatar", by_name["hero"])
+        self.assertTrue(by_name["hero"]["avatar"].endswith(".gif"))
+        self.assertIsNone(by_name["viewer"]["avatar"])
