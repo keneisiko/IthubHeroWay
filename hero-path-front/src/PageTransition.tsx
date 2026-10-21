@@ -21,6 +21,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
   const color = ROUTE_COLORS[location.pathname] ?? '#9a33f4'
   const [displayed, setDisplayed] = useState(children)
   const [phase, setPhase] = useState<'idle' | 'cover' | 'uncover'>('idle')
+  const [reduce, setReduce] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const prevPath = useRef(location.pathname)
   const prevPathForDir = useRef(location.pathname)
   const pendingChildren = useRef(children)
@@ -30,9 +31,28 @@ export default function PageTransition({ children }: { children: React.ReactNode
   const [run, setRun] = useState({ id: 0, dir: 1 })
 
   useEffect(() => {
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const onMotionChange = () => {
+      setReduce(motionQuery.matches)
+      setDisplayed(pendingChildren.current)
+      if (!motionQuery.matches || !timers.current.length) return
+      timers.current.forEach(window.clearTimeout)
+      timers.current = []
+      setPhase('idle')
+      window.scrollTo(0, 0)
+    }
+    motionQuery.addEventListener('change', onMotionChange)
+    return () => {
+      motionQuery.removeEventListener('change', onMotionChange)
+      timers.current.forEach(window.clearTimeout)
+      timers.current = []
+    }
+  }, [])
+
+  useEffect(() => {
+    pendingChildren.current = children
     if (location.pathname === prevPath.current) return
     prevPath.current = location.pathname
-    pendingChildren.current = children
 
     const from = orderOf(prevPathForDir.current)
     const to = orderOf(location.pathname)
@@ -40,6 +60,11 @@ export default function PageTransition({ children }: { children: React.ReactNode
     const dir = from >= 0 && to >= 0 && to < from ? -1 : 1
 
     timers.current.forEach(window.clearTimeout)
+    timers.current = []
+    if (reduce) {
+      window.scrollTo(0, 0)
+      return
+    }
     setRun((r) => ({ id: r.id + 1, dir }))
     setPhase('cover')
 
@@ -54,8 +79,9 @@ export default function PageTransition({ children }: { children: React.ReactNode
       window.scrollTo(0, 0)
     }, 280), window.setTimeout(() => {
       setPhase('idle')
+      timers.current = []
     }, 620)]
-  }, [location.pathname, children])
+  }, [location.pathname, children, reduce])
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -71,7 +97,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
           '--route-dx': `${run.dir * 18}px`,
         } as React.CSSProperties}
       >
-        {displayed}
+        {reduce ? children : displayed}
       </div>
 
       {/* Пиксель-герой пробегает по верху экрана со следом — тот же знак,
