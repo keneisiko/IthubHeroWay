@@ -209,7 +209,9 @@ export default function Shop() {
   // прятала всю страницу вместе с вкладками и рисовала заново; теперь
   // сетка товаров гаснет на месте и проявляется с новыми.
   const loadedOnce = useRef(false)
+  const loadRequestId = useRef(0)
   const loadShop = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    const requestId = ++loadRequestId.current
     const itemType = SHOP_TAB_TYPES[activeTab]
 
     Promise.all([
@@ -218,6 +220,7 @@ export default function Shop() {
       api.get('/api/v1/quests/rewards/history/'),
       api.get('/api/v1/profile/me/'),
     ]).then(([itemsRes, purchasesRes, rewardsRes, profileRes]) => {
+      if (requestId !== loadRequestId.current) return
       const items = unwrapList<{
         id: number
         code: string
@@ -287,8 +290,13 @@ export default function Shop() {
 
       setCoins(formatRating(profileRes.data.coins_balance))
       setMe({ avatar: profileRes.data.avatar ?? null, name: profileRes.data.callsign || profileRes.data.username || '' })
-    }).catch(() => addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error'))
+    }).catch(() => {
+      if (requestId === loadRequestId.current) {
+        addToast(quiet ? 'Не удалось обновить магазин' : 'Не удалось загрузить магазин', 'error')
+      }
+    })
       .finally(() => {
+        if (requestId !== loadRequestId.current) return
         loadedOnce.current = true
         setLoading(false)
         setSwitching(false)
