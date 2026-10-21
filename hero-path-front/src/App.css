@@ -1806,6 +1806,10 @@ body {
   white-space: nowrap;
 }
 
+.profile-path__tab:not(.profile-path__tab--active):hover {
+  color: var(--purple-500);
+}
+
 .profile-path__tab--active {
   color: #9a33f4;
   font-family: 'TT Firs Neue', sans-serif;
@@ -6414,4 +6418,11 @@ body {
   .bottom-nav__icon svg { width: 24px; height: 24px; }
 
   .radar-card { min-height: 300px; }
+}
+
+/* Кнопки без явного курсора выглядели как текст: браузер по умолчанию
+   ставит стрелку. :where() даёт правилу нулевую специфичность, поэтому
+   курсор, заданный компонентом явно, оно не перебивает. */
+:where(button, [role="button"], summary):not(:disabled) {
+  cursor: pointer;
 }
