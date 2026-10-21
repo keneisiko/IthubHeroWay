@@ -51,6 +51,7 @@ export default function Avatar({ src, name, className, frame }: AvatarProps) {
       className={`avatar${className ? ` ${className}` : ''}${showImage && loaded === url ? ' avatar--photo' : ''}${frame ? ` avatar--frame-${frame}` : ''}`}
       data-tone={toneOf(name)}
     >
+      {frame === 'developer' && <span className="dev-hole" aria-hidden="true" />}
       <span className="avatar__clip">
         <span className="avatar__initials" aria-hidden="true">{initialsOf(name)}</span>
         {showImage && (
