@@ -19,8 +19,10 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
   // держим последнюю нашивку, пока шторка уезжает
   const [shown, setShown] = useState<Badge | null>(badge)
   const [closing, setClosing] = useState(false)
+  const panelRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
-  const returnFocus = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  const badgeCode = badge?.code
 
   if (badge && badge !== shown) {
     setShown(badge)
@@ -29,19 +31,42 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
   if (!badge && shown && !closing) setClosing(true)
 
   useEffect(() => {
-    if (!badge) return
-    returnFocus.current = document.activeElement as HTMLElement | null
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!badgeCode || !panel) return
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     closeRef.current?.focus({ preventScroll: true })
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(
+        'button, a[href], input, select, textarea, [tabindex]',
+      )).filter((element) => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0)
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement
+      if (!focusable.some((element) => element === active) || (e.shiftKey ? active === first : active === last)) {
+        e.preventDefault()
+        const target = e.shiftKey ? last : first
+        target?.focus({ preventScroll: true })
+      }
+    }
     document.addEventListener('keydown', onKey)
     const { overflow } = document.body.style
     document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = overflow
-      returnFocus.current?.focus({ preventScroll: true })
+      if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
     }
-  }, [badge, onClose])
+  }, [badgeCode])
 
   if (!shown) return null
   const isEarned = Boolean(earned)
@@ -59,6 +84,7 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
     >
       <div className="bd-sheet__scrim" onClick={onClose} />
       <section
+        ref={panelRef}
         className={`bd-sheet__panel bd-sheet__panel--${shown.rarity}`}
         role="dialog"
         aria-modal="true"
