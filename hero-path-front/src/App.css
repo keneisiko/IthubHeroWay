@@ -1902,6 +1902,12 @@ body {
      anywhere рвал «Командный» посреди слова при любой ширине */
   overflow-wrap: break-word;
   hyphens: auto;
+  /* Место под две строки у каждой подписи: однострочные названия иначе
+     поднимали редкость и кнопку, и ряд нашивок «плавал». */
+  min-height: 2.3em;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .path-card__chip {
@@ -3188,7 +3194,16 @@ body {
   font-family: var(--font-display);
   font-size: 28px;
   font-weight: 700;
+  line-height: 1.15;
   color: var(--purple-500);
+  /* Место под две строки у каждого названия: иначе цена и кнопка у карточек
+     в одном ряду стояли на разной высоте. Длиннее двух строк — обрезаем. */
+  min-height: 2.3em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .shop-card__price {
