@@ -18,9 +18,12 @@ import { RARITY_LABELS, apiErrorMessage, formatDayMonth, unwrapList } from '../l
 import { plural } from '../lib/plural'
 import { useTabIndicator } from '../useTabIndicator'
 import BadgeEmblem from '../components/BadgeEmblem'
+import BadgeSheet from '../components/BadgeSheet'
+import type { Badge, EarnedBadge } from '../lib/badges'
 import SkillHistory from '../components/SkillHistory'
 import PixelText from '../components/PixelText'
 import Avatar from '../components/Avatar'
+import { hasFrame, hasGlow, type AppliedItems } from '../lib/cosmetics'
 import RollNumber from '../components/RollNumber'
 import '../styles/profile-radar.css'
 
@@ -80,6 +83,7 @@ interface ProfileData {
   path_reached?: string[]
   duel_wins?: number
   respects_received?: number
+  applied_items?: AppliedItems
   // Только в чужом профиле: свой профиль берёт это из отдельных запросов.
   quests_completed?: number
   badges?: UserBadge[]
@@ -139,6 +143,8 @@ interface UserBadge {
     title: string
     rarity: string
     category: string
+    description?: string
+    reward_coins?: number
   }
   acquired_at: string
 }
@@ -485,12 +491,42 @@ export default function Profile() {
     const request = isPinned
       ? api.delete(`/api/v1/badges/${encodeURIComponent(code)}/pin/`)
       : api.post(`/api/v1/badges/${encodeURIComponent(code)}/pin/`)
-    request
+    return request
       .then(() => {
         addToast(isPinned ? 'Нашивка откреплена' : 'Нашивка закреплена!', 'success')
         loadProfile({ quiet: true })
       })
       .catch(() => addToast('Не удалось изменить нашивку', 'error'))
+  }
+
+  // Карточка нашивки — та же шторка, что на странице нашивок: описание
+  // берём из каталога, дату и закрепление — из своих нашивок.
+  const [sheetCode, setSheetCode] = useState<string | null>(null)
+  const [pinning, setPinning] = useState(false)
+  const closeSheet = useCallback(() => setSheetCode(null), [])
+  const sheetBadge = useMemo<Badge | null>(() => {
+    if (!sheetCode) return null
+    const source = allBadges.find((b) => b.code === sheetCode)
+      ?? badges.find((b) => b.badge.code === sheetCode)?.badge
+    if (!source) return null
+    return {
+      code: source.code,
+      title: source.title,
+      category: source.category,
+      rarity: source.rarity,
+      description: source.description ?? '',
+      reward_coins: source.reward_coins ?? 0,
+    }
+  }, [sheetCode, allBadges, badges])
+  const sheetEarned = useMemo<EarnedBadge | undefined>(() => {
+    const own = sheetBadge && badges.find((b) => b.badge.code === sheetBadge.code)
+    return own && sheetBadge
+      ? { id: own.id, badge: sheetBadge, acquired_at: own.acquired_at, is_pinned: own.is_pinned }
+      : undefined
+  }, [sheetBadge, badges])
+  const togglePinFromSheet = (badge: Badge) => {
+    setPinning(true)
+    handlePinBadge(badge.code, Boolean(sheetEarned?.is_pinned)).finally(() => setPinning(false))
   }
 
   const duelAction = (id: number, action: 'accept' | 'reject' | 'cancel', message: string) => {
@@ -611,7 +647,7 @@ export default function Profile() {
           <section className="profile-card profile-card--primary card-entrance">
             <div className="profile-card__header">
               <div
-                className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}`}
+                className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}${hasFrame(profile.applied_items) ? ' profile-card__avatar--framed' : ''}`}
                 role={isOwnProfile ? 'button' : 'img'}
                 tabIndex={isOwnProfile ? 0 : undefined}
                 aria-label={isOwnProfile ? 'Сменить аватар' : 'Аватар'}
@@ -960,7 +996,13 @@ export default function Profile() {
           {pinnedBadges.length === 0 ? (
             <p className="loading-text">{isOwnProfile ? 'Пока нет закреплённых нашивок' : 'Нашивок пока нет'}</p>
           ) : pinnedBadges.map((item) => (
-            <button key={item.id} className="ach btn-press" type="button">
+            <button
+              key={item.id}
+              className={`ach btn-press${hasGlow(profile?.applied_items) ? ' ach--glow' : ''}`}
+              type="button"
+              onClick={() => setSheetCode(item.badge.code)}
+              aria-haspopup="dialog"
+            >
               <span className="ach__icon" aria-hidden="true">
                 <BadgeEmblem code={item.badge.code} rarity={item.badge.rarity} size={72} />
               </span>
@@ -998,7 +1040,13 @@ export default function Profile() {
 
         <div className="profile-path__grid">
           {filteredBadges.map((card) => (
-            <button key={card.id} className="path-card btn-press" type="button">
+            <button
+              key={card.id}
+              className="path-card btn-press"
+              type="button"
+              onClick={() => setSheetCode(card.badge.code)}
+              aria-haspopup="dialog"
+            >
               <span className={`path-card__icon path-card__icon--${card.badge.rarity}`} aria-hidden="true">
                 <BadgeEmblem code={card.badge.code} rarity={card.badge.rarity} size={58} />
               </span>
@@ -1023,20 +1071,34 @@ export default function Profile() {
             </button>
           ))}
           {lockedBadges.map((badge) => (
-            <span key={badge.code} className="path-card path-card--locked" title={badge.title}>
+            <button
+              key={badge.code}
+              type="button"
+              className="path-card path-card--locked btn-press"
+              onClick={() => setSheetCode(badge.code)}
+              aria-haspopup="dialog"
+            >
               <span className="path-card__icon path-card__icon--locked" aria-hidden="true">
                 <BadgeEmblem code={badge.code} rarity={badge.rarity} locked size={58} />
               </span>
               {/* название вместо одинакового «Условие не выполнено» у всех
                   закрытых: видно, что именно предстоит получить */}
               <span className="path-card__locked">{badge.title}</span>
-            </span>
+            </button>
           ))}
           {filteredBadges.length === 0 && lockedBadges.length === 0 && (
             <p className="loading-text" style={{ gridColumn: '1 / -1' }}>Нет нашивок</p>
           )}
         </div>
       </section>
+
+      <BadgeSheet
+        badge={sheetBadge}
+        earned={sheetEarned}
+        pinning={pinning}
+        onClose={closeSheet}
+        onTogglePin={isOwnProfile ? togglePinFromSheet : undefined}
+      />
 
       {/* Модалка настройки профиля */}
       {editModal.open && (

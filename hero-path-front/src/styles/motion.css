@@ -3,21 +3,19 @@
    ========================= */
 
 /* --- число-одометр (components/RollNumber.tsx) --- */
-.roll__digits {
-  display: inline-flex;
-  vertical-align: top;
-  align-items: flex-start;
-  font-variant-numeric: tabular-nums;
-}
+/* лента обрезается clip-path, а не overflow: у блока с overflow
+   базовая линия уходит на нижний край, и число выпрыгивало над
+   соседним текстом («3» выше, чем «из 25») */
+.roll__digits { font-variant-numeric: tabular-nums; }
 
 .roll__col {
   position: relative;
   display: inline-block;
-  overflow: hidden;
+  clip-path: inset(0);
   line-height: 1.2;
   /* соседние цифры ленты не выглядывают сверху и снизу */
-  -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
-  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
 }
 
 .roll__sizer { visibility: hidden; }
