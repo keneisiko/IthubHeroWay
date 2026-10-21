@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+# Базовые образы — через зеркало Docker Hub от Google: анонимный лимит Docker Hub
+# (100 скачиваний в час) общий на всю IPv6-подсеть хостинга, и соседи его выбирают.
+FROM mirror.gcr.io/library/python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
