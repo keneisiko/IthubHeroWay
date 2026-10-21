@@ -32,3 +32,13 @@ class UserBadgeSerializer(serializers.ModelSerializer):
         model = UserBadge
         fields = ["id", "badge", "acquired_at", "is_pinned", "source"]
 
+
+class PublicUserBadgeSerializer(serializers.ModelSerializer):
+    """Нашивка в чужом профиле — без `source`: там логин выдавшего сотрудника."""
+
+    badge = BadgeSerializer(read_only=True)
+
+    class Meta:
+        model = UserBadge
+        fields = ["id", "badge", "acquired_at", "is_pinned"]
+

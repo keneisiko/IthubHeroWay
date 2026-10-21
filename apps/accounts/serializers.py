@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
+from apps.badges.serializers import PublicUserBadgeSerializer
 from apps.progress.services.path_map import path_reached
+from apps.progress.services.pillar_labels import characteristics_payload
 from apps.progress.services.rating_zones import rating_status_label, rating_zone
 from apps.shop.services import applied_purchases
 from apps.social.services.duels import duel_wins
@@ -76,6 +78,11 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     respects_received = serializers.SerializerMethodField()
     # п. 11.1: статус другого студента виден авторизованным, монеты — нет.
     rating_status = serializers.SerializerMethodField()
+    # Раньше чужой профиль показывал только ник и карточку: статистику,
+    # нашивки и диаграмму характеристик сервер для него не отдавал вовсе.
+    quests_completed = serializers.SerializerMethodField()
+    badges = serializers.SerializerMethodField()
+    characteristics = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -93,7 +100,20 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "applied_items",
             "duel_wins",
             "respects_received",
+            "quests_completed",
+            "badges",
+            "characteristics",
         ]
+
+    def get_quests_completed(self, obj: User) -> int:
+        return obj.quest_progress.filter(is_completed=True).count()
+
+    def get_badges(self, obj: User) -> list[dict]:
+        rows = obj.badges.select_related("badge").order_by("-is_pinned", "-acquired_at")
+        return PublicUserBadgeSerializer(rows, many=True).data
+
+    def get_characteristics(self, obj: User) -> list[dict]:
+        return characteristics_payload(obj)
 
     def get_duel_wins(self, obj: User) -> int:
         return duel_wins(obj)

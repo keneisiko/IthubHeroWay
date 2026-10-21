@@ -79,6 +79,10 @@ interface ProfileData {
   path_reached?: string[]
   duel_wins?: number
   respects_received?: number
+  // Только в чужом профиле: свой профиль берёт это из отдельных запросов.
+  quests_completed?: number
+  badges?: UserBadge[]
+  characteristics?: CharacteristicItem[]
 }
 
 // Вехи карты пути — постоянные точки программы (из макета).
@@ -249,11 +253,15 @@ export default function Profile() {
         setProfile(data)
         setEditForm({ callsign: data.callsign || '' })
         if (!isOwnProfile) {
-          setBadges([])
-          setAllBadges([])
-          setQuestsCompleted(0)
-          setCharacteristics([])
-          return
+          // Раньше всё это обнулялось: чужой профиль показывал только ник
+          // и карточку. Теперь статистика, нашивки и характеристики приходят
+          // вместе с профилем; каталог нужен для «N из M нашивок».
+          setBadges(data.badges ?? [])
+          setQuestsCompleted(data.quests_completed ?? 0)
+          setCharacteristics(data.characteristics ?? [])
+          return api.get('/api/v1/badges/').then((catalog) => {
+            setAllBadges(unwrapList<UserBadge['badge']>(catalog.data))
+          })
         }
         return Promise.all([
           api.get('/api/v1/badges/my/'),
@@ -449,11 +457,13 @@ export default function Profile() {
     return 'ach__rarity--common'
   }
 
-  const showCharacteristics = isOwnProfile
-  const pinnedBadges = useMemo(
-    () => badges.filter((b) => b.is_pinned).slice(0, 3),
-    [badges],
-  )
+  const showCharacteristics = characteristics.length > 0
+  const pinnedBadges = useMemo(() => {
+    const pinned = badges.filter((b) => b.is_pinned).slice(0, 3)
+    // В чужом профиле пустой ряд «нет закреплённых» ничего не говорит о
+    // человеке — показываем последние полученные (сервер отдаёт их первыми).
+    return pinned.length || isOwnProfile ? pinned : badges.slice(0, 3)
+  }, [badges, isOwnProfile])
   const filteredBadges = useMemo(() => {
     const category = BADGE_TAB_CATEGORIES[activeTab]
     if (!category) return badges
@@ -679,10 +689,13 @@ export default function Profile() {
           </section>
         </div>
 
-        {isOwnProfile && (
         <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
-          <button className="profile-aside__btn btn-press" onClick={editModal.show}>Настроить профиль</button>
-          <div className="profile-aside__divider" />
+          {isOwnProfile && (
+            <>
+              <button className="profile-aside__btn btn-press" onClick={editModal.show}>Настроить профиль</button>
+              <div className="profile-aside__divider" />
+            </>
+          )}
           <div className="profile-aside__section">
             <h3 className="profile-aside__title"><PixelText text="Статистика:" /></h3>
             <div className="profile-aside__stats">
@@ -701,6 +714,37 @@ export default function Profile() {
             </div>
           </div>
 
+          {!isOwnProfile && (
+          <>
+            <div className="profile-aside__divider" />
+          <div className="profile-aside__section">
+            <h3 className="profile-aside__title"><PixelText text="Социальные действия:" /></h3>
+            <div className="profile-social">
+              <button
+                className="profile-aside__btn btn-press"
+                type="button"
+                onClick={handleRespect}
+                disabled={socialBusy}
+              >
+                Отправить респект
+              </button>
+              <button
+                className="profile-aside__mentor-btn btn-press"
+                type="button"
+                onClick={handleDuel}
+                disabled={socialBusy || !canDuel}
+              >
+                Вызвать на дуэль
+              </button>
+              {duelBlockReason && <p className="profile-social__hint">{duelBlockReason}</p>}
+            </div>
+          </div>
+          </>
+          )}
+
+          {/* Шефство и дуэли — управление своими связями, в чужом профиле ни к чему. */}
+          {isOwnProfile && (
+          <>
           <div className="profile-aside__section">
             <h3 className="profile-aside__title"><PixelText text="Шефство:" /></h3>
             <div className="profile-social">
@@ -803,39 +847,14 @@ export default function Profile() {
               </button>
             </div>
           </div>
+          </>
+          )}
         </section>
-        )}
 
-        {!isOwnProfile && (
-        <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
-          <div className="profile-aside__section">
-            <h3 className="profile-aside__title"><PixelText text="Социальные действия:" /></h3>
-            <div className="profile-social">
-              <button
-                className="profile-aside__btn btn-press"
-                type="button"
-                onClick={handleRespect}
-                disabled={socialBusy}
-              >
-                Отправить респект
-              </button>
-              <button
-                className="profile-aside__mentor-btn btn-press"
-                type="button"
-                onClick={handleDuel}
-                disabled={socialBusy || !canDuel}
-              >
-                Вызвать на дуэль
-              </button>
-              {duelBlockReason && <p className="profile-social__hint">{duelBlockReason}</p>}
-            </div>
-          </div>
-        </section>
-        )}
       </div>
 
-      {/* Характеристики чужого профиля сервер не отдаёт — пустой пятиугольник
-          на пол-экрана только путал. Радар — только в своём профиле. */}
+      {/* Радар и в чужом профиле: характеристики приходят вместе с ним.
+          Пустой пятиугольник не рисуем — на пол-экрана он только путает. */}
       {showCharacteristics && (
       <section className="profile-radar card-entrance" style={{ animationDelay: '0.3s' }}>
         <div className="profile-radar__chart">
@@ -935,12 +954,11 @@ export default function Profile() {
       </section>
       )}
 
-      {isOwnProfile && (
       <section className="profile-path profile-card card-entrance" style={{ animationDelay: '0.4s' }}>
         <h3 className="profile-achievements__title"><PixelText text="Достижения:" /></h3>
         <div className="profile-achievements__row">
           {pinnedBadges.length === 0 ? (
-            <p className="loading-text">Пока нет закреплённых нашивок</p>
+            <p className="loading-text">{isOwnProfile ? 'Пока нет закреплённых нашивок' : 'Нашивок пока нет'}</p>
           ) : pinnedBadges.map((item) => (
             <button key={item.id} className="ach btn-press" type="button">
               <span className="ach__icon" aria-hidden="true">
@@ -988,16 +1006,20 @@ export default function Profile() {
               <span className={`path-card__chip path-card__chip--${card.badge.rarity}`}>
                 {RARITY_LABELS[card.badge.rarity] ?? card.badge.rarity}
               </span>
-              <span
-                className="path-card__chip path-card__chip--common"
-                style={{ marginTop: 4, cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handlePinBadge(card.badge.code, Boolean(card.is_pinned))
-                }}
-              >
-                {card.is_pinned ? 'Открепить' : 'Закрепить'}
-              </span>
+              {/* Закрепление — только своих нашивок: в чужом профиле кнопка
+                  закрепляла бы нашивку смотрящего, а не владельца. */}
+              {isOwnProfile && (
+                <span
+                  className="path-card__chip path-card__chip--common"
+                  style={{ marginTop: 4, cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handlePinBadge(card.badge.code, Boolean(card.is_pinned))
+                  }}
+                >
+                  {card.is_pinned ? 'Открепить' : 'Закрепить'}
+                </span>
+              )}
             </button>
           ))}
           {lockedBadges.map((badge) => (
@@ -1015,7 +1037,6 @@ export default function Profile() {
           )}
         </div>
       </section>
-      )}
 
       {/* Модалка настройки профиля */}
       {editModal.open && (
