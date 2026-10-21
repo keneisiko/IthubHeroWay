@@ -224,13 +224,13 @@ export default function Leaderboard() {
         delta: formatRating(meRes.data?.rating_current),
         username: meRes.data?.username ?? '',
       })
+      loadedOnce.current = true
     }).catch(() => {
       if (loadedOnce.current) return
       setAgents([])
       setSquads([])
       setLoadError(true)
     }).finally(() => {
-      loadedOnce.current = true
       setLoading(false)
       setRefreshing(false)
     })

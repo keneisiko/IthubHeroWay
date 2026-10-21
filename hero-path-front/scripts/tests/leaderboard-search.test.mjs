@@ -20,7 +20,22 @@ runInNewContext(transpile(await readFile(resolve(frontend, 'src/lib/apiData.ts')
   module: apiData, exports: apiData.exports,
 })
 
-async function leaderboard() {
+async function apiResponse(url) {
+  if (url === '/api/v1/leaderboard/agents/') {
+    return { data: { count: 1, results: [
+      { username: 'ivanov', callsign: 'Сокол', rating_current: '400.00', level: 1 },
+    ] } }
+  }
+  if (url === '/api/v1/squads/leaderboard/') return { data: [] }
+  if (url === '/api/v1/rating/me/') return { data: { username: 'someone-else', rank: 2 } }
+  throw new Error(`Unexpected API request: ${url}`)
+}
+
+async function flush() {
+  for (let i = 0; i < 12; i++) await Promise.resolve()
+}
+
+async function leaderboard(request = apiResponse) {
   const state = []
   const refs = []
   const effects = []
@@ -43,18 +58,8 @@ async function leaderboard() {
       if (firstRender) effects.push(effect)
     },
   }
-  const api = {
-    async get(url) {
-      if (url === '/api/v1/leaderboard/agents/') {
-        return { data: { count: 1, results: [
-          { username: 'ivanov', callsign: 'Сокол', rating_current: '400.00', level: 1 },
-        ] } }
-      }
-      if (url === '/api/v1/squads/leaderboard/') return { data: [] }
-      if (url === '/api/v1/rating/me/') return { data: { username: 'someone-else', rank: 2 } }
-      throw new Error(`Unexpected API request: ${url}`)
-    },
-  }
+  const api = { get: request }
+  const LoadError = () => null
   const module = { exports: {} }
   runInNewContext(transpile(source), {
     module,
@@ -66,9 +71,8 @@ async function leaderboard() {
       if (name === '../api') return { __esModule: true, default: api }
       if (name === '../lib/apiData') return apiData.exports
       if (name === '../useCountUp') return { useCountUp: (value) => value }
-      if (name === '../components/Avatar' || name === '../components/LoadError') {
-        return { __esModule: true, default: () => null }
-      }
+      if (name === '../components/Avatar') return { __esModule: true, default: () => null }
+      if (name === '../components/LoadError') return { __esModule: true, default: LoadError }
       throw new Error(`Unexpected import: ${name}`)
     },
     setTimeout,
@@ -82,8 +86,8 @@ async function leaderboard() {
   }
   render()
   for (const effect of effects) effect()
-  for (let i = 0; i < 12; i++) await Promise.resolve()
-  return { render }
+  await flush()
+  return { render, LoadError }
 }
 
 function find(node, predicate) {
@@ -115,3 +119,26 @@ for (const [label, query, visible] of [
     }
   })
 }
+
+test('failed initial load keeps retry available until a later attempt succeeds', async () => {
+  let online = false
+  const harness = await leaderboard((url) => online
+    ? apiResponse(url)
+    : Promise.reject(new Error('Network unavailable')))
+  const firstError = find(harness.render(), (node) => node.type === harness.LoadError)
+  assert.ok(firstError, 'initial failure shows a retry action')
+
+  firstError.props.onRetry()
+  const retryInProgress = harness.render()
+  await flush()
+  const retryError = find(harness.render(), (node) => node.type === harness.LoadError)
+  assert.ok(retryError, 'a second failure must keep the retry action visible')
+  assert.ok(find(retryInProgress, (node) => node.props?.className === 'loading-spinner'))
+
+  online = true
+  retryError.props.onRetry()
+  await flush()
+  const loaded = harness.render()
+  assert.equal(find(loaded, (node) => node.type === harness.LoadError), undefined)
+  assert.ok(find(loaded, (node) => node.props?.className === 'tag tag--title'), 'retry can recover the leaderboard')
+})
