@@ -99,15 +99,35 @@ export default function Leaderboard() {
   const [meOnScreen, setMeOnScreen] = useState(false)
   const loadedOnce = useRef(false)
 
+  // «Обновляю» ставится там, где меняется фильтр, а не в эффекте загрузки.
+  // Только при реальной смене: повторный Enter с тем же запросом не
+  // перезагружает список, и индикатор крутился бы вечно.
+  const beginRefresh = () => {
+    setRefreshing(true)
+    setLoadError(false)
+  }
+
+  const applySearch = (value: string) => {
+    if (value === appliedSearch) return
+    beginRefresh()
+    setAppliedSearch(value)
+  }
+
+  const chooseCourse = (course: number | null) => {
+    if (course === selectedCourse) return
+    beginRefresh()
+    setSelectedCourse(course)
+  }
+
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (activeTab === 'agents') setAppliedSearch(searchQuery.trim())
+    if (activeTab === 'agents') applySearch(searchQuery.trim())
   }
 
   const changeSearch = (value: string) => {
     setSearchQuery(value)
     // поле очистили — вернуть общий топ, ждать Enter тут незачем
-    if (!value.trim() && appliedSearch) setAppliedSearch('')
+    if (!value.trim() && appliedSearch) applySearch('')
   }
 
   // Анимация чисел
@@ -150,9 +170,6 @@ export default function Leaderboard() {
   const loadLeaderboard = useCallback(() => {
     // экран загрузки — только в первый раз; дальше список обновляется
     // на месте и не пропадает из-под пальца
-    if (loadedOnce.current) setRefreshing(true)
-    else setLoading(true)
-    setLoadError(false)
     const agentsParams: Record<string, string | number> = { page: 1, page_size: 20 }
     if (selectedCourse) agentsParams.course = selectedCourse
     if (appliedSearch) agentsParams.search = appliedSearch
@@ -288,7 +305,7 @@ export default function Leaderboard() {
           {showFilters && (
             <FilterPanel
               course={selectedCourse}
-              onCourse={setSelectedCourse}
+              onCourse={chooseCourse}
               onClose={() => setShowFilters(false)}
             />
           )}
@@ -371,7 +388,7 @@ export default function Leaderboard() {
                   <button
                     type="button"
                     className="leaderboard-empty__action btn-press"
-                    onClick={() => setAppliedSearch(searchQuery.trim())}
+                    onClick={() => applySearch(searchQuery.trim())}
                   >
                     Искать среди всех агентов
                   </button>

@@ -74,12 +74,17 @@ export default function Quests() {
     overall_progress_percent: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
-  const tabIndicator = useTabIndicator(activeTab, loading)
+  // ref отдельно от состояния: в одном объекте линтер React считал рефом всё.
+  const {
+    containerRef: tabsContainerRef,
+    registerTab,
+    indicator: tabIndicatorBox,
+  } = useTabIndicator(activeTab, loading)
   const [loadError, setLoadError] = useState(false)
   const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
 
-  const reportModal = useModal()
-  const confirmModal = useModal()
+  const { ref: reportModalRef, ...reportModal } = useModal()
+  const { ref: confirmModalRef, ...confirmModal } = useModal()
   const [reportText, setReportText] = useState('')
   const [confirmQuestCode, setConfirmQuestCode] = useState<string | null>(null)
   const [confirmQuestTitle, setConfirmQuestTitle] = useState('')
@@ -98,10 +103,6 @@ export default function Quests() {
   // quiet — обновить после отправки отчёта или выбора цели без лоадера
   // на всю страницу и без прыжка прокрутки
   const loadQuests = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
-    if (!quiet) {
-      setLoading(true)
-      setLoadError(false)
-    }
     Promise.all([
       api.get('/api/v1/quests/active/'),
       api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
@@ -133,9 +134,18 @@ export default function Quests() {
     }).finally(() => setLoading(false))
   }, [addToast])
 
+  // «Загружается» при первом показе уже стоит в начальном состоянии;
+  // повтор ставит его сам. Синхронный setState в эффекте давал лишний
+  // каскадный рендер.
   useEffect(() => {
     loadQuests()
   }, [loadQuests])
+
+  const retryQuests = () => {
+    setLoading(true)
+    setLoadError(false)
+    loadQuests()
+  }
 
   const handleReportSubmit = useCallback(() => {
     if (!selfReportQuestCode) {
@@ -228,7 +238,7 @@ export default function Quests() {
   if (loadError) {
     return (
       <div className="q1 page-enter">
-        <LoadError className="q1__loading" onRetry={() => loadQuests()} />
+        <LoadError className="q1__loading" onRetry={retryQuests} />
       </div>
     )
   }
@@ -246,11 +256,11 @@ export default function Quests() {
 
       <div className="q1__left">
         <div className="q1__tabs-card">
-          <div className="q1__tabs-row" ref={tabIndicator.containerRef}>
+          <div className="q1__tabs-row" ref={tabsContainerRef}>
             {TABS.map((t, i) => (
               <button
                 key={t} type="button" role="tab"
-                ref={tabIndicator.registerTab(i)}
+                ref={registerTab(i)}
                 aria-selected={i === activeTab}
                 className={`q1__tab${i === activeTab ? ' q1__tab--active' : ''} btn-press`}
                 onClick={() => { setActiveTab(i); setShowAllQuests(false) }}
@@ -261,7 +271,7 @@ export default function Quests() {
             <span className="q1__tabs-line" />
             <span
               className="q1__tabs-pill"
-              style={{ left: tabIndicator.indicator.left, width: tabIndicator.indicator.width }}
+              style={{ left: tabIndicatorBox.left, width: tabIndicatorBox.width }}
             />
           </div>
         </div>
@@ -489,7 +499,7 @@ export default function Quests() {
       {/* Модалка самоотчёта */}
       {reportModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={reportModal.ref}>
+          <div className="modal-fixed__content" ref={reportModalRef}>
             <h3 className="popup__title">Самоотчёт</h3>
             <label className="popup__label">Комментарий или ссылка на работу</label>
             <textarea
@@ -508,7 +518,7 @@ export default function Quests() {
       {/* Модалка подтверждения квеста */}
       {confirmModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={confirmModal.ref}>
+          <div className="modal-fixed__content" ref={confirmModalRef}>
             <h3 className="popup__title">{confirmQuestTitle || 'Подтверждение квеста'}</h3>
             <label className="popup__label">
               Прикрепите ссылку на работу — её проверит куратор, награда придёт после одобрения

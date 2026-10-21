@@ -67,18 +67,13 @@ function Modal({
   width?: string
 }) {
   const [visible, setVisible] = useState(false)
-  const [closing, setClosing] = useState(false)
+  // «Закрывается» — не отдельное состояние, а следствие: окно уже закрыто,
+  // но ещё видно, пока идёт анимация. В эффекте остаются только таймеры.
+  const closing = !open && visible
 
   useEffect(() => {
-    if (open) {
-      setClosing(false)
-      const t = setTimeout(() => setVisible(true), 10)
-      return () => clearTimeout(t)
-    } else {
-      setClosing(true)
-      const t = setTimeout(() => setVisible(false), 220)
-      return () => clearTimeout(t)
-    }
+    const t = setTimeout(() => setVisible(open), open ? 10 : 220)
+    return () => clearTimeout(t)
   }, [open])
 
   // Esc закрывает окно, как и тап мимо него
@@ -139,7 +134,12 @@ export default function Shop() {
 
   // лента категорий прокручивается на узких экранах; выбранная подъезжает к центру
   const tabsScrollRef = useRef<HTMLElement>(null)
-  const tabIndicator = useTabIndicator(activeTab, loading, tabsScrollRef)
+  // ref отдельно от состояния: в одном объекте линтер React считал рефом всё.
+  const {
+    containerRef: tabsContainerRef,
+    registerTab,
+    indicator: tabIndicatorBox,
+  } = useTabIndicator(activeTab, loading, tabsScrollRef)
 
   // quiet — обновить после покупки без лоадера: иначе сетка товаров
   // пропадает, страница сжимается и прокрутка прыгает вверх.
@@ -148,8 +148,6 @@ export default function Shop() {
   // сетка товаров гаснет на месте и проявляется с новыми.
   const loadedOnce = useRef(false)
   const loadShop = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
-    if (!loadedOnce.current) setLoading(true)
-    else if (!quiet) setSwitching(true)
     const itemType = SHOP_TAB_TYPES[activeTab]
 
     Promise.all([
@@ -457,14 +455,19 @@ export default function Shop() {
           {/* Вкладки и линия под ними в общем блоке: лента прокручивается
               целиком, и линия всегда тянется на всю её длину. */}
           <div className="shop-tabs__inner">
-            <div className="shop-tabs__labels" role="tablist" ref={tabIndicator.containerRef}>
+            <div className="shop-tabs__labels" role="tablist" ref={tabsContainerRef}>
               {TABS.map((label, index) => (
                 <button
                   key={label} type="button" role="tab"
                   aria-selected={activeTab === index}
                   className={`shop-tab ${activeTab === index ? 'shop-tab--active' : ''} btn-press`}
-                  onClick={() => setActiveTab(index)}
-                  ref={tabIndicator.registerTab(index)}
+                  onClick={() => {
+                    // «Переключаю» — здесь, а не в эффекте загрузки вкладки.
+                    if (index === activeTab) return
+                    setSwitching(true)
+                    setActiveTab(index)
+                  }}
+                  ref={registerTab(index)}
                 >{label}</button>
               ))}
             </div>
@@ -472,7 +475,7 @@ export default function Shop() {
               <span className="shop-tabs__line" />
               <div
                 className="shop-tabs__pill"
-                style={{ left: tabIndicator.indicator.left + (tabIndicator.indicator.width - 50) / 2 }}
+                style={{ left: tabIndicatorBox.left + (tabIndicatorBox.width - 50) / 2 }}
               />
             </div>
           </div>

@@ -156,8 +156,6 @@ export default function Squads() {
   }, [])
 
   const loadSquad = useCallback(() => {
-    setLoading(true)
-    setNoSquad(false)
     api.get('/api/v1/squads/me/')
       .then(async (res) => {
         const my = res.data?.my_squad
@@ -196,7 +194,17 @@ export default function Squads() {
       .finally(() => setLoading(false))
   }, [addToast])
 
+  // «Загружается» при первом показе уже стоит в начальном состоянии;
+  // повтор ставит его сам. Синхронный setState в эффекте давал лишний
+  // каскадный рендер.
   useEffect(() => {
+    loadSquad()
+  }, [loadSquad])
+
+  // После вступления или создания отряда экран меняется целиком.
+  const reloadSquad = useCallback(() => {
+    setLoading(true)
+    setNoSquad(false)
     loadSquad()
   }, [loadSquad])
 
@@ -218,11 +226,11 @@ export default function Squads() {
       .then(() => {
         addToast('Вы вступили в отряд!', 'success')
         setJoinCode('')
-        loadSquad()
+        reloadSquad()
       })
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось вступить в отряд'), 'error'))
       .finally(() => setSubmitting(false))
-  }, [addToast, loadSquad])
+  }, [addToast, reloadSquad])
 
   const handleCreate = useCallback(() => {
     const name = createName.trim()
@@ -239,7 +247,7 @@ export default function Squads() {
       .then(() => {
         addToast('Отряд создан!', 'success')
         setCreateName('')
-        loadSquad()
+        reloadSquad()
       })
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось создать отряд'), 'error'))
       .finally(() => setSubmitting(false))

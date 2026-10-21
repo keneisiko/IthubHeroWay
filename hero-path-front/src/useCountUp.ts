@@ -44,14 +44,16 @@ export function useCountUp(target: number, duration = 1100, delay = 0) {
 export function useAnimatedNumber(target: number, duration = 700) {
   const [value, setValue] = useState(target)
   const fromRef = useRef(target)
+  // «Уменьшение движения» — число отдаётся сразу, без промежуточного
+  // состояния: синхронный setValue в эффекте давал лишний рендер.
+  const reduce = typeof window !== 'undefined'
+    && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 
   useEffect(() => {
     const from = fromRef.current
     if (from === target) return
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     if (reduce) {
       fromRef.current = target
-      setValue(target)
       return
     }
     let raf = 0
@@ -66,7 +68,7 @@ export function useAnimatedNumber(target: number, duration = 700) {
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [target, duration])
+  }, [target, duration, reduce])
 
-  return value
+  return reduce ? target : value
 }

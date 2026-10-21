@@ -7,6 +7,9 @@ import {
   LineElement,
   Filler,
   Tooltip,
+  type ActiveElement,
+  type ChartEvent,
+  type TooltipItem,
 } from 'chart.js'
 import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
@@ -127,7 +130,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const tilt = useTilt()
+  const { ref: tiltRef, ...tilt } = useTilt()
   // На тач-экране наведения нет: подсказку по оси не увидеть, и радар
   // читается как фигура без смысла. Там подписываем оси прямо на графике.
   const [touchOnly] = useState(() => window.matchMedia('(hover: none)').matches)
@@ -135,10 +138,6 @@ export default function Dashboard() {
 
   // quiet — обновить после действия без лоадера на весь экран
   const loadDashboard = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
-    if (!quiet) {
-      setLoadError(false)
-      setLoading(true)
-    }
     api.get('/api/v1/dashboard/')
       .then(res => setData(res.data))
       .catch(() => {
@@ -153,9 +152,18 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [addToast])
 
+  // «Загружается» при первом показе уже стоит в начальном состоянии;
+  // повтор ставит его сам. Синхронный setState в эффекте давал лишний
+  // каскадный рендер.
   useEffect(() => {
     loadDashboard()
   }, [loadDashboard])
+
+  const retryDashboard = () => {
+    setLoadError(false)
+    setLoading(true)
+    loadDashboard()
+  }
 
   // Цепочка обрывалась после data?: ответ без user ронял страницу в белый экран
   const rating = data?.user?.rating_current ?? 0
@@ -164,7 +172,7 @@ export default function Dashboard() {
   if (loadError) {
     return (
       <div className="dashboard page-enter">
-        <LoadError className="profile-loading" onRetry={() => loadDashboard()} />
+        <LoadError className="profile-loading" onRetry={retryDashboard} />
       </div>
     )
   }
@@ -294,7 +302,7 @@ export default function Dashboard() {
           onMouseMove={tilt.onMouseMove}
           onMouseLeave={() => { tilt.onMouseLeave(); setHoveredRadar(null) }}
         >
-          <div className="radar-card__tilt" ref={tilt.ref}>
+          <div className="radar-card__tilt" ref={tiltRef}>
             <span className="radar-card__label" style={{ opacity: hoveredRadar ? 1 : 0 }}>
               {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
             </span>
@@ -327,13 +335,13 @@ export default function Dashboard() {
                       cornerRadius: 12,
                       displayColors: false,
                       callbacks: {
-                        title: (items: any) => items[0]?.label || '',
-                        label: (item: any) =>
+                        title: (items: TooltipItem<'radar'>[]) => items[0]?.label || '',
+                        label: (item: TooltipItem<'radar'>) =>
                           item.datasetIndex === 0 ? `Текущий: ${item.raw}%` : `Пик: ${item.raw}%`,
                       },
                     },
                   },
-                  onHover: (_: any, elements: any[]) => {
+                  onHover: (_: ChartEvent, elements: ActiveElement[]) => {
                     if (elements.length > 0 && elements[0].datasetIndex === 0) {
                       setHoveredRadar(AXIS_LABELS[elements[0].index])
                     } else {

@@ -3454,6 +3454,9 @@ body {
 }
 
 .squad-actions__coins-badge {
+  /* Сжимается подпись, а не число: плашка уменьшалась до ширины одной цифры. */
+  flex-shrink: 0;
+  white-space: nowrap;
   background: #121212;
   color: #ffd900;
   border-radius: 12px;

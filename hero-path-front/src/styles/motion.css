@@ -6,7 +6,9 @@
 /* лента обрезается clip-path, а не overflow: у блока с overflow
    базовая линия уходит на нижний край, и число выпрыгивало над
    соседним текстом («3» выше, чем «из 25») */
-.roll__digits { font-variant-numeric: tabular-nums; }
+/* Цифры — отдельные inline-block колонки, и в узкой плашке они переносились
+   по одной, как слова: «38» вставало столбиком (отряды, «получил за месяц»). */
+.roll__digits { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .roll__col {
   position: relative;
