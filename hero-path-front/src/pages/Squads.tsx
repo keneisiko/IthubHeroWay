@@ -4,6 +4,7 @@ import api from '../api'
 import { plural } from '../lib/plural'
 import { useToasts } from '../useToasts'
 import { apiErrorMessage, unwrapList, formatRating } from '../lib/apiData'
+import PixelText from '../components/PixelText'
 
 type SortKey = 'name' | 'track' | 'status'
 
@@ -346,10 +347,10 @@ export default function Squads() {
 
           {availableSquads.length > 0 && (
             <>
-              <h3 className="squad-members__title" style={{ marginBottom: 12 }}>Доступные отряды</h3>
+              <h3 className="squad-members__title" style={{ marginBottom: 12 }}><PixelText text="Доступные отряды" /></h3>
               <ul className="squad-members__list" style={{ listStyle: 'none', padding: 0 }}>
                 {availableSquads.map(s => (
-                  <li key={s.code} className="squad-member-row hover-lift" style={{ marginBottom: 8 }}>
+                  <li key={s.code} className="squad-member-row hover-lift spot" style={{ marginBottom: 8 }}>
                     <div className="squad-member-row__main">
                       <div className="squad-member-row__tags">
                         <span className="squad-member-tag squad-member-tag--dark">{s.name}</span>
@@ -505,7 +506,7 @@ export default function Squads() {
         <div className="squad-members__panel">
           <ul className="squad-members__list">
             {visibleMembers.map((m, i) => (
-              <li key={m.id} className="squad-member-row hover-lift" style={{ animationDelay: `${i * 40}ms` }}>
+              <li key={m.id} className="squad-member-row hover-lift spot" style={{ animationDelay: `${i * 40}ms` }}>
                 <div className="squad-member-row__main">
                   {/* без своего аватара — инициалы, как в лидерах: одна и та же
                       стоковая фотография у всех путала, кто есть кто */}

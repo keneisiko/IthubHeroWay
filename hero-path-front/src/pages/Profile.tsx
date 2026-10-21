@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { useCountUp } from '../useCountUp'
 import { Radar } from 'react-chartjs-2'
 import type { Chart as ChartType } from 'chart.js'
 import {
@@ -20,6 +19,8 @@ import { plural } from '../lib/plural'
 import { useTabIndicator } from '../useTabIndicator'
 import BadgeEmblem from '../components/BadgeEmblem'
 import SkillHistory from '../components/SkillHistory'
+import PixelText from '../components/PixelText'
+import RollNumber from '../components/RollNumber'
 import '../styles/profile-radar.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -411,8 +412,6 @@ export default function Profile() {
   const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? '??'
 
   // Анимация чисел в статистике
-  const animQuests = useCountUp(questsCompleted, 1100, 200)
-  const animBadges = useCountUp(badges.length, 1100, 350)
 
 
   const handleSaveProfile = () => {
@@ -643,7 +642,7 @@ export default function Profile() {
           </section>
 
           <section className="profile-card profile-card--map card-entrance" style={{ animationDelay: '0.1s' }}>
-            <h3 className="profile-map__title">Карта пути:</h3>
+            <h3 className="profile-map__title"><PixelText text="Карта пути:" /></h3>
             <div className="profile-map__body">
               <div className="profile-map__row">
                 {PATH_TOP.map((point, i) => (
@@ -685,11 +684,11 @@ export default function Profile() {
           <button className="profile-aside__btn btn-press" onClick={editModal.show}>Настроить профиль</button>
           <div className="profile-aside__divider" />
           <div className="profile-aside__section">
-            <h3 className="profile-aside__title">Статистика:</h3>
+            <h3 className="profile-aside__title"><PixelText text="Статистика:" /></h3>
             <div className="profile-aside__stats">
-              <span className="profile-aside__pill">Выполнено квестов: <strong>{animQuests}</strong></span>
+              <span className="profile-aside__pill">Выполнено квестов: <strong><RollNumber value={questsCompleted} /></strong></span>
               <span className="profile-aside__pill">
-                Получено нашивок: <strong>{animBadges}</strong>{allBadges.length ? <> из <strong>{allBadges.length}</strong></> : null}
+                Получено нашивок: <strong><RollNumber value={badges.length} /></strong>{allBadges.length ? <> из <strong>{allBadges.length}</strong></> : null}
               </span>
               {profile?.duel_wins != null && (
                 <span className="profile-aside__pill">Побед в дуэлях: <strong>{profile.duel_wins}</strong></span>
@@ -703,7 +702,7 @@ export default function Profile() {
           </div>
 
           <div className="profile-aside__section">
-            <h3 className="profile-aside__title">Шефство:</h3>
+            <h3 className="profile-aside__title"><PixelText text="Шефство:" /></h3>
             <div className="profile-social">
               {activeMentees.map((row) => (
                 <div key={row.id} className="profile-social__row">
@@ -732,7 +731,7 @@ export default function Profile() {
           </div>
 
           <div className="profile-aside__section">
-            <h3 className="profile-aside__title">Дуэли:</h3>
+            <h3 className="profile-aside__title"><PixelText text="Дуэли:" /></h3>
             <div className="profile-social">
               {duels.length === 0 && <p className="profile-social__empty">Дуэлей пока нет</p>}
               {duels.slice(0, 5).map((duel) => {
@@ -810,7 +809,7 @@ export default function Profile() {
         {!isOwnProfile && (
         <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
           <div className="profile-aside__section">
-            <h3 className="profile-aside__title">Социальные действия:</h3>
+            <h3 className="profile-aside__title"><PixelText text="Социальные действия:" /></h3>
             <div className="profile-social">
               <button
                 className="profile-aside__btn btn-press"
@@ -938,7 +937,7 @@ export default function Profile() {
 
       {isOwnProfile && (
       <section className="profile-path profile-card card-entrance" style={{ animationDelay: '0.4s' }}>
-        <h3 className="profile-achievements__title">Достижения:</h3>
+        <h3 className="profile-achievements__title"><PixelText text="Достижения:" /></h3>
         <div className="profile-achievements__row">
           {pinnedBadges.length === 0 ? (
             <p className="loading-text">Пока нет закреплённых нашивок</p>

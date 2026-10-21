@@ -260,7 +260,7 @@ export default function Quests() {
             <h3 className="q1__activity-title">История наград</h3>
             <div className="q1__activity-list">
               {activity.map((a, i) => (
-                <article key={a.id} className="q1__acard hover-lift" style={{ animationDelay: `${i * 80}ms` }}>
+                <article key={a.id} className="q1__acard hover-lift spot" style={{ animationDelay: `${i * 80}ms` }}>
                   <div className="q1__acard-body">
                     <div className="q1__acard-name">{a.title}</div>
                     <div className="q1__acard-reward">{a.reward}</div>
@@ -283,7 +283,7 @@ export default function Quests() {
               </h2>
               <div className={`q1__quests-slot-inner${showAllQuests ? ' q1__quests-slot-inner--all' : ''}`}>
                 {currentQuests.map((q, i) => (
-                  <article key={q.id} className={`q1__card hover-lift ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
+                  <article key={q.id} className={`q1__card hover-lift spot ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
                     <div className="q1__card-body">
                       <div className="q1__card-top">
                         <span className="q1__card-kind">{q.kind}</span>
@@ -458,7 +458,7 @@ export default function Quests() {
           <h3 className="q1__activity-title">Список выполненных квестов за последние 30 дней</h3>
           <div className="q1__activity-list">
             {recentActivity.slice(0, 3).map((a) => (
-              <article key={a.id} className="q1__acard hover-lift">
+              <article key={a.id} className="q1__acard hover-lift spot">
                 <div className="q1__acard-body">
                   <div className="q1__acard-name">{a.title}</div>
                   <div className="q1__acard-reward">{a.reward}</div>

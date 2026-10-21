@@ -8,6 +8,7 @@ import { useToasts } from '../useToasts'
 import { apiErrorMessage, formatDateRu, SHOP_TAB_TYPES, unwrapList, formatRating } from '../lib/apiData'
 import { useTabIndicator } from '../useTabIndicator'
 import RollNumber from '../components/RollNumber'
+import PixelText from '../components/PixelText'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
@@ -260,7 +261,7 @@ export default function Shop() {
         </button>
 
         <div className="shop-purchases__card">
-          <h2 className="shop-purchases__title">Мои покупки</h2>
+          <h2 className="shop-purchases__title"><PixelText text="Мои покупки" /></h2>
           <div className="shop-purchases__list">
             {purchases.length === 0 ? (
               <p className="shop-purchases__empty">Покупок пока нет</p>

@@ -3,6 +3,8 @@ import api from '../api'
 import LoadError from '../components/LoadError'
 import BrandLoader from '../components/BrandLoader'
 import BadgeEmblem from '../components/BadgeEmblem'
+import PixelText from '../components/PixelText'
+import RollNumber from '../components/RollNumber'
 import { useToasts } from '../useToasts'
 import { useTabIndicator } from '../useTabIndicator'
 import { celebrate } from '../lib/celebrate'
@@ -418,7 +420,7 @@ export default function Badges() {
                   <button
                     key={badge.code}
                     type="button"
-                    className={`bd-card bd-card--${badge.rarity}${isEarned ? '' : ' bd-card--locked'}${isFresh ? ' bd-card--fresh' : ''}`}
+                    className={`bd-card spot bd-card--${badge.rarity}${isEarned ? '' : ' bd-card--locked'}${isFresh ? ' bd-card--fresh' : ''}`}
                     style={{ animationDelay: `${Math.min(i, 11) * 45}ms` }}
                     onClick={() => setOpenCode(badge.code)}
                     aria-haspopup="dialog"
@@ -453,9 +455,9 @@ export default function Badges() {
       </div>
 
       <section className="bd-summary" aria-label="Прогресс коллекции">
-        <h2 className="bd-summary__title">Собрано:</h2>
+        <h2 className="bd-summary__title"><PixelText text="Собрано:" /></h2>
         <div className="bd-summary__plate">
-          <strong>{earned.length}</strong>
+          <strong><RollNumber value={earned.length} /></strong>
           <span>из {total}</span>
         </div>
         {total > 0 && total <= 48 ? (
