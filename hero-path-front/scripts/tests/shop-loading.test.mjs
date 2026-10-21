@@ -21,13 +21,29 @@ const loadEffect = shop.body.statements.find((node) => ts.isExpressionStatement(
   && node.expression.expression.getText(ast) === 'useEffect'
   && node.expression.arguments[1]?.getText(ast) === '[loadShop]')
 assert.ok(loadEffect, 'Shop must load when its category callback changes')
+let tabClick
+function findTabClick(node) {
+  if (ts.isJsxOpeningElement(node)) {
+    const attributes = node.attributes.properties.filter(ts.isJsxAttribute)
+    if (attributes.some((attribute) => attribute.name.getText(ast) === 'role' && attribute.initializer?.text === 'tab')) {
+      tabClick = attributes.find((attribute) => attribute.name.getText(ast) === 'onClick')?.initializer?.expression
+    }
+  }
+  ts.forEachChild(node, findTabClick)
+}
+findTabClick(shop)
+assert.ok(tabClick, 'Shop tabs must expose their selection handler')
 
 const compile = (text) => ts.transpileModule(text, {
   compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
 }).outputText
 const code = compile(`function makeCallbacks(activeTab: number, products, showPurchase) {
   ${callbackDeclarations.map((node) => `const ${node.getText(ast)}`).join('\n')}
-  return { ${callbacks.join(', ')}, loadEffect: ${loadEffect.expression.arguments[0].getText(ast)} }
+  return {
+    ${callbacks.join(', ')},
+    loadEffect: ${loadEffect.expression.arguments[0].getText(ast)},
+    selectTab: (index: number) => (${tabClick.getText(ast)})(),
+  }
 }`)
 const apiData = await import(`data:text/javascript;base64,${Buffer.from(compile(
   await readFile(resolve(frontend, 'src/lib/apiData.ts'), 'utf8'),
@@ -35,7 +51,7 @@ const apiData = await import(`data:text/javascript;base64,${Buffer.from(compile(
 const flush = () => new Promise((done) => setImmediate(done))
 
 function fixture() {
-  const state = { products: [], purchases: [], history: [], coins: '0', loading: false, switching: false }
+  const state = { products: [], purchases: [], history: [], coins: '0', loading: true, switching: false }
   const toasts = []
   const pending = []
   const savedRefs = []
@@ -61,7 +77,7 @@ function fixture() {
     notifyBalanceChanged() {},
     celebrate() {},
   }
-  for (const name of ['Products', 'Purchases', 'PurchasedCodes', 'History', 'Coins', 'Me', 'Loading', 'Switching', 'ApplyingId', 'Ring', 'ShowPurchase']) {
+  for (const name of ['Products', 'Purchases', 'PurchasedCodes', 'History', 'Coins', 'Me', 'Loading', 'Switching', 'ApplyingId', 'Ring', 'ShowPurchase', 'ActiveTab']) {
     sandbox[`set${name}`] = (value) => {
       const key = name[0].toLowerCase() + name.slice(1)
       state[key] = typeof value === 'function' ? value(state[key]) : value
@@ -101,6 +117,7 @@ function fixture() {
     toasts,
     load(tab) {
       const start = pending.length
+      if (tab !== activeTab) render(activeTab).selectTab(tab)
       render(tab).loadEffect()
       const result = batch(pending.slice(start))
       assert.equal(result.category, ['cosmetic', 'boost', 'other', 'service'][tab])
