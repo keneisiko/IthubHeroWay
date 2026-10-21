@@ -236,6 +236,12 @@ export default function Leaderboard() {
     })
   }, [selectedCourse, appliedSearch])
 
+  const retryLeaderboard = () => {
+    setLoading(true)
+    setLoadError(false)
+    loadLeaderboard()
+  }
+
   useEffect(() => {
     loadLeaderboard()
   }, [loadLeaderboard])
@@ -279,7 +285,7 @@ export default function Leaderboard() {
   if (loadError) {
     return (
       <div className="dashboard leaderboard-page page-enter">
-        <LoadError className="leaderboard-loading" onRetry={loadLeaderboard} />
+        <LoadError className="leaderboard-loading" onRetry={retryLeaderboard} />
       </div>
     )
   }
