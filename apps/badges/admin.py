@@ -1,14 +1,12 @@
 from django import forms
 from django.contrib import admin, messages
-from django.db import transaction
 
 from apps.integrations.services.lxp_group_import import slug
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
-from apps.operations.services.cache import invalidate_rating_views
-from apps.progress.services.rewards import grant_coins_with_daily_cap
 
 from .metrics import FLAG_METRICS, MANUAL_CONDITION_KEY, METRIC_LABELS, THRESHOLD_METRICS
 from .models import Badge, UserBadge
+from .services import award_badge_manually
 
 MAX_CONDITION_ROWS = 3
 
@@ -114,6 +112,8 @@ class BadgeAdminForm(forms.ModelForm):
 @admin.register(Badge)
 class BadgeAdmin(ManagedRoleAdminMixin):
     form = BadgeAdminForm
+    # Удаление нашивки стирает её у всех, кто её получил.
+    deactivate_instead_of_delete = True
     list_display = ("title", "how_awarded", "category", "rarity", "reward_coins", "is_active")
     fieldsets = (
         (None, {"fields": ("title", "description", "category", "rarity", "reward_coins", "is_active", "code")}),
@@ -173,21 +173,17 @@ class UserBadgeAdmin(ManagedRoleAdminMixin):
             super().save_model(request, obj, form, change)
             return
 
-        obj.source = obj.source or f"manual:{request.user.username}"
-        with transaction.atomic():
-            super().save_model(request, obj, form, change)
-            if obj.badge.reward_coins:
-                granted = grant_coins_with_daily_cap(obj.user, obj.badge.reward_coins)
-                if granted < obj.badge.reward_coins:
-                    # Дневной предел монет — не ошибка, но знать о нём нужно:
-                    # иначе выдача выглядит как полная, а монет пришло меньше.
-                    self.message_user(
-                        request,
-                        f"Начислено {granted} из {obj.badge.reward_coins} монет: "
-                        "упёрлись в дневной предел.",
-                        level=messages.WARNING,
-                    )
-        invalidate_rating_views(obj.user.username)
+        created, granted = award_badge_manually(obj.user, obj.badge, by=request.user.username)
+        saved = UserBadge.objects.get(user=obj.user, badge=obj.badge)
+        obj.pk, obj.source = saved.pk, saved.source
+        if created and granted < obj.badge.reward_coins:
+            # Дневной предел монет — не ошибка, но знать о нём нужно:
+            # иначе выдача выглядит как полная, а монет пришло меньше.
+            self.message_user(
+                request,
+                f"Начислено {granted} из {obj.badge.reward_coins} монет: упёрлись в дневной предел.",
+                level=messages.WARNING,
+            )
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) and not is_hq(request.user)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.models import ADDITION, CHANGE, LogEntry
@@ -44,6 +46,10 @@ def _complete_quest_idempotent(user, quest, reviewer):
             + ("награда начислена." if created else "награда уже была начислена раньше.")
         ),
     )
+
+
+class ExtendDeadlineForm(forms.Form):
+    days = forms.IntegerField(label="На сколько дней продлить", min_value=1, max_value=60, initial=7)
 
 
 # Параметры каждой проверки: (ключ, подпись, значение по умолчанию).
@@ -166,6 +172,18 @@ class QuestTemplateAdmin(ManagedRoleAdminMixin):
     """
 
     form = QuestTemplateAdminForm
+    actions = ("spawn_today",)
+
+    @admin.action(description="Завести квесты на сегодня (не ждать ночи)")
+    def spawn_today(self, request, queryset):
+        from apps.quests.services.quest_periods import ensure_period_quests
+
+        result = ensure_period_quests()
+        self.message_user(
+            request,
+            f"Квесты на сегодня заведены: новых {result['created']}, уже было {result['existing']}. "
+            "Это для ежедневных и еженедельных шаблонов; остальные создаются при сохранении.",
+        )
     list_display = ("title", "quest_type", "verifier", "reward_coins", "is_active")
     list_filter = ("quest_type", "verifier", "is_active")
     search_fields = ("code", "title")
@@ -213,6 +231,30 @@ class QuestAdmin(ManagedRoleAdminMixin):
 
     list_display = ("title", "quest_type", "period_key", "reward_coins", "is_active")
     readonly_fields = ("conditions",)
+    # Удаление квеста каскадом стирает прогресс студентов, награды и заявки.
+    deactivate_instead_of_delete = True
+    actions = ("extend_deadline",)
+
+    @admin.action(description="Продлить срок…")
+    def extend_deadline(self, request, queryset):
+        from apps.operations.admin_actions import action_form
+
+        form, response = action_form(
+            self, request, queryset, ExtendDeadlineForm,
+            title="Продлить срок квестов",
+            intro="Квест без срока получит срок от сегодняшнего дня.",
+            submit_label="Продлить",
+        )
+        if response is not None:
+            return response
+        days = form.cleaned_data["days"]
+        now = timezone.now()
+        for quest in queryset:
+            quest.end_at = max(quest.end_at or now, now) + timedelta(days=days)
+            quest.save(update_fields=["end_at"])
+            self.log_change(request, quest, f"Срок продлён на {days} дн.")
+        self.message_user(request, f"Продлено квестов: {queryset.count()} — на {days} дн.")
+        return None
 
     def has_add_permission(self, request):
         # Квест без шаблона не знает, как его проверять: новые — через шаблоны.

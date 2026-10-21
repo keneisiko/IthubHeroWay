@@ -366,3 +366,117 @@ class AwardFormDefaultsTests(TestCase):
         html = str(PolozhenieAwardForm()["activity_date"])
 
         self.assertIn(f'value="{timezone.localdate().isoformat()}"', html)
+
+
+class BulkActiveActionsTests(AdminTestCase):
+    """Включать и выключать пачкой — вместо удаления, стирающего историю."""
+
+    def setUp(self):
+        super().setUp()
+        self.quests = [
+            Quest.objects.create(code=f"q{i}", title=f"Квест {i}", quest_type=QuestType.LONG, is_active=True)
+            for i in range(3)
+        ]
+        self.url = reverse("admin:quests_quest_changelist")
+
+    def test_quests_can_be_switched_off_and_on_in_bulk(self):
+        ids = [q.pk for q in self.quests[:2]]
+
+        self.client.post(self.url, {"action": "deactivate_selected", ACTION_CHECKBOX_NAME: ids})
+        self.assertEqual(Quest.objects.filter(pk__in=ids, is_active=False).count(), 2)
+        self.assertTrue(Quest.objects.get(pk=self.quests[2].pk).is_active, "невыбранный не тронут")
+
+        self.client.post(self.url, {"action": "activate_selected", ACTION_CHECKBOX_NAME: ids})
+        self.assertEqual(Quest.objects.filter(pk__in=ids, is_active=True).count(), 2)
+
+    def test_switch_is_recorded_in_history(self):
+        from django.contrib.admin.models import LogEntry
+
+        self.client.post(self.url, {"action": "deactivate_selected", ACTION_CHECKBOX_NAME: [self.quests[0].pk]})
+
+        self.assertTrue(LogEntry.objects.filter(object_id=str(self.quests[0].pk), user=self.admin_user).exists())
+
+    def test_admin_cannot_delete_quests_or_badges(self):
+        """Удаление квеста стирает прогресс и награды студентов каскадом."""
+        # Над пустым списком Django панель действий не показывает вовсе.
+        Badge.objects.create(code="b1", title="Нашивка", condition={"manual": True})
+        for name in ("admin:quests_quest_changelist", "admin:badges_badge_changelist"):
+            response = self.client.get(reverse(name))
+            self.assertNotContains(response, 'value="delete_selected"', msg_prefix=name)
+            self.assertContains(response, 'value="deactivate_selected"', msg_prefix=name)
+
+    def test_students_have_no_bulk_switch(self):
+        """Массово выключить студентов — закрыть им вход."""
+        response = self.client.get(reverse("admin:accounts_user_changelist"))
+
+        self.assertNotContains(response, 'value="deactivate_selected"')
+
+
+class FrequentActionsTests(AdminTestCase):
+    """Самые частые действия администрации — без разработчика."""
+
+    users_url = reverse("admin:accounts_user_changelist")
+
+    def test_any_list_exports_to_excel(self):
+        alice = self.student("alice")
+
+        response = self.client.post(
+            self.users_url, {"action": "export_selected_csv", ACTION_CHECKBOX_NAME: [alice.pk]}
+        )
+
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        body = response.content.decode("utf-8-sig")
+        self.assertIn("alice", body)
+        self.assertIn(";", body.splitlines()[0], "разделитель для русского Excel")
+
+    def test_students_move_to_another_squad(self):
+        alice, bob = self.student("alice"), self.student("bob")
+        other = Squad.objects.create(code="itp", name="2ИТП", course=2)
+
+        self.client.post(
+            self.users_url,
+            {"action": "move_to_squad", ACTION_CHECKBOX_NAME: [alice.pk, bob.pk], "apply": "1", "squad": other.pk},
+        )
+
+        self.assertEqual(User.objects.filter(squad=other).count(), 2)
+
+    def test_badge_is_awarded_to_a_group_once(self):
+        from apps.badges.models import UserBadge
+
+        alice, bob = self.student("alice"), self.student("bob")
+        badge = Badge.objects.create(code="intern", title="Стажировка", condition={"manual": True})
+        data = {"action": "award_badge", ACTION_CHECKBOX_NAME: [alice.pk, bob.pk], "apply": "1", "badge": badge.pk}
+
+        self.client.post(self.users_url, data)
+        self.client.post(self.users_url, data)
+
+        self.assertEqual(UserBadge.objects.filter(badge=badge).count(), 2, "повтор ничего не дублирует")
+        self.assertTrue(UserBadge.objects.get(user=alice).source.startswith("manual:boss"))
+
+    def test_quest_deadline_is_extended(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        end = timezone.now() + timedelta(days=2)
+        quest = Quest.objects.create(code="q", title="Квест", quest_type=QuestType.LONG, end_at=end)
+
+        self.client.post(
+            reverse("admin:quests_quest_changelist"),
+            {"action": "extend_deadline", ACTION_CHECKBOX_NAME: [quest.pk], "apply": "1", "days": "5"},
+        )
+
+        quest.refresh_from_db()
+        self.assertEqual(quest.end_at.date(), (end + timedelta(days=5)).date())
+
+    def test_templates_spawn_todays_quests_now(self):
+        tpl = QuestTemplate.objects.create(
+            code="daily-x", title="Ежедневный", quest_type=QuestType.DAILY, verifier=QuestVerifierKind.MANUAL
+        )
+
+        self.client.post(
+            reverse("admin:quests_questtemplate_changelist"),
+            {"action": "spawn_today", ACTION_CHECKBOX_NAME: [tpl.pk]},
+        )
+
+        self.assertTrue(Quest.objects.filter(code__startswith="daily-x").exists())

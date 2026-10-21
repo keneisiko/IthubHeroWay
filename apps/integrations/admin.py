@@ -195,6 +195,7 @@ class TelegramAccountLinkAdmin(ManagedRoleAdminMixin):
     list_select_related = ("user",)
     readonly_fields = ("user", "telegram_user_id", "telegram_chat_id", "telegram_username", "created_at", "updated_at")
     actions = ("unlink",)
+    bulk_active_actions = False
 
     def has_add_permission(self, request):
         return False

@@ -119,6 +119,29 @@ class CorrectionForm(forms.Form):
         return cleaned
 
 
+class MoveToSquadForm(forms.Form):
+    squad = forms.ModelChoiceField(
+        label="В какой отряд",
+        queryset=Squad.objects.order_by("name"),
+        help_text="Рейтинг и история студента остаются при нём.",
+    )
+
+
+class AwardBadgeForm(forms.Form):
+    badge = forms.ModelChoiceField(
+        label="Какую нашивку",
+        queryset=None,
+        help_text="Кто уже получил эту нашивку, пропускается. Монеты нашивки начислятся, "
+        "но не больше дневного предела.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.badges.models import Badge
+
+        self.fields["badge"].queryset = Badge.objects.filter(is_active=True).order_by("title")
+
+
 def activity_key_for(title: str, day) -> str:
     """Ключ мероприятия, по которому нельзя заплатить дважды.
 
@@ -171,7 +194,15 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
     autocomplete_fields = ("squad", "track",)
     list_select_related = ("squad", "track",)
     ordering = ("-rating_current", "username")
-    actions = ("grant_polozhenie_award", "create_recovery_quest", "correct_balance")
+    actions = (
+        "grant_polozhenie_award",
+        "award_badge",
+        "move_to_squad",
+        "create_recovery_quest",
+        "correct_balance",
+    )
+    # Массово выключить студентов — значит закрыть им вход: не для общей кнопки.
+    bulk_active_actions = False
     # Показатели меняются только через журнал начислений. Раньше рейтинг и
     # монеты были обычными полями формы: администратор, куратор и тьютор
     # могли переписать их руками — без основания, периода и ответственного,
@@ -268,7 +299,50 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
             actions.pop("create_recovery_quest", None)
         if not (is_superadmin(user) or is_admin(user)):
             actions.pop("correct_balance", None)
+            actions.pop("move_to_squad", None)
+        if is_hq(user):
+            actions.pop("award_badge", None)
         return actions
+
+    @admin.action(description="Выдать нашивку…")
+    def award_badge(self, request, queryset):
+        from apps.badges.services import award_badge_manually
+
+        students = queryset.filter(role=Role.AGENT)
+        form, response = action_form(
+            self, request, students, AwardBadgeForm,
+            title="Выдать нашивку",
+            intro="Нашивка появится у каждого выбранного студента, в её карточке будет видно, кто выдал.",
+            submit_label="Выдать",
+        )
+        if response is not None:
+            return response
+        badge = form.cleaned_data["badge"]
+        given = short = 0
+        for user in students:
+            created, granted = award_badge_manually(user, badge, by=request.user.username)
+            given += int(created)
+            short += int(created and granted < badge.reward_coins)
+        tail = f" Монеты урезаны дневным пределом: {short}." if short else ""
+        self.message_user(request, f"«{badge.title}» выдана: {given}. Уже была: {students.count() - given}.{tail}")
+        return None
+
+    @admin.action(description="Перевести в отряд…")
+    def move_to_squad(self, request, queryset):
+        form, response = action_form(
+            self, request, queryset, MoveToSquadForm,
+            title="Перевод в другой отряд",
+            submit_label="Перевести",
+        )
+        if response is not None:
+            return response
+        squad = form.cleaned_data["squad"]
+        moved = [user for user in queryset if user.squad_id != squad.pk]
+        queryset.filter(pk__in=[u.pk for u in moved]).update(squad=squad)
+        for user in moved:
+            self.log_change(request, user, f"Переведён в отряд «{squad.name}»")
+        self.message_user(request, f"Переведено в «{squad.name}»: {len(moved)}.")
+        return None
 
     @admin.action(description="Корректировка рейтинга и монет с основанием…")
     def correct_balance(self, request, queryset):

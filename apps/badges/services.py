@@ -111,3 +111,20 @@ def award_badges_for_user(user: User, badges: list[Badge] | None = None) -> list
             metrics["badges_at_least"] = int(metrics["badges_at_least"]) + 1
 
     return awarded
+
+
+def award_badge_manually(user: User, badge: Badge, *, by: str) -> tuple[bool, int]:
+    """Выдать нашивку руками — так же, как автомат: с монетами нашивки.
+
+    Возвращает (выдана ли сейчас, сколько монет начислено). Повторная выдача
+    ничего не меняет. Монеты идут через общий дневной предел — как и у
+    автоматической выдачи, — поэтому их может прийти меньше награды.
+    """
+    with transaction.atomic():
+        user_badge, created = UserBadge.objects.get_or_create(
+            user=user, badge=badge, defaults={"source": f"manual:{by}"}
+        )
+        granted = grant_coins_with_daily_cap(user, badge.reward_coins) if created and badge.reward_coins else 0
+    if created:
+        invalidate_rating_views(user.username)
+    return created, granted
