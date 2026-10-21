@@ -168,6 +168,7 @@ export default function PixelField({ className = '' }: { className?: string }) {
     }
 
     const render = (time: number) => {
+      if (grid.width === 0 || grid.height === 0) return
       ctx.clearRect(0, 0, width, height)
       ctx.drawImage(grid, 0, 0, width, height)
 
@@ -246,6 +247,7 @@ export default function PixelField({ className = '' }: { className?: string }) {
     }
 
     const bakeStill = () => {
+      if (grid.width === 0 || grid.height === 0) return
       // один кадр с уже пройденными тропами — фон не пустой и без движения
       for (const w of walkers) {
         for (let s = 0; s < 40; s++) {

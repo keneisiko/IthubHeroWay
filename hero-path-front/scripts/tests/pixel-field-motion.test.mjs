@@ -22,7 +22,7 @@ class Events {
   count(type) { return type ? this.listeners.get(type)?.size ?? 0 : [...this.listeners.values()].reduce((total, handlers) => total + handlers.size, 0) }
 }
 
-function environment({ reduced = false, visibility = 'visible' } = {}) {
+function environment({ reduced = false, visibility = 'visible', width = 800, height = 600 } = {}) {
   const query = new Events()
   query.matches = reduced
   query.set = (matches) => { query.matches = matches; query.dispatch('change', { matches }) }
@@ -32,11 +32,17 @@ function environment({ reduced = false, visibility = 'visible' } = {}) {
   const document = new Events()
   document.visibilityState = visibility
   let renders = 0
-  const ctx = new Proxy({ clearRect: () => renders++ }, {
+  const ctx = new Proxy({
+    clearRect: () => renders++,
+    drawImage: (source) => {
+      assert.ok(source.width > 0 && source.height > 0, 'drawImage requires a nonempty source canvas')
+    },
+  }, {
     get: (target, key) => target[key] ?? (() => {}),
     set: (target, key, value) => { target[key] = value; return true },
   })
-  const canvas = { getContext: () => ctx, getBoundingClientRect: () => ({ width: 800, height: 600, left: 0, top: 0 }) }
+  const size = { width, height }
+  const canvas = { getContext: () => ctx, getBoundingClientRect: () => ({ ...size, left: 0, top: 0 }) }
   document.createElement = () => ({ getContext: () => ctx })
   const frames = new Map()
   const observers = []
@@ -78,7 +84,10 @@ function environment({ reduced = false, visibility = 'visible' } = {}) {
       callback(time += 16.67)
     },
     visibility(state) { document.visibilityState = state; document.dispatch('visibilitychange') },
-    resize() { for (const observer of observers) if (observer.connected) observer.callback() },
+    resize(width = size.width, height = size.height) {
+      Object.assign(size, { width, height })
+      for (const observer of observers) if (observer.connected) observer.callback()
+    },
   }
 }
 
@@ -152,6 +161,69 @@ scenario('Reduced resize and bursts remain static', { reduced: true }, (env) => 
   env.window.dispatch('pixelfield:burst', { detail: { x: 80, y: 60 } })
   assert.equal(env.renders, before + 1)
   assert.equal(env.frames.size, 0)
+})
+
+scenario('Initially empty animated canvas paints after gaining size', { width: 0, height: 0 }, (env) => {
+  env.tick()
+  assert.equal(env.renders, 0)
+  assert.equal(env.frames.size, 1)
+  env.resize(800, 600)
+  env.tick()
+  assert.equal(env.renders, 1)
+})
+
+scenario('Initially empty reduced canvas paints a still after gaining size', { reduced: true, width: 0, height: 0 }, (env) => {
+  assert.equal(env.renders, 0)
+  assert.equal(env.frames.size, 0)
+  env.resize(800, 600)
+  assert.equal(env.renders, 1)
+  assert.equal(env.frames.size, 0)
+})
+
+scenario('Animated resize through either empty dimension resumes drawing', {}, (env) => {
+  env.tick()
+  for (const [width, height] of [[0, 600], [800, 0], [0, 0]]) {
+    const before = env.renders
+    env.resize(width, height)
+    env.tick()
+    assert.equal(env.renders, before)
+    env.resize(800, 600)
+    env.tick()
+    assert.equal(env.renders, before + 1)
+    assert.equal(env.frames.size, 1)
+  }
+})
+
+scenario('Empty reduced resize, burst and media changes recover without invalid drawing', { reduced: true }, (env) => {
+  const before = env.renders
+  for (const [width, height] of [[0, 600], [800, 0], [0, 0]]) {
+    env.resize(width, height)
+    env.window.dispatch('pixelfield:burst', { detail: { x: 80, y: 60 } })
+    env.query.set(false)
+    env.tick()
+    env.query.set(true)
+    assert.equal(env.renders, before)
+    assert.equal(env.frames.size, 0)
+  }
+  env.resize(800, 600)
+  assert.equal(env.renders, before + 1)
+  assert.equal(env.frames.size, 0)
+})
+
+scenario('Unmount at zero size cancels RAF and observer; remount recovers', {}, (env) => {
+  env.resize(0, 0)
+  env.unmount()
+  assert.equal(env.frames.size, 0)
+  assert.equal(env.query.count(), 0)
+  assert.equal(env.window.count(), 0)
+  assert.equal(env.document.count(), 0)
+  assert.ok(env.observers.every((observer) => !observer.connected))
+  env.resize(800, 600)
+  env.mount()
+  env.tick()
+  assert.equal(env.renders, 1)
+  assert.equal(env.frames.size, 1)
+  assert.equal(env.observers.filter((observer) => observer.connected).length, 1)
 })
 
 scenario('Unmount removes media/input/visibility listeners and RAF; remount is singular', {}, (env) => {
