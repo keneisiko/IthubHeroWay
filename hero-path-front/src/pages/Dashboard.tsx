@@ -1,59 +1,14 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Radar } from 'react-chartjs-2'
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  type ActiveElement,
-  type ChartEvent,
-  type TooltipItem,
-} from 'chart.js'
+import { useState, useEffect, useCallback } from 'react'
 import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
 import api from '../api'
 import { useToasts } from '../useToasts'
-import { formatDateTimeRu, formatRating } from '../lib/apiData'
+import { formatDateTimeRu, formatRating, unwrapList } from '../lib/apiData'
 import RollNumber from '../components/RollNumber'
-import RadarHud, { type RadarGeo } from '../components/RadarHud'
-import SkillSummary from '../components/SkillSummary'
+import CharacteristicsRadar, { type CharacteristicItem } from '../components/CharacteristicsRadar'
 import PixelText from '../components/PixelText'
 import ActiveBoostNotice from '../components/BoostPlaque'
 import '../styles/dashboard.css'
-
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
-
-// холст рисует подписи один раз: если фирменный шрифт ещё грузился,
-// они остались бы запасным — после загрузки шрифтов перерисовываем
-if (typeof document !== 'undefined' && document.fonts) {
-  document.fonts.ready.then(() => {
-    Object.values(ChartJS.instances).forEach((chart) => chart.update('none'))
-  })
-}
-
-const AXIS_LABELS = ['Ритм', 'Фокус', 'Мощность', 'Связь', 'Отдача']
-
-const radarOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  scales: {
-    r: {
-      beginAtZero: true,
-      max: 100,
-      // в макете пятиугольник состоит ровно из 5 колец
-      ticks: { display: false, stepSize: 20 },
-      grid: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3, circular: false },
-      angleLines: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3 },
-      pointLabels: { display: false },
-    },
-  },
-  layout: { padding: 0 },
-  elements: { line: { tension: 0 } },
-  animation: { duration: 1100, easing: 'easeOutExpo' as const },
-  plugins: { legend: { display: false } },
-}
 
 interface DashboardData {
   user: {
@@ -91,24 +46,6 @@ interface DashboardData {
 
 /* ---------- маленькие хуки для "живости" интерфейса ---------- */
 
-// лёгкий 3D-tilt по курсору на карточке радара
-function useTilt(maxDeg = 7) {
-  const ref = useRef<HTMLDivElement>(null)
-  const onMouseMove = (e: React.MouseEvent) => {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width - 0.5
-    const y = (e.clientY - rect.top) / rect.height - 0.5
-    el.style.transform = `perspective(900px) rotateX(${(-y * maxDeg).toFixed(2)}deg) rotateY(${(x * maxDeg).toFixed(2)}deg)`
-  }
-  const onMouseLeave = () => {
-    const el = ref.current
-    if (el) el.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)'
-  }
-  return { ref, onMouseMove, onMouseLeave }
-}
-
 /* ---------- подсветка в ленте активности ----------
    в макете внутри строки фиолетовым выделены <нашивка>, @ник и награда «+N монет» */
 
@@ -135,35 +72,20 @@ function FeedText({ text }: { text: string }) {
 }
 
 export default function Dashboard() {
-  const [hoveredRadar, setHoveredRadar] = useState<string | null>(null)
+  const [characteristics, setCharacteristics] = useState<CharacteristicItem[]>([])
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
-  const { ref: tiltRef, ...tilt } = useTilt()
 
-  // центр и радиус пятиугольника — для луча радара под графиком;
-  // Chart.js сообщает их после каждой раскладки (и при ресайзе)
-  const [radarGeo, setRadarGeo] = useState<RadarGeo | null>(null)
-  const geoPlugin = useMemo(() => ({
-    id: 'hudGeo',
-    afterLayout(chart: ChartJS) {
-      const scale = chart.scales.r as unknown as { xCenter: number; yCenter: number; drawingArea: number } | undefined
-      if (!scale) return
-      const next = { cx: scale.xCenter, cy: scale.yCenter, r: scale.drawingArea }
-      setRadarGeo((prev) => (
-        prev && Math.abs(prev.cx - next.cx) < 0.5 && Math.abs(prev.cy - next.cy) < 0.5 && Math.abs(prev.r - next.r) < 0.5
-          ? prev
-          : next
-      ))
-    },
-  }), [])
-  // На тач-экране наведения нет: подсказку по оси не увидеть, и радар
-  // читается как фигура без смысла. Там подписываем оси прямо на графике.
-  const [touchOnly] = useState(() => window.matchMedia('(hover: none)').matches)
   const { toasts, addToast } = useToasts()
 
   // quiet — обновить после действия без лоадера на весь экран
   const loadDashboard = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
+    // Пятиугольник тот же, что в профиле, — и данные те же. Ошибка тут не
+    // ломает главную: без характеристик пятиугольник просто не рисуется.
+    api.get('/api/v1/profile/me/characteristics/')
+      .then(res => setCharacteristics(unwrapList<CharacteristicItem>(res.data)))
+      .catch(() => setCharacteristics([]))
     api.get('/api/v1/dashboard/')
       .then(res => setData(res.data))
       .catch(() => {
@@ -218,43 +140,10 @@ export default function Dashboard() {
     )
   }
 
-  const radarValues = AXIS_LABELS.map(label =>
-    data?.user?.skills?.[label] ?? 0
-  )
-  const radarPeakValues = AXIS_LABELS.map(label =>
-    data?.user?.skills_peak?.[label] ?? radarValues[AXIS_LABELS.indexOf(label)] ?? 0
-  )
   const strike = data?.strike
   const lateDays = strike?.late_strike ?? 0
   const strikeProgress = strike?.overall_progress_percent ?? 0
   const ratingProgress = data?.rating_progress
-  const radarData = {
-    labels: AXIS_LABELS,
-    datasets: [
-      {
-        label: 'Текущий',
-        data: radarValues,
-        backgroundColor: 'rgba(154, 51, 244, 0.18)',
-        borderColor: '#9A33F4',
-        borderWidth: 5,
-        pointBackgroundColor: '#f5f5f5',
-        pointBorderColor: '#9A33F4',
-        pointBorderWidth: 5,
-        pointRadius: 9,
-        pointHoverRadius: 12,
-      },
-      {
-        label: 'Пик',
-        data: radarPeakValues,
-        backgroundColor: 'rgba(154, 51, 244, 0.08)',
-        borderColor: 'rgba(154, 51, 244, 0.65)',
-        borderWidth: 3,
-        borderDash: [8, 7],
-        pointRadius: 0,
-      },
-    ],
-  }
-
   const activity = data?.feed ?? []
 
   return (
@@ -324,74 +213,11 @@ export default function Dashboard() {
           </section>
         </div>
 
-        <section
-          className="radar-card radar-card--summary dash-in"
+        <CharacteristicsRadar
+          characteristics={characteristics}
+          className="dash-in profile-radar--compact"
           style={{ animationDelay: '160ms' }}
-          onMouseMove={tilt.onMouseMove}
-          onMouseLeave={() => { tilt.onMouseLeave(); setHoveredRadar(null) }}
-        >
-          <div className="radar-card__tilt" ref={tiltRef}>
-            <span className="radar-card__label" style={{ opacity: hoveredRadar ? 1 : 0 }}>
-              {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
-            </span>
-            <div className="radar-card__canvas">
-              <RadarHud geo={radarGeo} values={radarValues} max={100} />
-              <Radar
-                plugins={[geoPlugin]}
-                data={radarData}
-                options={{
-                  ...radarOptions,
-                  layout: { padding: touchOnly ? 6 : 0 },
-                  scales: {
-                    r: {
-                      ...radarOptions.scales.r,
-                      pointLabels: {
-                        display: touchOnly,
-                        color: '#9a33f4',
-                        font: { family: 'Montserrat, sans-serif', size: 13, weight: 700 },
-                        padding: 8,
-                      },
-                    },
-                  },
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                      enabled: true,
-                      // светлая карточка, как подсказка оси в профиле
-                      backgroundColor: 'rgba(255, 255, 255, 0.96)',
-                      titleColor: '#9a33f4',
-                      bodyColor: '#121212',
-                      borderColor: 'rgba(154, 51, 244, 0.18)',
-                      borderWidth: 1,
-                      titleFont: { family: '"TT Firs Neue", Montserrat, sans-serif', size: 16, weight: 700 },
-                      bodyFont: { family: 'Montserrat, sans-serif', size: 13, weight: 600 },
-                      padding: 12,
-                      cornerRadius: 14,
-                      caretSize: 0,
-                      displayColors: false,
-                      callbacks: {
-                        title: (items: TooltipItem<'radar'>[]) => items[0]?.label || '',
-                        label: (item: TooltipItem<'radar'>) =>
-                          item.datasetIndex === 0 ? `Текущий: ${item.raw}%` : `Пик: ${item.raw}%`,
-                      },
-                    },
-                  },
-                  onHover: (_: ChartEvent, elements: ActiveElement[]) => {
-                    if (elements.length > 0 && elements[0].datasetIndex === 0) {
-                      setHoveredRadar(AXIS_LABELS[elements[0].index])
-                    } else {
-                      setHoveredRadar(null)
-                    }
-                  },
-                }}
-              />
-            </div>
-          </div>
-          <SkillSummary
-            skills={AXIS_LABELS.map((key, i) => ({ key, value: radarValues[i], peak: radarPeakValues[i] }))}
-            max={100}
-          />
-        </section>
+        />
       </div>
 
       <div className="dashboard__bottom">

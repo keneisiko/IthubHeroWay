@@ -1,15 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Radar } from 'react-chartjs-2'
-import type { Chart as ChartType } from 'chart.js'
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-} from 'chart.js'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useToasts } from '../useToasts'
@@ -20,9 +10,7 @@ import { useTabIndicator } from '../useTabIndicator'
 import BadgeEmblem from '../components/BadgeEmblem'
 import BadgeSheet from '../components/BadgeSheet'
 import type { Badge, EarnedBadge } from '../lib/badges'
-import SkillHistory from '../components/SkillHistory'
-import RadarHud from '../components/RadarHud'
-import SkillSummary from '../components/SkillSummary'
+import CharacteristicsRadar, { type CharacteristicItem } from '../components/CharacteristicsRadar'
 import PixelText from '../components/PixelText'
 import Avatar from '../components/Avatar'
 import { bannerVariant, glowVariant, type ActiveBoost, type AppliedItems } from '../lib/cosmetics'
@@ -32,41 +20,7 @@ import RollNumber from '../components/RollNumber'
 import DialogClose from '../components/DialogClose'
 import { useModal } from '../useModal'
 import { notifyBalanceChanged } from '../lib/balance'
-import '../styles/profile-radar.css'
 
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
-
-// Порядок как в макете: от верхней вершины по часовой стрелке
-const AXIS_KEYS = ['Мощность', 'Фокус', 'Отдача', 'Ритм', 'Связь'] as const
-
-const radarBaseOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  scales: {
-    r: {
-      beginAtZero: true,
-      max: 20,
-      // в макете пятиугольник состоит ровно из 5 колец
-      ticks: { display: false, stepSize: 4 },
-      grid: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3, circular: false },
-      angleLines: { color: 'rgba(154, 51, 244, 0.55)', lineWidth: 3 },
-      pointLabels: { display: false },
-    },
-  },
-  layout: { padding: 0 },
-  elements: { line: { tension: 0.12 } },
-  animation: { duration: 900, easing: 'easeOutQuart' as const },
-  plugins: { legend: { display: false }, tooltip: { enabled: false } },
-} as const
-
-const AXES = AXIS_KEYS.map((key) => ({ key }))
-
-// Габариты пилюли со значением: она стоит в вершине пятиугольника,
-// поэтому подпись оси нужно отодвинуть за её пределы
-const VALUE_PILL = { halfWidth: 27, halfHeight: 17.5 }
-const AXIS_LABEL_GAP = 12
-// ширина подсказки оси — совпадает с .axis-tip в profile-radar.css
-const TIP_WIDTH = 148
 
 const BADGE_TAB_CATEGORIES: Record<string, string | null> = {
   'Путь': null,
@@ -163,35 +117,12 @@ interface UserBadge {
   acquired_at: string
 }
 
-interface Point {
-  x: number
-  y: number
-}
-
-// Подпись оси: точка привязки у вершины и направление, куда её отодвинуть
-interface AxisAnchor extends Point {
-  ux: number
-  uy: number
-}
-
-interface CharacteristicItem {
-  pillar: string
-  label: string
-  current: number
-  peak: number
-  history: number[]
-}
-
 export default function Profile() {
   const { username: routeUsername } = useParams<{ username?: string }>()
   const navigate = useNavigate()
   const isOwnProfile = !routeUsername
   const tabs = useMemo(() => ['Путь', 'Ритм', 'Мастерство', 'Сообщество', 'Вклад', 'Статус', 'Особые'], [])
   const [activeTab, setActiveTab] = useState('Путь')
-  const [activeAxis, setActiveAxis] = useState<string | null>(null)
-  const [hoveredAxis, setHoveredAxis] = useState<string | null>(null)
-  // сторона подсказки оси: наружу от графика, а если там край экрана — над подписью
-  const [tipSide, setTipSide] = useState<'left' | 'right' | 'above'>('right')
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [characteristics, setCharacteristics] = useState<CharacteristicItem[]>([])
   const [badges, setBadges] = useState<UserBadge[]>([])
@@ -350,43 +281,6 @@ export default function Profile() {
     loadProfile()
   }
 
-  const getSkill = useCallback((key: string) => {
-    const item = characteristics.find(c => c.label === key)
-    return {
-      current: item?.current ?? 0,
-      peak: item?.peak ?? 0,
-      history: item?.history ?? [0, 0, 0, 0, 0, 0],
-    }
-  }, [characteristics])
-
-  const radarData = {
-    labels: [...AXIS_KEYS],
-    datasets: [
-      {
-        label: 'Текущий',
-        data: AXIS_KEYS.map(k => getSkill(k).current),
-        backgroundColor: 'rgba(154, 51, 244, 0.18)',
-        borderColor: '#9A33F4',
-        borderWidth: 5,
-        pointBackgroundColor: '#f5f5f5',
-        pointBorderColor: '#9A33F4',
-        pointBorderWidth: 5,
-        pointRadius: 9,
-        pointHoverRadius: 12,
-      },
-      {
-        label: 'Пик',
-        data: AXIS_KEYS.map(k => getSkill(k).peak),
-        backgroundColor: 'rgba(154, 51, 244, 0.08)',
-        borderColor: 'rgba(154, 51, 244, 0.65)',
-        borderWidth: 3,
-        borderDash: [8, 7],
-        pointRadius: 0,
-        pointHoverRadius: 0,
-      },
-    ],
-  }
-
   // Карта пути: пройденные вехи считает бэкенд по реальным событиям.
   // Пустой список — профиль ещё не загрузился.
   const pathPoints = [...PATH_TOP, ...PATH_BOTTOM]
@@ -399,55 +293,6 @@ export default function Profile() {
   const pathNodeState = (i: number) =>
     i === lastReachedIndex ? 'current' : i < lastReachedIndex ? 'done' : 'idle'
 
-  // Подписи значений стоят ровно на вершинах графика, поэтому координаты
-  // берём у самого чарта после отрисовки и после каждого ресайза.
-  const chartRef = useRef<ChartType<'radar'> | null>(null)
-  const [vertices, setVertices] = useState<{ current: Point[]; peak: Point[]; center: Point | null }>({ current: [], peak: [], center: null })
-  const [axisAnchors, setAxisAnchors] = useState<AxisAnchor[]>([])
-
-  const syncVertices = useCallback(() => {
-    const chart = chartRef.current
-    if (!chart) return
-    const scale = chart.scales.r as unknown as {
-      xCenter: number
-      yCenter: number
-      drawingArea: number
-      getPointPosition: (i: number, d: number) => { x: number; y: number }
-    }
-    if (!scale) return
-
-    // Пик подписан прямо на своей вершине, текущее значение — в углу
-    // пятиугольника, как в макете.
-    setVertices({
-      current: AXES.map((_, i) => scale.getPointPosition(i, scale.drawingArea)),
-      peak: chart.getDatasetMeta(1).data.map((point) => ({ x: point.x, y: point.y })),
-      center: { x: scale.xCenter, y: scale.yCenter },
-    })
-
-    // Подпись оси уводим за пилюлю: считаем, насколько та выступает
-    // вдоль луча, и добавляем зазор.
-    setAxisAnchors(AXES.map((_, i) => {
-      const outer = scale.getPointPosition(i, scale.drawingArea)
-      const dx = outer.x - scale.xCenter
-      const dy = outer.y - scale.yCenter
-      const length = Math.hypot(dx, dy) || 1
-      const ux = dx / length
-      const uy = dy / length
-      const pillReach = Math.abs(ux) * VALUE_PILL.halfWidth + Math.abs(uy) * VALUE_PILL.halfHeight
-      const point = scale.getPointPosition(i, scale.drawingArea + pillReach + AXIS_LABEL_GAP)
-      return { x: point.x, y: point.y, ux, uy }
-    }))
-  }, [])
-
-  const radarOptions = useMemo(() => ({
-    ...radarBaseOptions,
-    animation: { ...radarBaseOptions.animation, onComplete: syncVertices },
-    onResize: syncVertices,
-  }), [syncVertices])
-
-  const selectedAxis = activeAxis ?? 'Мощность'
-  const activeHistory = getSkill(selectedAxis).history
-  const closeHistory = useCallback(() => setActiveAxis(null), [])
 
 
 
@@ -491,7 +336,6 @@ export default function Profile() {
     return 'ach__rarity--common'
   }
 
-  const showCharacteristics = characteristics.length > 0
   const pinnedBadges = useMemo(() => {
     const pinned = badges.filter((b) => b.is_pinned).slice(0, 3)
     // В чужом профиле пустой ряд «нет закреплённых» ничего не говорит о
@@ -931,134 +775,11 @@ export default function Profile() {
 
       </div>
 
-      {/* Радар и в чужом профиле: характеристики приходят вместе с ним.
-          Пустой пятиугольник не рисуем — на пол-экрана он только путает. */}
-      {showCharacteristics && (
-      <section className="profile-radar card-entrance" style={{ animationDelay: '0.3s' }}>
-        <div className="profile-radar__chart">
-          <RadarHud
-            geo={vertices.center && vertices.current[0] ? {
-              cx: vertices.center.x,
-              cy: vertices.center.y,
-              r: Math.hypot(vertices.current[0].x - vertices.center.x, vertices.current[0].y - vertices.center.y),
-            } : null}
-            values={AXES.map(({ key }) => getSkill(key).current)}
-            max={20}
-          />
-          <Radar ref={chartRef} data={radarData} options={radarOptions} />
-
-          {/* луч к выбранной оси: видно, о какой характеристике история */}
-          {showCharacteristics && activeAxis && vertices.center && (() => {
-            const i = AXES.findIndex((a) => a.key === activeAxis)
-            const end = vertices.current[i]
-            if (!end) return null
-            return (
-              <svg className="profile-radar__beam" aria-hidden="true">
-                <line key={activeAxis} x1={vertices.center.x} y1={vertices.center.y} x2={end.x} y2={end.y} pathLength={1} />
-              </svg>
-            )
-          })()}
-
-          {/* Пик подписываем, только когда он читается: у выбранной оси или
-              если вершина отошла от центра. Иначе подписи с маленькими
-              значениями слипались в одну кучу посередине. */}
-          {showCharacteristics && vertices.peak.map((point, i) => {
-            const key = AXES[i].key
-            const skill = getSkill(key)
-            const center = vertices.center
-            const far = center ? Math.hypot(point.x - center.x, point.y - center.y) > 64 : true
-            // у самой вершины пик лёг бы на подпись текущего значения
-            const corner = vertices.current[i]
-            const clear = corner ? Math.hypot(point.x - corner.x, point.y - corner.y) > 46 : true
-            const show = (activeAxis === key && clear) || (far && clear && skill.peak !== skill.current)
-            return (
-              <span
-                key={`peak-${i}`}
-                className={`profile-radar__value profile-radar__value--inner${show ? '' : ' profile-radar__value--hidden'}${activeAxis === key ? ' profile-radar__value--focus' : ''}`}
-                style={{ left: point.x, top: point.y }}
-                aria-hidden={!show}
-              >
-                {skill.peak}
-              </span>
-            )
-          })}
-
-          {showCharacteristics && vertices.current.map((point, i) => (
-            <span
-              key={`current-${i}`}
-              className={`profile-radar__value${activeAxis === AXES[i].key ? ' profile-radar__value--focus' : ''}${activeAxis && activeAxis !== AXES[i].key ? ' profile-radar__value--dim' : ''}`}
-              style={{ left: point.x, top: point.y }}
-            >
-              {getSkill(AXES[i].key).current}
-            </span>
-          ))}
-
-          {axisAnchors.map((anchor, i) => {
-            const key = AXES[i].key
-            const skill = getSkill(key)
-            const isActive = activeAxis === key
-            const isHovered = hoveredAxis === key
-            return (
-              <button
-                type="button"
-                key={key}
-                aria-pressed={isActive}
-                className={`profile-radar__axis${isActive ? ' profile-radar__axis--active' : ''}`}
-                style={{
-                  left: anchor.x,
-                  top: anchor.y,
-                  // сдвигаем подпись на половину её размера наружу от вершины
-                  transform: `translate(calc(-50% + ${anchor.ux * 50}%), calc(-50% + ${anchor.uy * 50}%))`,
-                }}
-                onMouseEnter={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const outward = anchor.ux < -0.05 ? 'left' : 'right'
-                  const room = outward === 'left' ? rect.left : window.innerWidth - rect.right
-                  setTipSide(room >= TIP_WIDTH + 24 ? outward : 'above')
-                  setHoveredAxis(key)
-                }}
-                onMouseLeave={() => setHoveredAxis(null)}
-                onClick={() => setActiveAxis(cur => cur === key ? null : key)}
-              >
-                <span className="profile-radar__axis-icon" aria-hidden="true" />
-                <span>{key}</span>
-                {/* у выбранной оси всё это уже есть в карточке истории */}
-                {!isActive && showCharacteristics && (
-                  // наружу от пятиугольника и вбок от подписи: снизу и сверху
-                  // подсказка легла бы на линии графика
-                  <span className={`axis-tip axis-tip--${isHovered ? tipSide : anchor.ux < -0.05 ? 'left' : 'right'}${isHovered ? ' axis-tip--show' : ''}`} aria-hidden="true">
-                    <span className="axis-tip__num"><b>{skill.current}</b> / 20</span>
-                    <span className="axis-tip__bar">
-                      <i style={{ transform: `scaleX(${Math.min(skill.current, 20) / 20})` }} />
-                      <em style={{ left: `${(Math.min(skill.peak, 20) / 20) * 100}%` }} />
-                    </span>
-                    <span className="axis-tip__peak">лучшее {skill.peak}</span>
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        <SkillSummary
-          skills={AXES.map(({ key }) => ({ key, value: getSkill(key).current, peak: getSkill(key).peak }))}
-          max={20}
-          onPick={(key) => setActiveAxis((cur) => (cur === key ? null : key))}
-        />
-
-        {showCharacteristics && (
-          <SkillHistory
-            axis={selectedAxis}
-            values={activeHistory}
-            current={getSkill(selectedAxis).current}
-            peak={getSkill(selectedAxis).peak}
-            max={20}
-            visible={Boolean(activeAxis)}
-            onClose={closeHistory}
-          />
-        )}
-      </section>
-      )}
+      <CharacteristicsRadar
+        characteristics={characteristics}
+        className="card-entrance"
+        style={{ animationDelay: '0.3s' }}
+      />
 
       <section className="profile-path profile-card card-entrance" style={{ animationDelay: '0.4s' }}>
         <h3 className="profile-achievements__title"><PixelText text="Достижения:" /></h3>

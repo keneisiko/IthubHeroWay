@@ -573,3 +573,31 @@
 @media (hover: none) {
   .axis-tip { display: none; }
 }
+
+/* --- компактный вариант для главной ---
+   Колонка главной шириной ~465px, а пятиугольник профиля рассчитан на 634px:
+   он вылезал вправо, и подпись «Фокус» уходила под боковое меню. Тот же
+   компонент, только холст тянется по колонке, а с боков оставлено поле
+   под подписи осей. */
+/* на телефоне колонка во всю ширину — там работают мобильные правила профиля */
+@media (min-width: 901px) {
+  .profile-radar.profile-radar--compact {
+    margin: 0;
+    padding: 64px 72px 28px;
+  }
+
+  .profile-radar--compact .profile-radar__chart {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 634 / 601;
+  }
+
+  .profile-radar--compact .profile-radar__axis { font-size: 18px; }
+
+  .profile-radar--compact .profile-radar__value {
+    font-size: 18px;
+    height: 28px;
+    min-width: 44px;
+    padding: 2px 12px;
+  }
+}
