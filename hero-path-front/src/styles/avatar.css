@@ -1,0 +1,105 @@
+/* =========================
+   АВАТАР (components/Avatar.tsx)
+   Размер, рамку и цвет задаёт место, где аватар стоит; здесь —
+   слой с буквами под фото и мягкое проявление фото поверх.
+   ========================= */
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.avatar__initials {
+  font-family: var(--font-display);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.avatar__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  opacity: 0;
+  transform: scale(1.08);
+  transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.avatar--photo .avatar__img { opacity: 1; transform: none; }
+.avatar--photo .avatar__initials { opacity: 0; }
+
+/* без фото — один из трёх тонов бренда, чтобы список не сливался
+   в одинаковые бледные кружки; тон постоянный для человека */
+.avatar[data-tone='purple']:not(.avatar--photo) {
+  background: var(--purple-500);
+  color: var(--ithub-white);
+}
+
+.avatar[data-tone='dark']:not(.avatar--photo) {
+  background: var(--ithub-black);
+  color: var(--sys-yellow);
+}
+
+.leaderboard-item__avatar.avatar,
+.squad-member-row__avatar.avatar { font-size: 18px; }
+
+/* в шапке фон фиолетовый — там свой полупрозрачный белый */
+.top-header__avatar.avatar:not(.avatar--photo) {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--ithub-white);
+}
+
+/* в карточке профиля аватар заполняет рамку целиком */
+.profile-card__avatar-face.avatar {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.profile-card__avatar-face.avatar:not(.avatar--photo) {
+  background: transparent;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar__img { transition: opacity 0.2s linear; transform: none; }
+}
+
+/* под фото фон рамки белый — иначе по скруглению проступает
+   фиолетовая кромка */
+.profile-card__avatar:has(.avatar--photo) { background: var(--ithub-white); }
+
+/* выбор агента (дуэль, шефство): аватар слева, имя и подпись справа */
+.agent-picker__row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-areas: "ava name" "ava meta";
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+.agent-picker__avatar.avatar {
+  grid-area: ava;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(154, 51, 244, 0.16);
+  color: var(--purple-500);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.agent-picker__name { grid-area: name; align-self: end; }
+.agent-picker__meta { grid-area: meta; align-self: start; }

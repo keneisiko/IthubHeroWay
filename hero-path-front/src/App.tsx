@@ -15,6 +15,7 @@ import './App.css'
 import './styles/atmosphere.css'
 import './styles/interaction.css'
 import './styles/motion.css'
+import './styles/avatar.css'
 
 const pages = {
   dashboard: () => import('./pages/Dashboard'),

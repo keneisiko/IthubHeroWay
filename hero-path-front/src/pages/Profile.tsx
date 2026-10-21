@@ -20,6 +20,7 @@ import { useTabIndicator } from '../useTabIndicator'
 import BadgeEmblem from '../components/BadgeEmblem'
 import SkillHistory from '../components/SkillHistory'
 import PixelText from '../components/PixelText'
+import Avatar from '../components/Avatar'
 import RollNumber from '../components/RollNumber'
 import '../styles/profile-radar.css'
 
@@ -409,7 +410,6 @@ export default function Profile() {
   const closeHistory = useCallback(() => setActiveAxis(null), [])
 
 
-  const initials = profile?.callsign?.slice(0, 2).toUpperCase() ?? '??'
 
   // Анимация чисел в статистике
 
@@ -610,11 +610,11 @@ export default function Profile() {
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); avatarModal.show() }
                 } : undefined}
               >
-                {profile.avatar ? (
-                  <img className="profile-card__avatar-img" src={profile.avatar} alt="" />
-                ) : (
-                  initials
-                )}
+                <Avatar
+                  src={profile.avatar}
+                  name={profile.callsign || profile.username || '?'}
+                  className="profile-card__avatar-face"
+                />
                 {isOwnProfile && <span className="profile-card__avatar-edit" aria-hidden="true">Сменить</span>}
               </div>
               <div className="profile-card__names">

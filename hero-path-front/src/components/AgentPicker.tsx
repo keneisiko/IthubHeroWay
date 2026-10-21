@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import api from '../api'
+import Avatar from './Avatar'
 
 export interface AgentSuggestion {
   username: string
@@ -7,6 +8,7 @@ export interface AgentSuggestion {
   full_name: string
   squad: string
   rating_current: number
+  avatar?: string | null
 }
 
 interface Props {
@@ -81,6 +83,7 @@ export default function AgentPicker({
               disabled={Boolean(reason)}
               title={reason || undefined}
             >
+              <Avatar src={agent.avatar} name={agent.callsign || agent.username} className="agent-picker__avatar" />
               <span className="agent-picker__name">{agent.callsign || agent.username}</span>
               <span className="agent-picker__meta">
                 {reason || [agent.full_name, agent.squad].filter(Boolean).join(' · ')}

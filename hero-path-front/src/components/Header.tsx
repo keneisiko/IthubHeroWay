@@ -5,6 +5,7 @@ import api from '../api'
 import { clearAuthTokens } from '../auth'
 import { onBalanceChanged } from '../lib/balance'
 import RollNumber from './RollNumber'
+import Avatar from './Avatar'
 import { formatRating } from '../lib/apiData'
 import { flyCoins } from '../lib/coinFly'
 
@@ -77,8 +78,6 @@ export default function Header() {
     const timer = setTimeout(() => setPulse(null), 700)
     return () => clearTimeout(timer)
   }, [coins, profile])
-  const avatarUrl = profile?.avatar
-  const initials = username.slice(0, 2).toUpperCase()
 
   return (
     <header className="top-header" style={{ position: 'relative', zIndex: 90 }}>
@@ -104,13 +103,7 @@ export default function Header() {
               <strong><RollNumber value={formatRating(coins)} /></strong>
             </span>
           </span>
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="Аватар пользователя" className="top-header__avatar" style={{ pointerEvents: 'none' }} />
-          ) : (
-            <div className="top-header__avatar top-header__avatar--initials" style={{ pointerEvents: 'none' }}>
-              {initials}
-            </div>
-          )}
+          <Avatar src={profile?.avatar} name={username} className="top-header__avatar top-header__avatar--initials" />
         </button>
 
         {menuOpen && (

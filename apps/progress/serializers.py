@@ -29,5 +29,5 @@ class RatingMeSerializer(serializers.ModelSerializer):
 class LeaderboardAgentSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["username", "callsign", "rating_current", "level"]
+        fields = ["username", "callsign", "avatar", "rating_current", "level"]
 

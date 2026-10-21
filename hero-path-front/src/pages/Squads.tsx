@@ -6,6 +6,7 @@ import { useToasts } from '../useToasts'
 import { apiErrorMessage, unwrapList, formatRating } from '../lib/apiData'
 import PixelText from '../components/PixelText'
 import RollNumber from '../components/RollNumber'
+import Avatar from '../components/Avatar'
 
 type SortKey = 'name' | 'track' | 'status'
 
@@ -96,10 +97,6 @@ function SortDropdown({
   )
 }
 
-function memberAvatarUrl(avatar: string): string {
-  if (avatar.startsWith('http')) return avatar
-  return avatar.startsWith('/') ? avatar : `/${avatar}`
-}
 
 export default function Squads() {
   const navigate = useNavigate()
@@ -514,15 +511,7 @@ export default function Squads() {
                 onClick={() => navigate(`/profile/${m.username}`)}
               >
                 <div className="squad-member-row__main">
-                  {/* без своего аватара — инициалы, как в лидерах: одна и та же
-                      стоковая фотография у всех путала, кто есть кто */}
-                  {m.avatar ? (
-                    <img className="squad-member-row__avatar" src={memberAvatarUrl(m.avatar)} alt="" width={50} height={50} />
-                  ) : (
-                    <span className="squad-member-row__avatar squad-member-row__avatar--initials" aria-hidden="true">
-                      {m.name.slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
+                  <Avatar src={m.avatar} name={m.name} className="squad-member-row__avatar squad-member-row__avatar--initials" />
                   <div className="squad-member-row__tags">
                     <span className="squad-member-tag squad-member-tag--dark">{m.name}</span>
                     {m.track && <span className="squad-member-tag squad-member-tag--purple">{m.track}</span>}

@@ -4,6 +4,7 @@ import api from '../api'
 import LoadError from '../components/LoadError'
 import { useCountUp } from '../useCountUp'
 import { unwrapList, formatRating } from '../lib/apiData'
+import Avatar from '../components/Avatar'
 
 type LeaderTab = 'agents' | 'squads'
 
@@ -334,11 +335,7 @@ export default function Leaderboard() {
                 <div className={`leaderboard-item__card leaderboard-item__card--rank-${Math.min(item.rank, 4)}`}>
                   <div className="leaderboard-item__tags">
                     {activeTab === 'agents' && (
-                      <span className="leaderboard-item__avatar" aria-hidden="true">
-                        {item.avatar
-                          ? <img src={item.avatar} alt="" />
-                          : item.title.slice(0, 2).toUpperCase()}
-                      </span>
+                      <Avatar src={item.avatar} name={item.title} className="leaderboard-item__avatar" />
                     )}
                     <div className="leaderboard-item__meta">
                       <span className="tag tag--title">{item.title}</span>
