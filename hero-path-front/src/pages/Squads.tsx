@@ -151,7 +151,7 @@ export default function Squads() {
           avatar?: string | null
           rating_current?: number | null
         }>(membersRes.data)
-        setMembers(mapMembers(rows))
+        return mapMembers(rows)
       })
   }, [])
 
@@ -210,9 +210,15 @@ export default function Squads() {
 
   useEffect(() => {
     if (!squad?.code || loading) return
-    loadMembers(squad.code, '', sortKey).catch(() => {
-      addToast('Не удалось обновить список участников', 'error')
-    })
+    let active = true
+    loadMembers(squad.code, '', sortKey)
+      .then((rows) => {
+        if (active) setMembers(rows)
+      })
+      .catch(() => {
+        if (active) addToast('Не удалось обновить список участников', 'error')
+      })
+    return () => { active = false }
   }, [squad?.code, sortKey, loading, loadMembers, addToast])
 
   const handleJoin = useCallback((code: string) => {
