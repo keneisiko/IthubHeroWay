@@ -38,6 +38,7 @@ const copy = <T,>(data: T): T => (typeof data === 'object' && data !== null ? st
 
 export function clearApiCache(): void {
   responseCache.clear()
+  inflight.clear()
 }
 
 if (typeof document !== 'undefined') {
@@ -67,9 +68,15 @@ api.interceptors.request.use((config) => {
       pending = networkAdapter(cfg)
       inflight.set(key, pending)
       pending
-        .then((response) => { responseCache.set(key, { at: Date.now(), response }) })
+        .then((response) => {
+          if (inflight.get(key) === pending) {
+            responseCache.set(key, { at: Date.now(), response })
+          }
+        })
         .catch(() => {})
-        .finally(() => inflight.delete(key))
+        .finally(() => {
+          if (inflight.get(key) === pending) inflight.delete(key)
+        })
     }
     return pending.then(
       (response) => ({ ...response, data: copy(response.data), config: cfg }),
@@ -98,7 +105,10 @@ function processQueue(error: unknown, token: string | null = null) {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if ((response.config.method ?? 'get').toLowerCase() !== 'get') clearApiCache()
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
     const requestUrl = String(originalRequest?.url || '')

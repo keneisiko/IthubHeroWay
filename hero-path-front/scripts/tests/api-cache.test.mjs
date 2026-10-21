@@ -36,13 +36,19 @@ async function fixture(t, handler) {
     ['access_token', 'expired-access-token'],
     ['refresh_token', 'valid-refresh-token'],
   ])
+  const visibilityListeners = []
   const globals = {
     localStorage: {
       getItem: (key) => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, String(value)),
       removeItem: (key) => storage.delete(key),
     },
-    document: { visibilityState: 'visible', addEventListener() {} },
+    document: {
+      visibilityState: 'visible',
+      addEventListener(event, listener) {
+        if (event === 'visibilitychange') visibilityListeners.push(listener)
+      },
+    },
     window: { location: { pathname: '/dashboard' } },
   }
   for (const [key, value] of Object.entries(globals)) {
@@ -61,7 +67,14 @@ async function fixture(t, handler) {
     .replace("from './auth'", `from '${authUrl}'`)
     .replace('import.meta.env.VITE_API_URL', JSON.stringify(baseURL))
   const { default: api } = await import(moduleUrl(`${transpile(source)}\n// fixture-${fixtureId++}`))
-  return { api, storage }
+  return {
+    api,
+    storage,
+    visibility(state) {
+      globals.document.visibilityState = state
+      for (const listener of visibilityListeners) listener()
+    },
+  }
 }
 
 test('deduplicated 401 consumers both retry after one token refresh', { timeout: 5_000 }, async (t) => {
@@ -135,4 +148,103 @@ test('deduplicated HTTP failures preserve each consumer config and Axios metadat
     assert.strictEqual(error.response.config, error.config)
   }
   assert.equal(requests, 1)
+})
+
+test('a GET started before a mutation cannot satisfy later reads or repopulate the cache', { timeout: 5_000 }, async (t) => {
+  const started = deferred()
+  const release = deferred()
+  let value = 0
+  let reads = 0
+  const { api } = await fixture(t, async (request, response) => {
+    if (request.method === 'POST') {
+      value = 1
+      response.end('{"value":1}')
+      return
+    }
+    const snapshot = value
+    reads++
+    if (reads === 1) {
+      started.resolve()
+      await release.promise
+    }
+    response.end(JSON.stringify({ value: snapshot }))
+  })
+
+  const before = api.get('/value')
+  await started.promise
+  await api.post('/mutation')
+  const after = api.get('/value')
+  release.resolve()
+  const [oldResponse, newResponse] = await Promise.all([before, after])
+
+  assert.equal(oldResponse.data.value, 0)
+  assert.equal(newResponse.data.value, 1)
+  assert.equal((await api.get('/value')).data.value, 1)
+  assert.equal(reads, 2)
+})
+
+test('successful mutations invalidate GET responses completed while the write was pending', { timeout: 5_000 }, async (t) => {
+  let value = 0
+  let mutationStarted
+  let mutationRelease
+  const { api } = await fixture(t, async (request, response) => {
+    if (request.method !== 'GET') {
+      mutationStarted.resolve()
+      await mutationRelease.promise
+      value++
+    }
+    response.end(JSON.stringify({ value }))
+  })
+
+  assert.equal((await api.get('/value')).data.value, 0)
+  for (const [index, method] of ['post', 'patch', 'put', 'delete'].entries()) {
+    mutationStarted = deferred()
+    mutationRelease = deferred()
+    const mutation = api[method]('/mutation')
+    await mutationStarted.promise
+    assert.equal((await api.get('/value')).data.value, index)
+    mutationRelease.resolve()
+    await mutation
+    assert.equal((await api.get('/value')).data.value, index + 1, method)
+  }
+})
+
+test('visibility invalidation detaches old GETs without removing the replacement in flight', { timeout: 5_000 }, async (t) => {
+  const oldStarted = deferred()
+  const oldRelease = deferred()
+  const newRelease = deferred()
+  let value = 0
+  let reads = 0
+  const { api, visibility } = await fixture(t, async (request, response) => {
+    if (request.url === '/barrier') {
+      response.end('{}')
+      return
+    }
+    const snapshot = value
+    reads++
+    if (reads === 1) {
+      oldStarted.resolve()
+      await oldRelease.promise
+    } else {
+      await newRelease.promise
+    }
+    response.end(JSON.stringify({ value: snapshot }))
+  })
+
+  const before = api.get('/value')
+  await oldStarted.promise
+  value = 1
+  visibility('hidden')
+  visibility('visible')
+  const after = api.get('/value')
+  await api.get('/barrier')
+  oldRelease.resolve()
+  assert.equal((await before).data.value, 0)
+  const follower = api.get('/value')
+  newRelease.resolve()
+  const responses = await Promise.all([after, follower])
+
+  assert.deepEqual(responses.map((response) => response.data.value), [1, 1])
+  assert.equal((await api.get('/value')).data.value, 1)
+  assert.equal(reads, 2)
 })
