@@ -12,17 +12,22 @@ const shop = ast.statements.find((node) => ts.isFunctionDeclaration(node) && nod
 const declarations = shop.body.statements
   .filter(ts.isVariableStatement)
   .flatMap((statement) => [...statement.declarationList.declarations])
-const refs = declarations.filter((node) => ts.isCallExpression(node.initializer) && node.initializer.expression.getText(ast) === 'useRef')
-const loader = declarations.find((node) => node.name.getText(ast) === 'loadShop')
-assert.ok(loader, 'Shop must declare the callback under test')
+const callbacks = ['loadShop', 'togglePurchase', 'handleBuy']
+const callbackDeclarations = declarations.filter((node) => callbacks.includes(node.name.getText(ast)) || (
+  ts.isCallExpression(node.initializer) && node.initializer.expression.getText(ast) === 'useRef'
+))
+const loadEffect = shop.body.statements.find((node) => ts.isExpressionStatement(node)
+  && ts.isCallExpression(node.expression)
+  && node.expression.expression.getText(ast) === 'useEffect'
+  && node.expression.arguments[1]?.getText(ast) === '[loadShop]')
+assert.ok(loadEffect, 'Shop must load when its category callback changes')
 
 const compile = (text) => ts.transpileModule(text, {
   compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
 }).outputText
-const code = compile(`function makeLoadShop(activeTab: number) {
-  ${refs.map((node) => `const ${node.getText(ast)}`).join('\n')}
-  const ${loader.getText(ast)}
-  return loadShop
+const code = compile(`function makeCallbacks(activeTab: number, products, showPurchase) {
+  ${callbackDeclarations.map((node) => `const ${node.getText(ast)}`).join('\n')}
+  return { ${callbacks.join(', ')}, loadEffect: ${loadEffect.expression.arguments[0].getText(ast)} }
 }`)
 const apiData = await import(`data:text/javascript;base64,${Buffer.from(compile(
   await readFile(resolve(frontend, 'src/lib/apiData.ts'), 'utf8'),
@@ -35,6 +40,10 @@ function fixture() {
   const pending = []
   const savedRefs = []
   let refIndex = 0
+  let activeTab = 0
+  const request = (method, url, config) => new Promise((resolve, reject) => {
+    pending.push({ method, url, config, resolve, reject })
+  })
   const sandbox = {
     ...apiData,
     useCallback: (callback) => callback,
@@ -44,41 +53,73 @@ function fixture() {
       return savedRefs[index]
     },
     api: {
-      get(url, config) {
-        return new Promise((resolve, reject) => pending.push({ url, config, resolve, reject }))
-      },
+      get: (url, config) => request('GET', url, config),
+      post: (url, config) => request('POST', url, config),
+      delete: (url, config) => request('DELETE', url, config),
     },
     addToast: (message, type) => toasts.push({ message, type }),
+    notifyBalanceChanged() {},
+    celebrate() {},
   }
-  for (const name of ['Products', 'Purchases', 'PurchasedCodes', 'History', 'Coins', 'Me', 'Loading', 'Switching']) {
-    sandbox[`set${name}`] = (value) => { state[name[0].toLowerCase() + name.slice(1)] = value }
+  for (const name of ['Products', 'Purchases', 'PurchasedCodes', 'History', 'Coins', 'Me', 'Loading', 'Switching', 'ApplyingId', 'Ring', 'ShowPurchase']) {
+    sandbox[`set${name}`] = (value) => {
+      const key = name[0].toLowerCase() + name.slice(1)
+      state[key] = typeof value === 'function' ? value(state[key]) : value
+    }
   }
   runInNewContext(code, sandbox)
+
+  function render(tab, showPurchase = null) {
+    activeTab = tab
+    refIndex = 0
+    return sandbox.makeCallbacks(tab, state.products, showPurchase)
+  }
+
+  function batch(requests) {
+    assert.equal(requests.length, 4)
+    return {
+      category: requests[0].config.params.item_type,
+      async resolve(code, coins = 100) {
+        const responses = [
+          [{ id: 1, code, title: code, price_coins: 10 }],
+          [{ id: 1, coins_spent: 10, created_at: '2026-10-20', item: { code, title: code, item_type: 'other' } }],
+          [],
+          { coins_balance: coins, username: code },
+        ]
+        requests.forEach((request, index) => request.resolve({ data: responses[index] }))
+        await flush()
+      },
+      async reject() {
+        requests[0].reject(new Error('Request failed'))
+        await flush()
+      },
+    }
+  }
 
   return {
     state,
     toasts,
-    load(tab, options) {
-      refIndex = 0
+    load(tab) {
       const start = pending.length
-      sandbox.makeLoadShop(tab)(options)
-      const requests = pending.slice(start)
-      assert.equal(requests.length, 4)
-      assert.equal(requests[0].config.params.item_type, ['cosmetic', 'boost', 'other', 'service'][tab])
+      render(tab).loadEffect()
+      const result = batch(pending.slice(start))
+      assert.equal(result.category, ['cosmetic', 'boost', 'other', 'service'][tab])
+      return result
+    },
+    mutate(kind, purchase) {
+      const start = pending.length
+      const callbacks = render(activeTab, kind === 'buy' ? 1 : null)
+      if (kind === 'buy') callbacks.handleBuy()
+      else callbacks.togglePurchase(purchase)
+      assert.equal(pending.length, start + 1)
+      const mutation = pending[start]
+      assert.equal(mutation.method, kind === 'unapply' ? 'DELETE' : 'POST')
       return {
-        async resolve(code, coins = 100) {
-          const responses = [
-            [{ id: 1, code, title: code, price_coins: 10 }],
-            [{ id: 1, coins_spent: 10, created_at: '2026-10-20', item: { code, title: code, item_type: 'other' } }],
-            [],
-            { coins_balance: coins, username: code },
-          ]
-          requests.forEach((request, index) => request.resolve({ data: responses[index] }))
+        async resolve() {
+          const reloadStart = pending.length
+          mutation.resolve({ data: {} })
           await flush()
-        },
-        async reject() {
-          requests[0].reject(new Error('Request failed'))
-          await flush()
+          return batch(pending.slice(reloadStart))
         },
       }
     },
@@ -134,3 +175,18 @@ test('the current request still reports a failure and finishes loading', async (
   assert.equal(state.loading, false)
   assert.equal(state.switching, false)
 })
+
+for (const kind of ['apply', 'unapply', 'buy']) {
+  test(`${kind} completion reloads the currently selected category`, async () => {
+    const { load, mutate, state } = fixture()
+    await load(0).resolve('cosmetic-item')
+    const mutation = mutate(kind, { ...state.purchases[0], isApplied: kind === 'unapply' })
+    await load(2).resolve('merch-item')
+    const reload = await mutation.resolve()
+
+    assert.equal(reload.category, 'other')
+    await reload.resolve('merch-updated')
+    assert.equal(state.products[0].code, 'merch-updated')
+    assert.equal(state.switching, false)
+  })
+}

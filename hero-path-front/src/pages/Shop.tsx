@@ -303,7 +303,9 @@ export default function Shop() {
       })
   }, [activeTab, addToast])
 
+  const loadShopRef = useRef(loadShop)
   useEffect(() => {
+    loadShopRef.current = loadShop
     loadShop()
   }, [loadShop])
 
@@ -344,9 +346,9 @@ export default function Shop() {
           return rest
         })
         // дополнительная сверка с сервером
-        loadShop({ quiet: true })
+        loadShopRef.current({ quiet: true })
       })
-  }, [purchases, addToast, loadShop])
+  }, [purchases, addToast])
 
   // слот занят, пока по любой покупке из него идёт запрос
   const busySlots = useMemo(() => new Set(
@@ -392,11 +394,11 @@ export default function Shop() {
         addToast('Покупка оформлена!', 'success')
         celebrate('big')
         notifyBalanceChanged()
-        loadShop({ quiet: true })
+        loadShopRef.current({ quiet: true })
       })
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось оформить покупку'), 'error'))
       .finally(() => setShowPurchase(null))
-  }, [showPurchase, products, addToast, loadShop])
+  }, [showPurchase, products, addToast])
 
   return (
     <div className="dashboard shop-page page-enter">
