@@ -725,6 +725,12 @@ textarea.popup__input {
 .leaderboard-list {
   scrollbar-gutter: stable;
   overflow-x: hidden;
+  /* При масштабе браузера не 100% высоты строк дробные, и после округления
+     содержимое выходило за список на 1px: полоса прокрутки появлялась на
+     двух строках, а колесо сдвигало список. Отступ поглощает эту долю
+     пикселя и подъём карточки при наведении. */
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .leaderboard-list > .leaderboard-item {
