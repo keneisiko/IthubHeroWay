@@ -931,6 +931,8 @@ export default function Profile() {
               cy: vertices.center.y,
               r: Math.hypot(vertices.current[0].x - vertices.center.x, vertices.current[0].y - vertices.center.y),
             } : null}
+            values={AXES.map(({ key }) => getSkill(key).current)}
+            max={20}
           />
           <Radar ref={chartRef} data={radarData} options={radarOptions} />
 
@@ -1004,9 +1006,14 @@ export default function Profile() {
                 <span className="profile-radar__axis-icon" aria-hidden="true" />
                 <span>{key}</span>
                 {/* у выбранной оси всё это уже есть в карточке истории */}
-                {isHovered && !isActive && showCharacteristics && (
-                  <span className="profile-radar__tooltip">
-                    Сейчас {skill.current} из 20, лучшее {skill.peak}
+                {!isActive && showCharacteristics && (
+                  <span className={`axis-tip${isHovered ? ' axis-tip--show' : ''}`} aria-hidden="true">
+                    <span className="axis-tip__num"><b>{skill.current}</b> / 20</span>
+                    <span className="axis-tip__bar">
+                      <i style={{ transform: `scaleX(${Math.min(skill.current, 20) / 20})` }} />
+                      <em style={{ left: `${(Math.min(skill.peak, 20) / 20) * 100}%` }} />
+                    </span>
+                    <span className="axis-tip__peak">лучшее {skill.peak}</span>
                   </span>
                 )}
               </button>
