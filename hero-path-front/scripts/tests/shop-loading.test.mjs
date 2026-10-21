@@ -51,7 +51,7 @@ const apiData = await import(`data:text/javascript;base64,${Buffer.from(compile(
 const flush = () => new Promise((done) => setImmediate(done))
 
 function fixture() {
-  const state = { products: [], purchases: [], history: [], coins: '0', loading: true, switching: false, applyingId: null }
+  const state = { products: [], purchases: [], history: [], coins: '0', loading: true, switching: false, applyingId: null, buying: false }
   const toasts = []
   const pending = []
   const savedRefs = []
@@ -77,7 +77,7 @@ function fixture() {
     notifyBalanceChanged() {},
     celebrate() {},
   }
-  for (const name of ['Products', 'Purchases', 'PurchasedCodes', 'History', 'Coins', 'Me', 'Loading', 'Switching', 'ApplyingId', 'Ring', 'ShowPurchase', 'ActiveTab']) {
+  for (const name of ['Products', 'Purchases', 'PurchasedCodes', 'History', 'Coins', 'Me', 'Loading', 'Switching', 'ApplyingId', 'Buying', 'Ring', 'ShowPurchase', 'ActiveTab']) {
     sandbox[`set${name}`] = (value) => {
       const key = name[0].toLowerCase() + name.slice(1)
       state[key] = typeof value === 'function' ? value(state[key]) : value
@@ -291,4 +291,59 @@ test('the apply lock lasts through server reconciliation and then permits the ne
   assert.deepEqual(applied(state), [[1, false], [2, true], [3, false]])
   assert.equal(state.applyingId, null)
   assert.notEqual(mutate('unapply', state.purchases[1]), null)
+})
+
+test('same-tick repeated buy sends one purchase request', async () => {
+  const { load, mutate, state } = fixture()
+  await load(0).resolve('cosmetic-item')
+  const mutation = mutate('buy', undefined, 2)
+
+  assert.equal(state.buying, true)
+  await mutation.reject()
+})
+
+test('a buy cannot overlap an apply snapshot that might roll back', async () => {
+  const { load, mutate, state } = fixture()
+  await load(0).resolve('cosmetic-item')
+  state.purchases = owned()
+  const mutation = mutate('apply', state.purchases[1])
+
+  assert.equal(mutate('buy'), null)
+  await mutation.reject()
+  assert.deepEqual(applied(state), [[1, true], [2, false], [3, true]])
+  assert.notEqual(mutate('buy'), null)
+})
+
+test('a buy prevents apply until reconciliation and a later rollback preserves the new purchase', async () => {
+  const { load, mutate, state } = fixture()
+  await load(0).resolve('cosmetic-item')
+  state.purchases = owned()
+  const mutation = mutate('buy')
+
+  assert.equal(mutate('apply', state.purchases[1]), null)
+  const reload = await mutation.resolve()
+  assert.equal(state.buying, true)
+  assert.equal(mutate('apply', state.purchases[1]), null)
+  await reload.resolve('cosmetic-item', 80, [...owned(), {
+    id: 4, code: 'new-purchase', title: 'New purchase', type: 'other', isApplied: false,
+  }].map((purchase) => ({
+    id: purchase.id, coins_spent: 10, created_at: '2026-10-20', is_applied: purchase.isApplied,
+    item: { code: purchase.code, title: purchase.title, item_type: purchase.type },
+  })))
+  assert.equal(state.buying, false)
+  assert.equal(state.showPurchase, null)
+  const apply = mutate('apply', state.purchases[1])
+  await apply.reject()
+  assert.deepEqual(applied(state), [[1, true], [2, false], [3, true], [4, false]])
+})
+
+test('a failed buy releases its lock and allows retry', async () => {
+  const { load, mutate, state, toasts } = fixture()
+  await load(0).resolve('cosmetic-item')
+  await mutate('buy').reject()
+
+  assert.equal(state.buying, false)
+  assert.equal(state.showPurchase, null)
+  assert.deepEqual(toasts, [{ message: 'Не удалось оформить покупку', type: 'error' }])
+  assert.notEqual(mutate('buy'), null)
 })

@@ -186,7 +186,8 @@ export default function Shop() {
   // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
   // двойной клик не отправил применение и снятие подряд.
   const [applyingId, setApplyingId] = useState<number | null>(null)
-  const applyingRef = useRef(false)
+  const [buying, setBuying] = useState(false)
+  const mutationRef = useRef(false)
   // кольцо вокруг нажатой кнопки; чередование имени перезапускает анимацию
   const [ring, setRing] = useState<{ id: number; n: number } | null>(null)
   // свой аватар — для превью рамки прямо в карточке покупки
@@ -315,8 +316,8 @@ export default function Shop() {
   // Карточка переключается сразу, не дожидаясь ответа: статус
   // переворачивается, кнопка меняет вид. Ошибка возвращает как было.
   const togglePurchase = useCallback((purchase: Purchase) => {
-    if (applyingRef.current) return
-    applyingRef.current = true
+    if (mutationRef.current) return
+    mutationRef.current = true
     const snapshot = purchases
     const next = !purchase.isApplied
     setApplyingId(purchase.id)
@@ -341,7 +342,7 @@ export default function Shop() {
         addToast('Не удалось изменить покупку', 'error')
       })
       .finally(() => {
-        applyingRef.current = false
+        mutationRef.current = false
         setApplyingId(null)
       })
   }, [addToast, purchases])
@@ -377,18 +378,24 @@ export default function Shop() {
   const detailLack = selectedDetail ? Math.max(0, Number(selectedDetail.price) - Number(coins)) : 0
 
   const handleBuy = useCallback(() => {
-    if (showPurchase === null) return
+    if (showPurchase === null || mutationRef.current) return
     const product = products.find((p) => p.id === showPurchase)
     if (!product) return
+    mutationRef.current = true
+    setBuying(true)
     api.post('/api/v1/shop/purchase/', { item_code: product.code })
       .then(() => {
         addToast('Покупка оформлена!', 'success')
         celebrate('big')
         notifyBalanceChanged()
-        loadShopRef.current({ quiet: true })
+        return loadShopRef.current({ quiet: true })
       })
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось оформить покупку'), 'error'))
-      .finally(() => setShowPurchase(null))
+      .finally(() => {
+        mutationRef.current = false
+        setBuying(false)
+        setShowPurchase(null)
+      })
   }, [showPurchase, products, addToast])
 
   return (
@@ -453,7 +460,7 @@ export default function Shop() {
                     type="button"
                     className={`shop-purchase__apply btn-press${ring?.id === p.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''}`}
                     onClick={() => togglePurchase(p)}
-                    disabled={applyingId !== null}
+                    disabled={applyingId !== null || buying}
                     aria-pressed={p.isApplied}
                     aria-busy={applyingId === p.id}
                   >
@@ -510,6 +517,7 @@ export default function Shop() {
                 type="button"
                 className="shop-detail__buy btn-press"
                 onClick={() => setShowPurchase(selectedDetail.id)}
+                disabled={buying || applyingId !== null}
               >
                 Купить
               </button>
@@ -630,7 +638,7 @@ export default function Shop() {
                 type="button"
                 className={`shop-card__buy${tooExpensive ? ' shop-card__buy--lack' : ''} btn-press`}
                 onClick={(e) => { e.stopPropagation(); setShowPurchase(item.id) }}
-                disabled={isPurchased || tooExpensive}
+                disabled={isPurchased || tooExpensive || buying || applyingId !== null}
               >
                 {isPurchased
                   ? 'Куплено'
@@ -655,7 +663,7 @@ export default function Shop() {
           <button type="button" className="shop-modal__btn shop-modal__btn--secondary btn-press" onClick={() => setShowPurchase(null)}>
             Отмена
           </button>
-          <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={handleBuy}>
+          <button type="button" className="shop-modal__btn shop-modal__btn--primary btn-press" onClick={handleBuy} disabled={buying || applyingId !== null} aria-busy={buying}>
             Купить
           </button>
         </div>
