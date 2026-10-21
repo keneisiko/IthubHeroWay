@@ -203,9 +203,10 @@ class AgentSearchView(generics.ListAPIView):
     def get_queryset(self):
         query = (self.request.query_params.get("q") or "").strip()
         # Только активированные агенты: неактивированный аккаунт не может
-        # ни принять вызов, ни узнать о наставничестве.
+        # ни принять вызов, ни узнать о наставничестве. Активирован — значит
+        # входил на сайт или в бота, а не обязательно привязал Telegram.
         queryset = (
-            User.objects.filter(role=Role.AGENT, telegram_link__is_active=True)
+            User.objects.filter(role=Role.AGENT, is_active=True)
             .exclude(pk=self.request.user.pk)
             .select_related("squad", "track")
         )

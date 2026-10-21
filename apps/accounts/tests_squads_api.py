@@ -39,8 +39,12 @@ class SquadsApiTests(APITestCase):
         self._telegram(self.agent)
         self._telegram(self.agent2)
 
-    def test_join_without_telegram_is_rejected(self):
-        """Гейт «активирован в боте» должен работать, а не обходиться."""
+    def test_activated_student_without_telegram_can_join(self):
+        """Вступление — по активированному аккаунту, Telegram не обязателен.
+
+        Привязку при этом выдумывать нельзя: раньше обход гейта создавал её
+        с фальшивым telegram_user_id.
+        """
         stranger = User.objects.create_user(
             username="stranger", password="x", callsign="stranger", role=Role.AGENT
         )
@@ -48,12 +52,12 @@ class SquadsApiTests(APITestCase):
 
         response = self.client.post(reverse("squads-join"), {"code": "alpha-2025"}, format="json")
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         stranger.refresh_from_db()
-        self.assertIsNone(stranger.squad_id)
+        self.assertEqual(stranger.squad_id, self.squad.pk)
         self.assertFalse(TelegramAccountLink.objects.filter(user=stranger).exists())
 
-    def test_create_squad_without_telegram_is_rejected(self):
+    def test_activated_student_without_telegram_can_create_squad(self):
         stranger = User.objects.create_user(
             username="stranger2", password="x", callsign="stranger2", role=Role.AGENT
         )
@@ -61,7 +65,7 @@ class SquadsApiTests(APITestCase):
 
         response = self.client.post(reverse("squads-list"), {"name": "Новый"}, format="json")
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(response.status_code, (status.HTTP_200_OK, status.HTTP_201_CREATED))
         self.assertFalse(TelegramAccountLink.objects.filter(user=stranger).exists())
 
     def test_squad_me_without_squad_returns_200(self):

@@ -30,27 +30,13 @@ from .squads_serializers import (
 # Без похожих друг на друга символов: код отряда люди диктуют и вводят руками.
 CODE_SUFFIX_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
 
-TELEGRAM_REQUIRED_DETAIL = (
-    "Сначала активируйте аккаунт в Telegram-боте командой /activate — "
-    "без этого участие в рейтинге и отрядах недоступно."
-)
-
-
-def _has_active_telegram(user: User) -> bool:
-    """Активна ли привязка Telegram.
-
-    Раньше вместо проверки здесь стояла функция, которая молча создавала
-    привязку с выдуманным telegram_user_id (5_100_000_000 + id пользователя).
-    Это обходило гейт — а `telegram_link.is_active` определяет видимость
-    во всех расчётах рейтинга — и рисковало столкнуться с реальным Telegram ID,
-    который у живых аккаунтов давно перевалил за 5 млрд.
-    """
-    link = getattr(user, "telegram_link", None)
-    return bool(link and link.is_active)
 
 
 def _agents_in_squad_filter():
-    return Q(members__role="agent", members__telegram_link__is_active=True)
+    # Видимость в отрядах — по активированному аккаунту, а не по привязке
+    # Telegram: аккаунт теперь активируется и первым входом на сайт, а
+    # привязали бота двое из 557 — отряды и рейтинги были почти пусты.
+    return Q(members__role="agent", members__is_active=True)
 
 
 def _squad_stats_queryset():
@@ -74,9 +60,6 @@ class SquadListCreateView(views.APIView):
             return Response({"detail": "Only agents can create squads."}, status=status.HTTP_403_FORBIDDEN)
         if user.squad_id:
             return Response({"detail": "You are already in a squad."}, status=status.HTTP_400_BAD_REQUEST)
-        if not _has_active_telegram(user):
-            return Response({"detail": TELEGRAM_REQUIRED_DETAIL}, status=status.HTTP_403_FORBIDDEN)
-
         serializer = SquadCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -129,9 +112,6 @@ class SquadJoinView(views.APIView):
         user: User = request.user
         if user.squad_id:
             return Response({"detail": "You are already in a squad."}, status=status.HTTP_400_BAD_REQUEST)
-        if not _has_active_telegram(user):
-            return Response({"detail": TELEGRAM_REQUIRED_DETAIL}, status=status.HTTP_403_FORBIDDEN)
-
         serializer = SquadJoinSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         code = serializer.validated_data["code"].strip().lower()
@@ -147,7 +127,7 @@ class SquadJoinView(views.APIView):
                 return Response({"detail": "Squad not found."}, status=status.HTTP_404_NOT_FOUND)
 
             agents_count = User.objects.filter(
-                squad=squad, role=Role.AGENT, telegram_link__is_active=True
+                squad=squad, role=Role.AGENT, is_active=True
             ).count()
             if squad.capacity is not None and agents_count >= squad.capacity:
                 return Response({"detail": "Squad is full."}, status=status.HTTP_400_BAD_REQUEST)
@@ -193,7 +173,7 @@ class SquadMeView(views.APIView):
             return Response({"detail": "Squad not found."}, status=status.HTTP_404_NOT_FOUND)
 
         members_qs = (
-            User.objects.filter(squad_id=squad.id, telegram_link__is_active=True)
+            User.objects.filter(squad_id=squad.id, is_active=True)
             .select_related("track")
         )
 
@@ -214,7 +194,7 @@ class SquadMeView(views.APIView):
         squads_stats = Squad.objects.annotate(
             avg_rating=Avg(
                 "members__rating_current",
-                filter=Q(members__role="agent", members__telegram_link__is_active=True),
+                filter=_agents_in_squad_filter(),
             )
         )
         own = squads_stats.filter(id=squad.id).first()
@@ -305,7 +285,7 @@ class SquadMembersView(views.APIView):
         user: User = request.user
         squad = generics.get_object_or_404(Squad, code=code)
 
-        qs = User.objects.filter(squad=squad, telegram_link__is_active=True).select_related("track")
+        qs = User.objects.filter(squad=squad, is_active=True).select_related("track")
 
         search = (request.query_params.get("search") or "").strip()[: self.MAX_SEARCH_LENGTH]
         if search:

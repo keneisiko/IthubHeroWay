@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework import generics, views
 from rest_framework.response import Response
 
-from apps.accounts.models import User
+from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsKnownRole
 from apps.shop.models import Purchase, ShopItemType
 
@@ -22,7 +22,9 @@ class RatingMeView(views.APIView):
         user = request.user
         data = RatingMeSerializer(user).data
         rank = (
-            User.objects.filter(telegram_link__is_active=True, rating_current__gt=user.rating_current).count()
+            User.objects.filter(
+                role=Role.AGENT, is_active=True, rating_current__gt=user.rating_current
+            ).count()
             + 1
         )
         data["rank"] = rank
@@ -58,7 +60,9 @@ class AgentLeaderboardView(generics.ListAPIView):
             .values("item__code")[:1]
         )
         queryset = (
-            User.objects.filter(telegram_link__is_active=True)
+            # Активированные студенты, а не привязавшие Telegram (двое из 557).
+            # Роль обязательна: по активности в рейтинг попали бы сотрудники.
+            User.objects.filter(role=Role.AGENT, is_active=True)
             .annotate(applied_cosmetic=Subquery(applied_cosmetic))
             .order_by("-rating_current", "id")
         )

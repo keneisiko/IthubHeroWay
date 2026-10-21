@@ -208,17 +208,23 @@ export default function Profile() {
   const [loading, setLoading] = useState(true)
   // лента категорий прокручивается; выбранная вкладка подъезжает к центру
   const tabsScrollRef = useRef<HTMLDivElement>(null)
-  const tabIndicator = useTabIndicator(activeTab, loading, tabsScrollRef)
+  // ref и положение подчёркивания — отдельными значениями: в одном объекте
+  // линтер React считал рефом всё, включая обычное состояние.
+  const {
+    containerRef: tabsContainerRef,
+    registerTab,
+    indicator: tabIndicatorBox,
+  } = useTabIndicator(activeTab, loading, tabsScrollRef)
   const [loadError, setLoadError] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [myRating, setMyRating] = useState<number | null>(null)
   const [socialBusy, setSocialBusy] = useState(false)
   const [editForm, setEditForm] = useState({ callsign: '' })
-  const editModal = useModal()
-  const avatarModal = useModal()
-  const mentorModal = useModal()
-  const duelModal = useModal()
-  const endModal = useModal()
+  const { ref: editModalRef, ...editModal } = useModal()
+  const { ref: avatarModalRef, ...avatarModal } = useModal()
+  const { ref: mentorModalRef, ...mentorModal } = useModal()
+  const { ref: duelModalRef, ...duelModal } = useModal()
+  const { ref: endModalRef, ...endModal } = useModal()
   // Чьё шефство завершаем: действие необратимое, поэтому сначала спрашиваем.
   const [endTarget, setEndTarget] = useState<MentorshipRow | null>(null)
   const [duels, setDuels] = useState<DuelRow[]>([])
@@ -247,11 +253,6 @@ export default function Profile() {
   // quiet — обновить данные после действия на странице (закрепить нашивку,
   // принять дуэль): без лоадера на весь экран и без прыжка прокрутки.
   const loadProfile = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
-    if (!quiet) {
-      setLoading(true)
-      setLoadError(false)
-      setNotFound(false)
-    }
     const profileUrl = isOwnProfile
       ? '/api/v1/profile/me/'
       : `/api/v1/profile/${encodeURIComponent(routeUsername!)}/`
@@ -302,8 +303,6 @@ export default function Profile() {
           setMyRating(res.data?.my_rating ?? null)
         }),
       )
-    } else {
-      setMyRating(null)
     }
 
     return Promise.all(requests)
@@ -322,9 +321,29 @@ export default function Profile() {
       .finally(() => setLoading(false))
   }, [isOwnProfile, routeUsername, applyDuels, addToast])
 
+  // Сброс «загружается» — при смене открытого профиля, во время отрисовки,
+  // а не синхронным setState в эффекте (лишний каскадный рендер). Эффект
+  // только загружает данные.
+  const profileKey = routeUsername ?? ''
+  const [shownKey, setShownKey] = useState(profileKey)
+  if (shownKey !== profileKey) {
+    setShownKey(profileKey)
+    setMyRating(null)
+    setLoading(true)
+    setLoadError(false)
+    setNotFound(false)
+  }
+
   useEffect(() => {
     loadProfile()
   }, [loadProfile])
+
+  const retryProfile = () => {
+    setLoading(true)
+    setLoadError(false)
+    setNotFound(false)
+    loadProfile()
+  }
 
   const getSkill = useCallback((key: string) => {
     const item = characteristics.find(c => c.label === key)
@@ -505,27 +524,26 @@ export default function Profile() {
   // берём из каталога, дату и закрепление — из своих нашивок.
   const [sheetCode, setSheetCode] = useState<string | null>(null)
   const [pinning, setPinning] = useState(false)
-  const closeSheet = useCallback(() => setSheetCode(null), [])
-  const sheetBadge = useMemo<Badge | null>(() => {
-    if (!sheetCode) return null
-    const source = allBadges.find((b) => b.code === sheetCode)
-      ?? badges.find((b) => b.badge.code === sheetCode)?.badge
-    if (!source) return null
-    return {
-      code: source.code,
-      title: source.title,
-      category: source.category,
-      rarity: source.rarity,
-      description: source.description ?? '',
-      reward_coins: source.reward_coins ?? 0,
-    }
-  }, [sheetCode, allBadges, badges])
-  const sheetEarned = useMemo<EarnedBadge | undefined>(() => {
-    const own = sheetBadge && badges.find((b) => b.badge.code === sheetBadge.code)
-    return own && sheetBadge
-      ? { id: own.id, badge: sheetBadge, acquired_at: own.acquired_at, is_pinned: own.is_pinned }
-      : undefined
-  }, [sheetBadge, badges])
+  const closeSheet = useCallback(() => setSheetCode(null), [setSheetCode])
+  // Без useMemo: поиск по паре десятков нашивок дешевле, чем мемоизация,
+  // которую компилятор React к тому же не смог сохранить.
+  const sheetSource = sheetCode
+    ? allBadges.find((b) => b.code === sheetCode) ?? badges.find((b) => b.badge.code === sheetCode)?.badge
+    : undefined
+  const sheetBadge: Badge | null = sheetSource
+    ? {
+        code: sheetSource.code,
+        title: sheetSource.title,
+        category: sheetSource.category,
+        rarity: sheetSource.rarity,
+        description: sheetSource.description ?? '',
+        reward_coins: sheetSource.reward_coins ?? 0,
+      }
+    : null
+  const sheetOwn = sheetBadge ? badges.find((b) => b.badge.code === sheetBadge.code) : undefined
+  const sheetEarned: EarnedBadge | undefined = sheetOwn && sheetBadge
+    ? { id: sheetOwn.id, badge: sheetBadge, acquired_at: sheetOwn.acquired_at, is_pinned: sheetOwn.is_pinned }
+    : undefined
   const togglePinFromSheet = (badge: Badge) => {
     setPinning(true)
     handlePinBadge(badge.code, Boolean(sheetEarned?.is_pinned)).finally(() => setPinning(false))
@@ -637,7 +655,7 @@ export default function Profile() {
   if (loadError || !profile) {
     return (
       <div className="profile page-enter">
-        <LoadError onRetry={() => loadProfile()} />
+        <LoadError onRetry={retryProfile} />
       </div>
     )
   }
@@ -1028,12 +1046,12 @@ export default function Profile() {
             уезжал бы от своей вкладки. */}
         <div className="profile-path__tabs-scroll" ref={tabsScrollRef}>
           <div className="profile-path__tabs-inner">
-            <div className="profile-path__tabs" ref={tabIndicator.containerRef}>
+            <div className="profile-path__tabs" ref={tabsContainerRef}>
               {tabs.map((t) => (
                 <button
                   key={t}
                   type="button"
-                  ref={tabIndicator.registerTab(t)}
+                  ref={registerTab(t)}
                   className={`profile-path__tab${t === activeTab ? ' profile-path__tab--active' : ''} btn-press`}
                   onClick={() => setActiveTab(t)}
                 >
@@ -1042,7 +1060,7 @@ export default function Profile() {
               ))}
             </div>
             <div className="profile-path__underline" aria-hidden="true">
-              <div className="profile-path__indicator" style={{ width: tabIndicator.indicator.width, left: tabIndicator.indicator.left }} />
+              <div className="profile-path__indicator" style={{ width: tabIndicatorBox.width, left: tabIndicatorBox.left }} />
             </div>
           </div>
         </div>
@@ -1112,7 +1130,7 @@ export default function Profile() {
       {/* Модалка настройки профиля */}
       {editModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={editModal.ref}>
+          <div className="modal-fixed__content" ref={editModalRef}>
             <h3 className="popup__title">Настроить профиль</h3>
             <label className="popup__label">Позывной</label>
             <input
@@ -1136,7 +1154,7 @@ export default function Profile() {
       {/* Модалка вызова на дуэль: соперника ищем, а не ищем его профиль вручную */}
       {duelModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={duelModal.ref}>
+          <div className="modal-fixed__content" ref={duelModalRef}>
             <h3 className="popup__title">Вызвать на дуэль</h3>
             <label className="popup__label">
               Ставка {duelInfo.bet} {plural(duelInfo.bet, ['монета', 'монеты', 'монет'])}. Побеждает тот, кто за {duelInfo.days} дн. прибавит
@@ -1176,7 +1194,7 @@ export default function Profile() {
       {/* Модалка стать наставником */}
       {mentorModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={mentorModal.ref}>
+          <div className="modal-fixed__content" ref={mentorModalRef}>
             <h3 className="popup__title">Стать наставником</h3>
             <label className="popup__label">Найдите студента по позывному или имени</label>
             <AgentPicker picked={menteeUsername} onPick={(agent) => setMenteeUsername(agent.username)} autoFocus />
@@ -1209,7 +1227,7 @@ export default function Profile() {
       {/* Подтверждение: завершить шефство */}
       {endModal.open && endTarget && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={endModal.ref}>
+          <div className="modal-fixed__content" ref={endModalRef}>
             <h3 className="popup__title">Завершить шефство?</h3>
             <p className="popup__label">
               {agentName(endTarget.mentee)} больше не будет числиться твоим подшефным, а еженедельные монеты
@@ -1230,7 +1248,7 @@ export default function Profile() {
       {/* Модалка смены аватара */}
       {avatarModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={avatarModal.ref}>
+          <div className="modal-fixed__content" ref={avatarModalRef}>
             <h3 className="popup__title">Сменить аватар</h3>
             <p className="popup__label">Загрузите изображение профиля</p>
             <div className="avatar-upload-zone" onClick={() => document.getElementById('avatar-file-input')?.click()}>

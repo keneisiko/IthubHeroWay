@@ -88,11 +88,22 @@ class AgentSearchTests(APITestCase):
         self.assertNotIn("me", self._usernames(response))
 
     def test_unactivated_accounts_are_hidden(self):
-        make_agent("ghost", callsign="Призрак", squad=self.squad, linked=False)
+        """Не активированный (ни разу не входил) — не может принять вызов."""
+        ghost = make_agent("ghost", callsign="Призрак", squad=self.squad, linked=False)
+        ghost.is_active = False
+        ghost.save(update_fields=["is_active"])
 
         response = self.client.get(self.url, {"q": "Призрак"})
 
         self.assertEqual(self._usernames(response), set())
+
+    def test_activated_without_telegram_is_found(self):
+        """Активация теперь и первым входом на сайт: Telegram не обязателен."""
+        make_agent("web", callsign="Сайт", squad=self.squad, linked=False)
+
+        response = self.client.get(self.url, {"q": "Сайт"})
+
+        self.assertEqual(self._usernames(response), {"web"})
 
     def test_staff_are_not_agents(self):
         make_agent("curator", callsign="Куратор", squad=self.squad, role=Role.CURATOR)
