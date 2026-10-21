@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import DialogClose from '../components/DialogClose'
@@ -46,6 +46,7 @@ export default function Quests() {
   // Подсветка карточки до нажатия «Выбрать»: сам выбор отправляется явно.
   const [focusPreview, setFocusPreview] = useState<string | null>(null)
   const [picking, setPicking] = useState<string | null>(null)
+  const pickingRef = useRef(false)
   const [strike, setStrike] = useState<{
     late_strike: number
     bonus_at_7: number
@@ -82,7 +83,7 @@ export default function Quests() {
   // quiet — обновить после отправки отчёта или выбора цели без лоадера
   // на всю страницу и без прыжка прокрутки
   const loadQuests = useCallback(({ quiet = false }: { quiet?: boolean } = {}) => {
-    Promise.all([
+    return Promise.all([
       api.get('/api/v1/quests/active/'),
       api.get('/api/v1/quests/my-progress/', { params: { completed: false } }),
       api.get('/api/v1/quests/my-progress/', { params: { completed: true } }),
@@ -172,6 +173,8 @@ export default function Quests() {
   // Выбор отмечается сразу — на карточку ставится знак, кнопка
   // перекрашивается; ответ сервера только подтверждает, ошибка откатывает.
   const pickWeeklyFocus = useCallback((code: string, title: string) => {
+    if (pickingRef.current) return
+    pickingRef.current = true
     const previous = weeklyChoice
     setWeeklyChoice(code)
     setFocusPreview(code)
@@ -179,13 +182,17 @@ export default function Quests() {
     api.post('/api/v1/quests/weekly-focus/', { quest_code: code })
       .then(() => {
         addToast(`Цель недели: ${title}`)
-        loadQuests({ quiet: true })
+        return loadQuests({ quiet: true })
       })
       .catch(() => {
         setWeeklyChoice(previous)
+        setFocusPreview(previous)
         addToast('Не удалось выбрать цель недели', 'error')
       })
-      .finally(() => setPicking(null))
+      .finally(() => {
+        pickingRef.current = false
+        setPicking(null)
+      })
   }, [addToast, loadQuests, weeklyChoice])
 
   const rawQuests = activeTab === 0 ? quests : activeTab === 1 ? completedQuests : []
@@ -389,7 +396,7 @@ export default function Quests() {
                               option.code === weeklyChoice ? ' q1__option-pick--current' : ''
                             }${picking === option.code ? ' q1__option-pick--busy' : ''}`}
                             onClick={() => pickWeeklyFocus(option.code, option.title)}
-                            disabled={option.code === weeklyChoice}
+                            disabled={picking !== null || option.code === weeklyChoice}
                           >
                             <span key={String(option.code === weeklyChoice)} className="q1__option-pick-label">
                               {option.code === weeklyChoice ? 'Цель недели' : 'Выбрать'}
