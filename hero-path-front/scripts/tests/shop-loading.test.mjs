@@ -48,6 +48,9 @@ const code = compile(`function makeCallbacks(activeTab: number, products, purcha
 const apiData = await import(`data:text/javascript;base64,${Buffer.from(compile(
   await readFile(resolve(frontend, 'src/lib/apiData.ts'), 'utf8'),
 )).toString('base64')}`)
+const cosmetics = await import(`data:text/javascript;base64,${Buffer.from(compile(
+  await readFile(resolve(frontend, 'src/lib/cosmetics.ts'), 'utf8'),
+)).toString('base64')}`)
 const flush = () => new Promise((done) => setImmediate(done))
 
 function fixture() {
@@ -62,6 +65,7 @@ function fixture() {
   })
   const sandbox = {
     ...apiData,
+    ...cosmetics,
     useCallback: (callback) => callback,
     useRef(initial) {
       const index = refIndex++
@@ -218,9 +222,9 @@ for (const kind of ['apply', 'unapply', 'buy']) {
 }
 
 const owned = () => [
-  { id: 1, code: 'frame-first', title: 'First frame', type: 'cosmetic', isApplied: true },
-  { id: 2, code: 'frame-second', title: 'Second frame', type: 'cosmetic', isApplied: false },
-  { id: 3, code: 'boost', title: 'Boost', type: 'boost', isApplied: true },
+  { id: 1, code: 'frame-first', title: 'First frame', type: 'cosmetic', slot: 'avatar_frame', isApplied: true },
+  { id: 2, code: 'frame-second', title: 'Second frame', type: 'cosmetic', slot: 'avatar_frame', isApplied: false },
+  { id: 3, code: 'glow', title: 'Glow', type: 'cosmetic', slot: 'badge_glow', isApplied: true },
 ]
 const applied = (state) => state.purchases.map((purchase) => [purchase.id, purchase.isApplied])
 
@@ -246,7 +250,7 @@ test('a conflicting toggle cannot replace the current pending operation', async 
   await mutation.reject()
 })
 
-test('optimistic apply keeps one active purchase per type and restores its snapshot on error', async () => {
+test('optimistic apply replaces only the same slot and restores its snapshot on error', async () => {
   const { load, mutate, state, toasts } = fixture()
   await load(0).resolve('cosmetic-item')
   state.purchases = owned()
@@ -286,7 +290,7 @@ test('the apply lock lasts through server reconciliation and then permits the ne
     coins_spent: 10,
     created_at: '2026-10-20',
     is_applied: purchase.id === 2,
-    item: { code: purchase.code, title: purchase.title, item_type: purchase.type },
+    item: { code: purchase.code, title: purchase.title, item_type: purchase.type, slot: purchase.slot },
   })))
   assert.deepEqual(applied(state), [[1, false], [2, true], [3, false]])
   assert.equal(state.applyingId, null)
@@ -328,7 +332,7 @@ test('a buy prevents apply until reconciliation and a later rollback preserves t
     id: 4, code: 'new-purchase', title: 'New purchase', type: 'other', isApplied: false,
   }].map((purchase) => ({
     id: purchase.id, coins_spent: 10, created_at: '2026-10-20', is_applied: purchase.isApplied,
-    item: { code: purchase.code, title: purchase.title, item_type: purchase.type },
+    item: { code: purchase.code, title: purchase.title, item_type: purchase.type, slot: purchase.slot },
   })))
   assert.equal(state.buying, false)
   assert.equal(state.showPurchase, null)
