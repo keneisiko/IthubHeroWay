@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from django.db import transaction
 
 from apps.accounts.models import Role, Squad, User
+from apps.accounts.tracks import assign_track_if_empty
 from apps.integrations.services.lxp_groups import group_students
 
 # Транслитерация для кода отряда: код уходит в адреса и в админку, поэтому
@@ -168,6 +169,7 @@ def import_group(
             fields.append("last_name")
         if fields:
             user.save(update_fields=fields)
+        assign_track_if_empty(user, squad.name)
 
     return GroupImportResult(
         squad_code=squad.code,
