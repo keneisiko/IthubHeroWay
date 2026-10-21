@@ -9,63 +9,67 @@ export interface RadarGeo {
 interface RadarHudProps {
   /** Центр и радиус пятиугольника в пикселях поля графика — берутся у Chart.js. */
   geo?: RadarGeo | null
-  axes?: number
+  /** Значения осей по порядку графика и максимум шкалы — по ним рисуется аура. */
+  values?: number[]
+  max?: number
 }
 
-// один оборот луча; вершина вспыхивает, когда луч проходит над ней
-const SWEEP_S = 6
+// светлые частицы внутри пятиугольника: место, размер, темп
+const MOTES = Array.from({ length: 12 }, (_, i) => ({
+  x: 18 + ((i * 37) % 64),
+  y: 30 + ((i * 53) % 52),
+  size: 3 + (i % 3),
+  dur: 7 + (i % 5) * 1.3,
+  delay: -(i * 1.7),
+}))
+
+function polygon(points: number[], axes: number): string {
+  return points.map((k, i) => {
+    const a = ((-90 + (360 / axes) * i) * Math.PI) / 180
+    return `${(50 + 50 * k * Math.cos(a)).toFixed(2)}% ${(50 + 50 * k * Math.sin(a)).toFixed(2)}%`
+  }).join(', ')
+}
 
 /**
- * Радар-сканер под пятиугольником: по нему идёт луч, обрезанный ровно
- * по форме графика, внутри — пиксельная сетка; вершины осей вспыхивают
- * пикселем IThub, когда луч их проходит. По краям поля — уголки прицела.
- * Сам график не трогает: лежит под ним и не ловит нажатия.
+ * Мягкая подложка под пятиугольником: за графиком светится размытая
+ * аура ровно по форме значений и медленно дышит, внутри поля плавают
+ * светлые частицы. Сам график не трогает — лежит под ним.
  */
-export default function RadarHud({ geo, axes = 5 }: RadarHudProps) {
-  // вершины многоугольника в процентах от его квадрата: первая ось сверху
-  const polygon = Array.from({ length: axes }, (_, i) => {
-    const a = ((-90 + (360 / axes) * i) * Math.PI) / 180
-    return `${(50 + 50 * Math.cos(a)).toFixed(2)}% ${(50 + 50 * Math.sin(a)).toFixed(2)}%`
-  }).join(', ')
+export default function RadarHud({ geo, values = [], max = 20 }: RadarHudProps) {
+  if (!geo || geo.r <= 0) return null
+  const axes = values.length || 5
+  const shape = values.length
+    ? polygon(values.map((v) => Math.max(0.12, Math.min(v, max) / max)), axes)
+    : polygon(Array(axes).fill(1), axes)
+  const field = polygon(Array(axes).fill(1), axes)
+  const box = {
+    left: geo.cx - geo.r,
+    top: geo.cy - geo.r,
+    width: geo.r * 2,
+    height: geo.r * 2,
+  }
 
   return (
     <div className="radar-hud" aria-hidden="true">
-      {geo && geo.r > 0 && (
-        <>
-          <div
-            className="radar-hud__scope"
+      <div className="radar-hud__aura" style={box}>
+        <span className="radar-hud__aura-shape" style={{ clipPath: `polygon(${shape})` }} />
+      </div>
+      <div className="radar-hud__field" style={{ ...box, clipPath: `polygon(${field})` }}>
+        {MOTES.map((m, i) => (
+          <i
+            key={i}
+            className="radar-hud__mote"
             style={{
-              left: geo.cx - geo.r,
-              top: geo.cy - geo.r,
-              width: geo.r * 2,
-              height: geo.r * 2,
-              clipPath: `polygon(${polygon})`,
-              '--sweep': `${SWEEP_S}s`,
-            } as React.CSSProperties}
-          >
-            <span className="radar-hud__beam" />
-          </div>
-          {Array.from({ length: axes }, (_, i) => {
-            const a = ((-90 + (360 / axes) * i) * Math.PI) / 180
-            return (
-              <span
-                key={i}
-                className="radar-hud__ping"
-                style={{
-                  left: geo.cx + geo.r * Math.cos(a),
-                  top: geo.cy + geo.r * Math.sin(a),
-                  animationDelay: `${(SWEEP_S / axes) * i}s`,
-                  '--sweep': `${SWEEP_S}s`,
-                } as React.CSSProperties}
-              />
-            )
-          })}
-        </>
-      )}
-      <i className="radar-hud__corner radar-hud__corner--tl" />
-      <i className="radar-hud__corner radar-hud__corner--tr" />
-      <i className="radar-hud__corner radar-hud__corner--bl" />
-      <i className="radar-hud__corner radar-hud__corner--br" />
+              left: `${m.x}%`,
+              top: `${m.y}%`,
+              width: m.size,
+              height: m.size,
+              animationDuration: `${m.dur}s`,
+              animationDelay: `${m.delay}s`,
+            }}
+          />
+        ))}
+      </div>
     </div>
   )
 }

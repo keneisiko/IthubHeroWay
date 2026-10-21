@@ -10,102 +10,48 @@
   pointer-events: none;
 }
 
-/* поле радара: квадрат вокруг пятиугольника, обрезанный по его форме */
-.radar-hud__scope {
+/* аура: размытое облако по форме значений, медленно дышит.
+   Размытие — на обёртке, форма — на внутреннем слое: иначе
+   clip-path срезал бы мягкий край */
+.radar-hud__aura {
+  position: absolute;
+  filter: blur(22px);
+  opacity: 0.9;
+  animation: auraBreath 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.radar-hud__aura-shape {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(154, 51, 244, 0.85), rgba(182, 114, 248, 0.6) 55%, rgba(211, 168, 251, 0.35));
+  transition: clip-path 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes auraBreath {
+  0%, 100% { transform: scale(0.94); opacity: 0.65; }
+  50% { transform: scale(1.06); opacity: 0.95; }
+}
+
+/* поле пятиугольника: светлые частицы всплывают и гаснут */
+.radar-hud__field {
   position: absolute;
   overflow: hidden;
-  /* пиксельная сетка — квадратные точки IThub */
-  background-image: conic-gradient(from 270deg at 2px 2px, rgba(154, 51, 244, 0.28) 25%, transparent 0);
-  background-size: 11px 11px;
-  background-position: center;
 }
 
-/* луч: сектор, яркий у переднего края и гаснущий позади */
-.radar-hud__beam {
+.radar-hud__mote {
   position: absolute;
-  inset: -22%;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg 250deg,
-    rgba(154, 51, 244, 0.06) 290deg,
-    rgba(154, 51, 244, 0.32) 345deg,
-    rgba(154, 51, 244, 0.55) 358deg,
-    rgba(255, 255, 255, 0.85) 359.5deg,
-    transparent 360deg
-  );
-  animation: sweep var(--sweep, 6s) linear infinite;
-}
-
-@keyframes sweep { to { transform: rotate(1turn); } }
-
-/* вершина оси: пиксель вспыхивает, когда над ним проходит луч */
-.radar-hud__ping {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  background: var(--purple-500);
-  box-shadow: 0 0 0 2px var(--ithub-white);
-  opacity: 0.35;
-  animation: ping var(--sweep, 6s) linear infinite;
-}
-
-.radar-hud__ping::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border: 2px solid var(--purple-500);
+  border-radius: 1px;
+  background: var(--ithub-white);
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.8);
   opacity: 0;
-  animation: pingRing var(--sweep, 6s) cubic-bezier(0.22, 1, 0.36, 1) infinite;
-  animation-delay: inherit;
+  animation: moteRise 8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
-@keyframes ping {
-  0% { opacity: 1; transform: scale(1.6); box-shadow: 0 0 0 2px var(--ithub-white), 0 0 14px 4px rgba(154, 51, 244, 0.9); }
-  12% { opacity: 0.9; transform: scale(1); box-shadow: 0 0 0 2px var(--ithub-white), 0 0 6px 2px rgba(154, 51, 244, 0.5); }
-  60%, 100% { opacity: 0.35; transform: scale(1); box-shadow: 0 0 0 2px var(--ithub-white); }
-}
-
-@keyframes pingRing {
-  0% { opacity: 0.9; transform: scale(1); }
-  14%, 100% { opacity: 0; transform: scale(3.2); }
-}
-
-/* уголки прицела по краям поля графика */
-.radar-hud__corner {
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border: 0 solid var(--purple-500);
-  opacity: 0.7;
-}
-
-.radar-hud__corner--tl { left: 0; top: 0; border-width: 4px 0 0 4px; }
-.radar-hud__corner--tr { right: 0; top: 0; border-width: 4px 4px 0 0; }
-.radar-hud__corner--bl { left: 0; bottom: 0; border-width: 0 0 4px 4px; }
-.radar-hud__corner--br { right: 0; bottom: 0; border-width: 0 4px 4px 0; }
-
-/* у каждого уголка — пиксель-маяк, вспыхивают по очереди */
-.radar-hud__corner::after {
-  content: '';
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: var(--sys-yellow);
-  box-shadow: 0 0 0 2px var(--ithub-black);
-  opacity: 0;
-  animation: hudBlink 4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-}
-
-.radar-hud__corner--tl::after { left: 6px; top: 6px; }
-.radar-hud__corner--tr::after { right: 6px; top: 6px; animation-delay: 1s; }
-.radar-hud__corner--br::after { right: 6px; bottom: 6px; animation-delay: 2s; }
-.radar-hud__corner--bl::after { left: 6px; bottom: 6px; animation-delay: 3s; }
-
-@keyframes hudBlink {
-  0%, 70%, 100% { opacity: 0; transform: scale(0.4); }
-  78%, 90% { opacity: 1; transform: scale(1); }
+@keyframes moteRise {
+  0% { opacity: 0; transform: translateY(14px) scale(0.6); }
+  30% { opacity: 0.9; }
+  70% { opacity: 0.6; }
+  100% { opacity: 0; transform: translateY(-34px) scale(1); }
 }
 
 /* --- сводка по осям --- */
@@ -164,6 +110,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
+  min-height: 40px;
   padding: 6px 8px;
   margin: 0 -8px;
   border: 0;
@@ -231,14 +178,11 @@ button.skill-sum__row:focus-visible { outline: 3px solid var(--purple-500); outl
   .skill-sum__fact { font-size: 16px; }
   .skill-sum__row { grid-template-columns: 82px minmax(0, 1fr) 36px; gap: 10px; }
   .skill-sum__name { font-size: 14px; }
-  .radar-hud__corner { width: 14px; height: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .radar-hud__beam,
-  .radar-hud__ping,
-  .radar-hud__ping::after,
-  .radar-hud__corner::after,
+  .radar-hud__aura,
+  .radar-hud__mote,
   .skill-sum__bar i.is-on { animation: none; }
 }
 
@@ -266,6 +210,23 @@ button.skill-sum__row:focus-visible { outline: 3px solid var(--purple-500); outl
 }
 
 @media (max-width: 900px) {
-  .profile-radar > .skill-sum { margin-top: 48px; }
+  /* подписи нижних осей выступают под холст — сводка ниже них */
+  .profile-radar > .skill-sum { margin-top: 76px; }
 }
 
+
+/* главная на телефоне: холст по ширине экрана, без пустых полос
+   сверху и между графиком и сводкой */
+@media (max-width: 900px) {
+  .radar-card.radar-card--summary {
+    min-height: 0;
+    margin-top: 20px;
+    gap: 10px;
+  }
+
+  .radar-card--summary .radar-card__canvas {
+    width: 100%;
+    max-width: 424px;
+    height: min(340px, 86vw);
+  }
+}

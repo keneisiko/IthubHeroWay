@@ -611,3 +611,6 @@
 .profile-card--primary:has(.dev-nebula) { overflow: hidden; }
 .profile-card--primary:has(.dev-nebula) > *,
 .profile-card--primary:has(.dev-nebula) .profile-card__names { position: relative; z-index: 1; }
+
+/* под аватаром висит плашка «Разработчик» — строки ниже отступают */
+.profile-card__header:has(.dev-frame) { margin-bottom: 18px; }
