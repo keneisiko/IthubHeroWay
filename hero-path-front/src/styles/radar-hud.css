@@ -1,0 +1,255 @@
+/* =========================
+   ОБВЯЗКА ПЯТИУГОЛЬНИКА (components/RadarHud.tsx)
+   и сводка по осям (components/SkillSummary.tsx)
+   ========================= */
+
+.radar-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.radar-hud__orbit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(100%, 460px);
+  max-height: 100%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  overflow: visible;
+}
+
+.radar-hud__ring {
+  fill: none;
+  stroke: var(--purple-500);
+  transform-origin: 50px 50px;
+}
+
+/* внешняя орбита — квадратные точки, медленно идёт по кругу */
+.radar-hud__ring--outer {
+  stroke-width: 1.3;
+  stroke-dasharray: 1.4 4.6;
+  opacity: 0.45;
+  animation: hudSpin 80s linear infinite;
+}
+
+.radar-hud__ring--inner {
+  stroke-width: 0.6;
+  stroke-dasharray: 0.8 11.2;
+  opacity: 0.35;
+  animation: hudSpin 120s linear infinite reverse;
+}
+
+.radar-hud__tick {
+  fill: var(--purple-500);
+  opacity: 0.85;
+}
+
+/* уголки прицела по краям поля графика */
+.radar-hud__corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 0 solid var(--purple-500);
+  opacity: 0.7;
+}
+
+.radar-hud__corner--tl { left: 0; top: 0; border-width: 4px 0 0 4px; }
+.radar-hud__corner--tr { right: 0; top: 0; border-width: 4px 4px 0 0; }
+.radar-hud__corner--bl { left: 0; bottom: 0; border-width: 0 0 4px 4px; }
+.radar-hud__corner--br { right: 0; bottom: 0; border-width: 0 4px 4px 0; }
+
+/* у каждого уголка — пиксель-маяк, вспыхивают по очереди */
+.radar-hud__corner::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--sys-yellow);
+  box-shadow: 0 0 0 2px var(--ithub-black);
+  opacity: 0;
+  animation: hudBlink 4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.radar-hud__corner--tl::after { left: 6px; top: 6px; }
+.radar-hud__corner--tr::after { right: 6px; top: 6px; animation-delay: 1s; }
+.radar-hud__corner--br::after { right: 6px; bottom: 6px; animation-delay: 2s; }
+.radar-hud__corner--bl::after { left: 6px; bottom: 6px; animation-delay: 3s; }
+
+@keyframes hudSpin { to { transform: rotate(1turn); } }
+
+@keyframes hudBlink {
+  0%, 70%, 100% { opacity: 0; transform: scale(0.4); }
+  78%, 90% { opacity: 1; transform: scale(1); }
+}
+
+/* --- сводка по осям --- */
+.skill-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  font-family: var(--font-text);
+}
+
+.skill-sum__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.skill-sum__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ithub-black);
+}
+
+.skill-sum__fact b { color: var(--purple-500); }
+
+.skill-sum__tag {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--ithub-black);
+  color: var(--ithub-white);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.skill-sum__tag--best { background: var(--purple-500); }
+.skill-sum__tag--grow { background: var(--ithub-black); color: var(--sys-yellow); }
+
+.skill-sum__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skill-sum__row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.skill-sum__row {
+  cursor: pointer;
+  transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+button.skill-sum__row:focus-visible { outline: 3px solid var(--purple-500); outline-offset: 0; }
+
+@media (hover: hover) and (pointer: fine) {
+  button.skill-sum__row:hover { background: #f1e6fe; }
+}
+
+.skill-sum__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ithub-black);
+}
+
+.skill-sum__value {
+  justify-self: end;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--purple-500);
+}
+
+.skill-sum__bar {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.skill-sum__bar i {
+  height: 12px;
+  border-radius: 2px;
+  background: rgba(18, 18, 18, 0.1);
+}
+
+.skill-sum__bar i.is-on {
+  background: var(--purple-500);
+  transform-origin: bottom;
+  animation: sumCell 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) var(--d, 0ms) both;
+}
+
+/* лучшее значение за всё время — контуром поверх серых клеток */
+.skill-sum__bar i.is-peak { background: transparent; box-shadow: inset 0 0 0 2px rgba(154, 51, 244, 0.45); }
+
+.is-best .skill-sum__bar i.is-on { background: linear-gradient(var(--purple-500), #7a1fcc); }
+
+@keyframes sumCell {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (max-width: 900px) {
+  .skill-sum__fact { font-size: 16px; }
+  .skill-sum__row { grid-template-columns: 82px minmax(0, 1fr) 36px; gap: 10px; }
+  .skill-sum__name { font-size: 14px; }
+  .radar-hud__corner { width: 14px; height: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-hud__ring--outer,
+  .radar-hud__ring--inner,
+  .radar-hud__corner::after,
+  .skill-sum__bar i.is-on { animation: none; }
+}
+
+/* главная: под радаром — сводка, карточка становится колонкой */
+.radar-card--summary {
+  flex-direction: column;
+  gap: 18px;
+}
+
+.radar-card--summary .radar-card__tilt { height: auto; }
+.radar-card--summary .skill-sum { max-width: 424px; }
+
+/* график рисуется поверх обвязки */
+.radar-card__canvas canvas,
+.profile-radar__chart canvas { position: relative; z-index: 1; }
+
+/* профиль: сводка под пятиугольником, а не сбоку от него */
+.profile-radar { flex-direction: column; }
+
+.profile-radar > .skill-sum {
+  max-width: 560px;
+  margin-top: 64px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .profile-radar > .skill-sum { margin-top: 48px; }
+}
+
+/* в профиле пятиугольник занимает всё поле — орбита обходит его снаружи */
+.profile-radar__chart .radar-hud__orbit {
+  width: 112%;
+  max-height: none;
+}
+
+.profile-radar__chart .radar-hud__ring--inner,
+.profile-radar__chart .radar-hud__tick { display: none; }

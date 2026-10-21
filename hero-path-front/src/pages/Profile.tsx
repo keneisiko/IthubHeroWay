@@ -21,6 +21,8 @@ import BadgeEmblem from '../components/BadgeEmblem'
 import BadgeSheet from '../components/BadgeSheet'
 import type { Badge, EarnedBadge } from '../lib/badges'
 import SkillHistory from '../components/SkillHistory'
+import RadarHud from '../components/RadarHud'
+import SkillSummary from '../components/SkillSummary'
 import PixelText from '../components/PixelText'
 import Avatar from '../components/Avatar'
 import { hasFrame, hasGlow, type AppliedItems } from '../lib/cosmetics'
@@ -894,6 +896,7 @@ export default function Profile() {
       {showCharacteristics && (
       <section className="profile-radar card-entrance" style={{ animationDelay: '0.3s' }}>
         <div className="profile-radar__chart">
+          <RadarHud />
           <Radar ref={chartRef} data={radarData} options={radarOptions} />
 
           {/* луч к выбранной оси: видно, о какой характеристике история */}
@@ -975,6 +978,12 @@ export default function Profile() {
             )
           })}
         </div>
+
+        <SkillSummary
+          skills={AXES.map(({ key }) => ({ key, value: getSkill(key).current, peak: getSkill(key).peak }))}
+          max={20}
+          onPick={(key) => setActiveAxis((cur) => (cur === key ? null : key))}
+        />
 
         {showCharacteristics && (
           <SkillHistory
