@@ -185,7 +185,8 @@ def verify_hik_no_late(user: User, params: dict, target_date: date) -> Verificat
         # Ни одного прохода за период — не доказательство дисциплины, а
         # отсутствие данных. Раньше квест закрывался и тем, кто вообще не
         # появлялся в колледже: «без опозданий» доставалось за неявку.
-        pending = target_date >= timezone.now().date()
+        # Местная дата: по UTC с 00:00 до 03:00 «сегодня» было ещё вчера.
+        pending = target_date >= timezone.localdate()
         return VerificationResult(
             completed=False,
             progress=0.0,

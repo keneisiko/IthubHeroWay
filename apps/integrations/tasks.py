@@ -37,7 +37,11 @@ def refresh_lxp_token() -> str:
 
 @shared_task
 def fetch_lxp_snapshot() -> str:
-    yesterday = timezone.now().date() - timedelta(days=1)
+    # Местная дата, а не UTC: задача идёт в 02:00 по Москве, это 23:00 UTC
+    # предыдущего дня, и `now().date()` давал уже вчера — снимок подписывался
+    # позавчерашним числом (снимок «15.10» создан 17.10). Расчёты ищут снимок
+    # по подписи и брали не тот день.
+    yesterday = timezone.localdate() - timedelta(days=1)
     client = LXPGraphQLClient()
     # get_token() сам решает, нужен ли вход: раньше здесь подряд шли
     # refresh_lxp_token_sync() и get_token(), то есть два логина за прогон
