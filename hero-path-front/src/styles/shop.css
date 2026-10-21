@@ -207,3 +207,121 @@
   .shop-purchase__apply.ring-b,
   .shop-purchase--pending .shop-purchase__apply { animation: none; }
 }
+
+/* =========================
+   ФИЛЬТРЫ: каталог и «Мои покупки»
+   Пилюли в одну строку; на телефоне лента прокручивается вбок.
+   ========================= */
+
+.shop-chips {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px 6px;
+}
+
+.shop-chips::-webkit-scrollbar { display: none; }
+
+.shop-chips--catalog { grid-column: 1 / -1; margin-top: 4px; }
+
+.shop-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 3px solid var(--purple-500);
+  border-radius: 999px;
+  background: var(--ithub-white);
+  color: var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-chip[aria-pressed='true'] {
+  background: var(--purple-500);
+  color: var(--ithub-white);
+}
+
+.shop-chip:active { transform: scale(0.95); }
+.shop-chip:focus-visible { outline: 3px solid var(--ithub-black); outline-offset: 2px; }
+
+.shop-chip__count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  background: rgba(154, 51, 244, 0.14);
+  font-size: 13px;
+  transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-chip[aria-pressed='true'] .shop-chip__count { background: rgba(255, 255, 255, 0.22); }
+
+/* сортировка — чёрная пилюля со стрелкой из пикселей */
+.shop-chip--sort {
+  margin-left: auto;
+  border-color: var(--ithub-black);
+  color: var(--ithub-black);
+}
+
+.shop-chip--sort[aria-pressed='true'] {
+  background: var(--ithub-black);
+  color: var(--sys-yellow);
+}
+
+.shop-chip__arrow {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: square;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.shop-chip--desc .shop-chip__arrow { transform: rotate(180deg); }
+.shop-chip--none .shop-chip__arrow { transform: rotate(90deg); }
+
+@media (hover: hover) and (pointer: fine) {
+  .shop-chip:not([aria-pressed='true']):hover { background: #f1e6fe; }
+  .shop-chip--sort:not([aria-pressed='true']):hover { background: #ececec; }
+}
+
+@media (max-width: 900px) {
+  .shop-chips { margin-inline: -4px; padding-inline: 4px; }
+  .shop-chip { min-height: 40px; font-size: 14px; padding: 0 14px; }
+  .shop-chip--sort { margin-left: 0; }
+}
+
+/* на фиолетовой карточке покупок — белые пилюли */
+.shop-purchases__card .shop-chip {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  color: var(--ithub-white);
+}
+
+.shop-purchases__card .shop-chip[aria-pressed='true'] {
+  border-color: var(--ithub-white);
+  background: var(--ithub-white);
+  color: var(--purple-500);
+}
+
+.shop-purchases__card .shop-chip__count { background: rgba(255, 255, 255, 0.2); }
+.shop-purchases__card .shop-chip[aria-pressed='true'] .shop-chip__count { background: rgba(154, 51, 244, 0.14); }
+
+@media (hover: hover) and (pointer: fine) {
+  .shop-purchases__card .shop-chip:not([aria-pressed='true']):hover { background: rgba(255, 255, 255, 0.14); }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import palmSky from '../assets/shop/palm-sky.png'
 import api from '../api'
 import { notifyBalanceChanged } from '../lib/balance'
@@ -16,6 +16,21 @@ import '../styles/shop.css'
 
 const TABS = ['Кастомизация', 'Привилегии', 'Мерч', 'Статусные'] as const
 
+type CatalogFilter = 'all' | 'afford' | 'fresh'
+type PriceSort = 'none' | 'asc' | 'desc'
+const CATALOG_FILTERS: [CatalogFilter, string][] = [
+  ['all', 'Все'],
+  ['afford', 'Хватает монет'],
+  ['fresh', 'Ещё не куплено'],
+]
+const PRICE_SORT_LABEL: Record<PriceSort, string> = { none: 'По цене', asc: 'Сначала дешёвые', desc: 'Сначала дорогие' }
+const NEXT_SORT: Record<PriceSort, PriceSort> = { none: 'asc', asc: 'desc', desc: 'none' }
+
+// подписи типов товара — те же, что у вкладок магазина
+const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  SHOP_TAB_TYPES.map((type, i) => [type, TABS[i]]),
+)
+
 interface Product {
   id: number
   code: string
@@ -28,6 +43,7 @@ interface Product {
 interface Purchase {
   id: number
   code: string
+  type: string
   title: string
   price: string
   status: string
@@ -101,6 +117,9 @@ export default function Shop() {
   const [switching, setSwitching] = useState(false)
   const [showPurchase, setShowPurchase] = useState<number | null>(null)
   const [showPurchases, setShowPurchases] = useState(false)
+  const [catalogFilter, setCatalogFilter] = useState<CatalogFilter>('all')
+  const [priceSort, setPriceSort] = useState<PriceSort>('none')
+  const [purchaseFilter, setPurchaseFilter] = useState<string>('all')
   const [showDetail, setShowDetail] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
@@ -160,7 +179,7 @@ export default function Shop() {
         coins_spent: number
         created_at: string
         is_applied?: boolean
-        item: { title: string; code?: string }
+        item: { title: string; code?: string; item_type?: string }
       }>(purchasesRes.data)
 
       setPurchasedCodes(new Set(
@@ -170,6 +189,7 @@ export default function Shop() {
       setPurchases(purchaseRows.map((p) => ({
         id: p.id,
         code: p.item?.code ?? '',
+        type: p.item?.item_type ?? '',
         title: p.item?.title ?? 'Покупка',
         price: String(p.coins_spent),
         status: p.created_at ? `Куплено · ${formatDateRu(p.created_at)}` : 'Куплено',
@@ -241,6 +261,31 @@ export default function Shop() {
       .finally(() => setApplyingId(null))
   }, [addToast, loadShop])
 
+  const shownProducts = useMemo(() => {
+    const list = products.filter((item) => {
+      if (catalogFilter === 'afford') return !purchasedCodes.has(item.code) && Number(item.price) <= Number(coins)
+      if (catalogFilter === 'fresh') return !purchasedCodes.has(item.code)
+      return true
+    })
+    if (priceSort === 'none') return list
+    const dir = priceSort === 'asc' ? 1 : -1
+    return [...list].sort((a, b) => (Number(a.price) - Number(b.price)) * dir)
+  }, [products, catalogFilter, priceSort, purchasedCodes, coins])
+
+  // фильтр покупок: все, применённые и по типу — только типы, что есть
+  const purchaseChips = useMemo<[string, string, number][]>(() => {
+    const types = SHOP_TAB_TYPES.filter((type) => purchases.some((p) => p.type === type))
+    const chips: [string, string, number][] = [['all', 'Все', purchases.length]]
+    const applied = purchases.filter((p) => p.isApplied).length
+    if (applied) chips.push(['applied', 'Применённые', applied])
+    for (const type of types) chips.push([type, TYPE_LABELS[type], purchases.filter((p) => p.type === type).length])
+    return chips
+  }, [purchases])
+
+  const shownPurchases = useMemo(() => purchases.filter((p) => (
+    purchaseFilter === 'all' || (purchaseFilter === 'applied' ? p.isApplied : p.type === purchaseFilter)
+  )), [purchases, purchaseFilter])
+
   const selectedProduct = products.find(p => p.id === (showPurchase ?? showDetail))
   const selectedDetail = showDetail !== null ? products.find(p => p.id === showDetail) : undefined
   // сколько монет не хватает на открытый товар (0 — хватает)
@@ -286,10 +331,27 @@ export default function Shop() {
 
         <div className="shop-purchases__card">
           <h2 className="shop-purchases__title"><PixelText text="Мои покупки" /></h2>
-          <div className="shop-purchases__list">
+          {purchases.length > 0 && (
+            <div className="shop-chips" role="group" aria-label="Фильтр покупок">
+              {purchaseChips.map(([value, label, count]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="shop-chip"
+                  aria-pressed={purchaseFilter === value}
+                  onClick={() => setPurchaseFilter(value)}
+                >
+                  {label}<span className="shop-chip__count">{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div key={purchaseFilter} className="shop-purchases__list">
             {purchases.length === 0 ? (
               <p className="shop-purchases__empty">Покупок пока нет</p>
-            ) : purchases.map((p) => (
+            ) : shownPurchases.length === 0 ? (
+              <p className="shop-purchases__empty">Здесь пока пусто</p>
+            ) : shownPurchases.map((p) => (
               <article
                 key={p.id}
                 className={`shop-purchase${p.isApplied ? ' shop-purchase--on' : ''}${applyingId === p.id ? ' shop-purchase--pending' : ''}`}
@@ -435,10 +497,41 @@ export default function Shop() {
         </section>
       </div>
 
-      <div className={`shop-grid${switching ? ' shop-grid--switching' : ''}`} aria-busy={switching}>
+      {products.length > 0 && (
+        <div className="shop-chips shop-chips--catalog" role="group" aria-label="Фильтр товаров">
+          {CATALOG_FILTERS.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className="shop-chip"
+              aria-pressed={catalogFilter === value}
+              onClick={() => setCatalogFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`shop-chip shop-chip--sort shop-chip--${priceSort}`}
+            aria-pressed={priceSort !== 'none'}
+            onClick={() => setPriceSort((v) => NEXT_SORT[v])}
+          >
+            <svg className="shop-chip__arrow" viewBox="0 0 12 14" width="12" height="14" aria-hidden="true">
+              <path d="M6 13V2M1.5 6L6 1.5 10.5 6" />
+            </svg>
+            {PRICE_SORT_LABEL[priceSort]}
+          </button>
+        </div>
+      )}
+
+      <div key={`${catalogFilter}-${priceSort}`} className={`shop-grid${switching ? ' shop-grid--switching' : ''}`} aria-busy={switching}>
         {products.length === 0 ? (
           <p className="loading-text" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>Товаров в этой категории пока нет</p>
-        ) : products.map((item, i) => {
+        ) : shownProducts.length === 0 ? (
+          <p className="loading-text" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>
+            {catalogFilter === 'afford' ? 'Пока не хватает монет ни на что из этого раздела' : 'Всё из этого раздела уже куплено'}
+          </p>
+        ) : shownProducts.map((item, i) => {
           const isPurchased = purchasedCodes.has(item.code)
           // В макете товар, на который не хватает монет, сразу показывает
           // серую кнопку с недостающей суммой, а не ошибку после нажатия.

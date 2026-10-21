@@ -14,6 +14,8 @@ import api from '../api'
 import { useToasts } from '../useToasts'
 import { formatDateTimeRu, formatRating } from '../lib/apiData'
 import RollNumber from '../components/RollNumber'
+import RadarHud from '../components/RadarHud'
+import SkillSummary from '../components/SkillSummary'
 import PixelText from '../components/PixelText'
 import '../styles/dashboard.css'
 
@@ -287,7 +289,7 @@ export default function Dashboard() {
         </div>
 
         <section
-          className="radar-card dash-in"
+          className="radar-card radar-card--summary dash-in"
           style={{ animationDelay: '160ms' }}
           onMouseMove={tilt.onMouseMove}
           onMouseLeave={() => { tilt.onMouseLeave(); setHoveredRadar(null) }}
@@ -297,6 +299,7 @@ export default function Dashboard() {
               {hoveredRadar ? `${hoveredRadar}: ${radarValues[AXIS_LABELS.indexOf(hoveredRadar)]}%` : 'Ритм'}
             </span>
             <div className="radar-card__canvas">
+              <RadarHud />
               <Radar
                 data={radarData}
                 options={{
@@ -341,6 +344,10 @@ export default function Dashboard() {
               />
             </div>
           </div>
+          <SkillSummary
+            skills={AXIS_LABELS.map((key, i) => ({ key, value: radarValues[i], peak: radarPeakValues[i] }))}
+            max={100}
+          />
         </section>
       </div>
 
