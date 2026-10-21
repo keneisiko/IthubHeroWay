@@ -31,6 +31,7 @@ import DevFrame from '../components/DevFrame'
 import RollNumber from '../components/RollNumber'
 import DialogClose from '../components/DialogClose'
 import { useModal } from '../useModal'
+import { notifyBalanceChanged } from '../lib/balance'
 import '../styles/profile-radar.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -457,6 +458,7 @@ export default function Profile() {
     api.patch('/api/v1/profile/me/', { callsign: editForm.callsign.trim() })
       .then((res) => {
         setProfile((prev) => prev ? { ...prev, callsign: res.data.callsign } : null)
+        notifyBalanceChanged()
         editModal.hide()
         addToast('Профиль сохранён!', 'success')
       })
@@ -473,6 +475,7 @@ export default function Profile() {
     })
       .then(res => {
         setProfile(prev => prev ? { ...prev, avatar: res.data.avatar } : null)
+        notifyBalanceChanged()
         avatarModal.hide()
         setAvatarFile(null)
         addToast('Аватар обновлён!', 'success')
