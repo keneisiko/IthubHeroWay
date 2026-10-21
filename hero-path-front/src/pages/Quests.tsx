@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../api'
 import LoadError from '../components/LoadError'
+import DialogClose from '../components/DialogClose'
+import { useModal } from '../useModal'
 import { useTabIndicator } from '../useTabIndicator'
 import { plural } from '../lib/plural'
 import { celebrate } from '../lib/celebrate'
@@ -23,29 +25,6 @@ interface Activity {
   title: string
   reward: string
   time: string
-}
-
-function useModal(initial = false) {
-  const [open, setOpen] = useState(initial)
-  const ref = useRef<HTMLDivElement>(null)
-  const show = () => setOpen(true)
-  const hide = () => setOpen(false)
-
-  useEffect(() => {
-    if (!open) return
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') hide() }
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) hide()
-    }
-    document.addEventListener('keydown', handleEsc)
-    document.addEventListener('mousedown', handleClick)
-    return () => {
-      document.removeEventListener('keydown', handleEsc)
-      document.removeEventListener('mousedown', handleClick)
-    }
-  }, [open])
-
-  return { open, ref, show, hide }
 }
 
 // Склонение дней для подписи серии
@@ -499,7 +478,8 @@ export default function Quests() {
       {/* Модалка самоотчёта */}
       {reportModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={reportModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={reportModalRef} role="dialog" aria-modal="true" aria-label="Самоотчёт" tabIndex={-1}>
+            <DialogClose onClose={reportModal.hide} />
             <h3 className="popup__title">Самоотчёт</h3>
             <label className="popup__label">Комментарий или ссылка на работу</label>
             <textarea
@@ -518,7 +498,8 @@ export default function Quests() {
       {/* Модалка подтверждения квеста */}
       {confirmModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={confirmModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={confirmModalRef} role="dialog" aria-modal="true" aria-label={confirmQuestTitle || 'Подтверждение квеста'} tabIndex={-1}>
+            <DialogClose onClose={confirmModal.hide} />
             <h3 className="popup__title">{confirmQuestTitle || 'Подтверждение квеста'}</h3>
             <label className="popup__label">
               Прикрепите ссылку на работу — её проверит куратор, награда придёт после одобрения

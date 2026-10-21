@@ -29,6 +29,8 @@ import { bannerVariant, glowVariant, type ActiveBoost, type AppliedItems } from 
 import { BoostPlaque } from '../components/BoostPlaque'
 import DevFrame from '../components/DevFrame'
 import RollNumber from '../components/RollNumber'
+import DialogClose from '../components/DialogClose'
+import { useModal } from '../useModal'
 import '../styles/profile-radar.css'
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -177,29 +179,6 @@ interface CharacteristicItem {
   current: number
   peak: number
   history: number[]
-}
-
-function useModal(initial = false) {
-  const [open, setOpen] = useState(initial)
-  const ref = useRef<HTMLDivElement>(null)
-  const show = () => setOpen(true)
-  const hide = () => setOpen(false)
-
-  useEffect(() => {
-    if (!open) return
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') hide() }
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) hide()
-    }
-    document.addEventListener('keydown', handleEsc)
-    document.addEventListener('mousedown', handleClick)
-    return () => {
-      document.removeEventListener('keydown', handleEsc)
-      document.removeEventListener('mousedown', handleClick)
-    }
-  }, [open])
-
-  return { open, ref, show, hide }
 }
 
 export default function Profile() {
@@ -1191,7 +1170,8 @@ export default function Profile() {
       {/* Модалка настройки профиля */}
       {editModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={editModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={editModalRef} role="dialog" aria-modal="true" aria-label="Настроить профиль" tabIndex={-1}>
+            <DialogClose onClose={editModal.hide} />
             <h3 className="popup__title">Настроить профиль</h3>
             <label className="popup__label">Позывной</label>
             <input
@@ -1215,7 +1195,8 @@ export default function Profile() {
       {/* Модалка вызова на дуэль: соперника ищем, а не ищем его профиль вручную */}
       {duelModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={duelModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={duelModalRef} role="dialog" aria-modal="true" aria-label="Вызвать на дуэль" tabIndex={-1}>
+            <DialogClose onClose={duelModal.hide} />
             <h3 className="popup__title">Вызвать на дуэль</h3>
             <label className="popup__label">
               Ставка {duelInfo.bet} {plural(duelInfo.bet, ['монета', 'монеты', 'монет'])}. Побеждает тот, кто за {duelInfo.days} дн. прибавит
@@ -1255,7 +1236,8 @@ export default function Profile() {
       {/* Модалка стать наставником */}
       {mentorModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={mentorModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={mentorModalRef} role="dialog" aria-modal="true" aria-label="Стать наставником" tabIndex={-1}>
+            <DialogClose onClose={mentorModal.hide} />
             <h3 className="popup__title">Стать наставником</h3>
             <label className="popup__label">Найдите студента по позывному или имени</label>
             <AgentPicker picked={menteeUsername} onPick={(agent) => setMenteeUsername(agent.username)} autoFocus />
@@ -1288,7 +1270,8 @@ export default function Profile() {
       {/* Подтверждение: завершить шефство */}
       {endModal.open && endTarget && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={endModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={endModalRef} role="dialog" aria-modal="true" aria-label="Завершить шефство" tabIndex={-1}>
+            <DialogClose onClose={endModal.hide} />
             <h3 className="popup__title">Завершить шефство?</h3>
             <p className="popup__label">
               {agentName(endTarget.mentee)} больше не будет числиться твоим подшефным, а еженедельные монеты
@@ -1309,7 +1292,8 @@ export default function Profile() {
       {/* Модалка смены аватара */}
       {avatarModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content" ref={avatarModalRef}>
+          <div className="modal-fixed__content popup--closable" ref={avatarModalRef} role="dialog" aria-modal="true" aria-label="Сменить аватар" tabIndex={-1}>
+            <DialogClose onClose={avatarModal.hide} />
             <h3 className="popup__title">Сменить аватар</h3>
             <p className="popup__label">Загрузите изображение профиля</p>
             <div className="avatar-upload-zone" onClick={() => document.getElementById('avatar-file-input')?.click()}>
