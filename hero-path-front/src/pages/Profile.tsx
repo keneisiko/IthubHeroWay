@@ -61,6 +61,8 @@ const AXES = AXIS_KEYS.map((key) => ({ key }))
 // поэтому подпись оси нужно отодвинуть за её пределы
 const VALUE_PILL = { halfWidth: 27, halfHeight: 17.5 }
 const AXIS_LABEL_GAP = 12
+// ширина подсказки оси — совпадает с .axis-tip в profile-radar.css
+const TIP_WIDTH = 148
 
 const BADGE_TAB_CATEGORIES: Record<string, string | null> = {
   'Путь': null,
@@ -203,6 +205,8 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState('Путь')
   const [activeAxis, setActiveAxis] = useState<string | null>(null)
   const [hoveredAxis, setHoveredAxis] = useState<string | null>(null)
+  // сторона подсказки оси: наружу от графика, а если там край экрана — над подписью
+  const [tipSide, setTipSide] = useState<'left' | 'right' | 'above'>('right')
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [characteristics, setCharacteristics] = useState<CharacteristicItem[]>([])
   const [badges, setBadges] = useState<UserBadge[]>([])
@@ -999,7 +1003,13 @@ export default function Profile() {
                   // сдвигаем подпись на половину её размера наружу от вершины
                   transform: `translate(calc(-50% + ${anchor.ux * 50}%), calc(-50% + ${anchor.uy * 50}%))`,
                 }}
-                onMouseEnter={() => setHoveredAxis(key)}
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const outward = anchor.ux < -0.05 ? 'left' : 'right'
+                  const room = outward === 'left' ? rect.left : window.innerWidth - rect.right
+                  setTipSide(room >= TIP_WIDTH + 24 ? outward : 'above')
+                  setHoveredAxis(key)
+                }}
                 onMouseLeave={() => setHoveredAxis(null)}
                 onClick={() => setActiveAxis(cur => cur === key ? null : key)}
               >
@@ -1007,7 +1017,9 @@ export default function Profile() {
                 <span>{key}</span>
                 {/* у выбранной оси всё это уже есть в карточке истории */}
                 {!isActive && showCharacteristics && (
-                  <span className={`axis-tip${isHovered ? ' axis-tip--show' : ''}`} aria-hidden="true">
+                  // наружу от пятиугольника и вбок от подписи: снизу и сверху
+                  // подсказка легла бы на линии графика
+                  <span className={`axis-tip axis-tip--${isHovered ? tipSide : anchor.ux < -0.05 ? 'left' : 'right'}${isHovered ? ' axis-tip--show' : ''}`} aria-hidden="true">
                     <span className="axis-tip__num"><b>{skill.current}</b> / 20</span>
                     <span className="axis-tip__bar">
                       <i style={{ transform: `scaleX(${Math.min(skill.current, 20) / 20})` }} />

@@ -451,8 +451,7 @@
 
 .axis-tip {
   position: absolute;
-  left: 50%;
-  top: calc(100% + 10px);
+  top: 50%;
   z-index: 50;
   display: grid;
   gap: 6px;
@@ -467,18 +466,40 @@
   pointer-events: none;
   opacity: 0;
   filter: blur(4px);
-  transform: translate(-50%, -6px) scale(0.96);
-  transform-origin: 50% 0;
+  transform: translate(var(--tip-from, 8px), -50%) scale(0.96);
   transition:
     opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     filter 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.axis-tip--right {
+  left: calc(100% + 12px);
+  --tip-from: -8px;
+  transform-origin: 0 50%;
+}
+
+.axis-tip--left {
+  right: calc(100% + 12px);
+  --tip-from: 8px;
+  transform-origin: 100% 50%;
+}
+
+/* сбоку места нет — над подписью, там график тоже не мешает */
+.axis-tip--above {
+  top: auto;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translate(-50%, 8px) scale(0.96);
+  transform-origin: 50% 100%;
+}
+
+.axis-tip--above.axis-tip--show { transform: translate(-50%, 0) scale(1); }
+
 .axis-tip--show {
   opacity: 1;
   filter: none;
-  transform: translate(-50%, 0) scale(1);
+  transform: translate(0, -50%) scale(1);
   transition-delay: 0.06s;
 }
 
@@ -536,5 +557,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .axis-tip { transition: opacity 0.15s linear; filter: none; transform: translate(-50%, 0); }
+  .axis-tip { transition: opacity 0.15s linear; filter: none; transform: translate(0, -50%); }
 }
+
+/* подпись под курсором — над холстом графика, иначе линии ложатся
+   поверх подсказки */
+.profile-radar__axis:hover,
+.profile-radar__axis:focus-visible { z-index: 6; }
