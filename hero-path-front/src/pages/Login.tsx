@@ -11,13 +11,33 @@ import '../styles/login.css'
 
 type Phase = 'idle' | 'loading' | 'success'
 
-function burstFrom(el: HTMLElement | null, power: number, tone: 'light' | 'coin' | 'error' = 'light', caret?: number) {
+function burstFrom(el: HTMLElement | null, power: number, tone: 'light' | 'coin' | 'error' = 'light') {
   if (!el) return
   const rect = el.getBoundingClientRect()
-  const x = caret === undefined
-    ? rect.left + rect.width / 2
-    : rect.left + Math.min(rect.width - 24, 20 + caret * 9.5)
-  pixelBurst({ x, y: rect.top + rect.height / 2, power, tone })
+  pixelBurst({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, power, tone })
+}
+
+interface Glyph {
+  ch: string
+  id: number
+}
+
+let glyphSeq = 0
+
+// новые символы получают новый ключ — анимируются только они,
+// даже если вставка пришлась в середину строки
+function diffGlyphs(prev: Glyph[], next: string): Glyph[] {
+  const old = prev.map((g) => g.ch).join('')
+  let head = 0
+  while (head < old.length && head < next.length && old[head] === next[head]) head++
+  let tail = 0
+  while (
+    tail < old.length - head &&
+    tail < next.length - head &&
+    old[old.length - 1 - tail] === next[next.length - 1 - tail]
+  ) tail++
+  const fresh = Array.from(next.slice(head, next.length - tail), (ch) => ({ ch, id: ++glyphSeq }))
+  return [...prev.slice(0, head), ...fresh, ...prev.slice(prev.length - tail)]
 }
 
 interface FieldProps {
@@ -26,6 +46,7 @@ interface FieldProps {
   hint: string
   type: 'text' | 'password'
   value: string
+  minLength: number
   invalid: boolean
   autoComplete: string
   autoFocus?: boolean
@@ -33,23 +54,58 @@ interface FieldProps {
   onKeyState?: (e: React.KeyboardEvent<HTMLInputElement>) => void
 }
 
-function Field({ id, label, hint, type, value, invalid, autoComplete, autoFocus, onChange, onKeyState }: FieldProps) {
+function Field({ id, label, hint, type, value, minLength, invalid, autoComplete, autoFocus, onChange, onKeyState }: FieldProps) {
   const [visible, setVisible] = useState(false)
+  const [glyphs, setGlyphs] = useState<Glyph[]>([])
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const runRef = useRef<HTMLSpanElement>(null)
+  const probeRef = useRef<HTMLInputElement>(null)
   const isPassword = type === 'password'
+  const masked = isPassword && !visible
+  const ready = value.trim().length >= minLength
+
+  // ширина одной скрытой точки у браузера своя — снимаем её с невидимого
+  // поля-образца, чтобы пиксели слоя стояли ровно над кареткой
+  const measurePitch = () => {
+    const probe = probeRef.current
+    if (probe && wrapRef.current) wrapRef.current.style.setProperty('--pitch', `${probe.scrollWidth / 10}px`)
+  }
+
+  useEffect(() => {
+    if (!isPassword) return
+    measurePitch()
+    document.fonts?.ready.then(measurePitch)
+  })
+
+  // слой с символами двигается вместе с прокруткой длинного значения
+  const syncScroll = () => {
+    requestAnimationFrame(() => {
+      const input = inputRef.current
+      if (input && runRef.current) runRef.current.style.transform = `translateX(${-input.scrollLeft}px)`
+    })
+  }
+
+  const sparkAtCaret = (power: number) => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const box = wrap.getBoundingClientRect()
+    const run = runRef.current?.getBoundingClientRect()
+    const x = run && run.width > 0 ? Math.min(box.right - 24, run.right) : box.left + 24
+    pixelBurst({ x, y: box.top + box.height / 2, power, tone: 'light' })
+  }
 
   return (
     <div
       ref={wrapRef}
-      className={`lp-field${value ? ' lp-field--filled' : ''}${invalid ? ' lp-field--invalid' : ''}${isPassword ? ' lp-field--password' : ''}`}
+      className={`lp-field${value ? ' lp-field--filled' : ''}${invalid ? ' lp-field--invalid' : ''}${isPassword ? ' lp-field--password' : ''}${ready ? ' lp-field--ready' : ''}`}
     >
       <input
         ref={inputRef}
         id={id}
         name={id}
         className="lp-field__input"
-        type={isPassword && !visible ? 'password' : 'text'}
+        type={masked ? 'password' : 'text'}
         value={value}
         autoComplete={autoComplete}
         autoCapitalize="none"
@@ -59,22 +115,33 @@ function Field({ id, label, hint, type, value, invalid, autoComplete, autoFocus,
         aria-invalid={invalid}
         placeholder=" "
         onChange={(e) => {
-          onChange(e.target.value)
-          if (e.target.value.length > value.length) {
-            burstFrom(wrapRef.current, 0.32, 'light', e.target.value.length)
-          }
+          const next = e.target.value
+          setGlyphs((prev) => diffGlyphs(prev, next))
+          onChange(next)
+          syncScroll()
+          if (next.length > value.length) requestAnimationFrame(() => sparkAtCaret(0.3))
         }}
-        onFocus={() => burstFrom(wrapRef.current, 0.55)}
+        onScroll={syncScroll}
+        onSelect={syncScroll}
+        onBlur={syncScroll}
+        onFocus={() => {
+          measurePitch()
+          burstFrom(wrapRef.current, 0.55)
+        }}
         onKeyDown={onKeyState}
         onKeyUp={onKeyState}
       />
       <label htmlFor={id} className="lp-field__label">{label}</label>
       <span className="lp-field__hint" aria-hidden="true">{hint}</span>
-      <span className="lp-field__track" aria-hidden="true">
-        {Array.from({ length: 12 }, (_, i) => (
-          <i key={i} className={i < value.length ? 'is-on' : ''} />
-        ))}
+      <span className={`lp-field__glyphs${masked ? ' lp-field__glyphs--masked' : ''}`} aria-hidden="true">
+        <span ref={runRef} className="lp-field__run">
+          {glyphs.map((g) => <span key={g.id} className="lp-ch">{masked ? '' : g.ch}</span>)}
+        </span>
       </span>
+      {isPassword && (
+        <input ref={probeRef} className="lp-field__probe" type="password" value="0000000000" readOnly tabIndex={-1} aria-hidden="true" />
+      )}
+      <span className="lp-field__ok" aria-hidden="true"><i /></span>
       {isPassword && (
         <button
           type="button"
@@ -82,6 +149,7 @@ function Field({ id, label, hint, type, value, invalid, autoComplete, autoFocus,
           onClick={() => {
             setVisible((v) => !v)
             inputRef.current?.focus()
+            syncScroll()
           }}
           aria-label={visible ? 'Скрыть пароль' : 'Показать пароль'}
           aria-pressed={visible}
@@ -214,6 +282,7 @@ export default function Login() {
               hint="позывной, логин или почта"
               type="text"
               value={username}
+              minLength={3}
               invalid={Boolean(error) && !username.trim()}
               autoComplete="username"
               autoFocus
@@ -225,6 +294,7 @@ export default function Login() {
               hint="выдаёт администратор"
               type="password"
               value={password}
+              minLength={4}
               invalid={Boolean(error) && !password}
               autoComplete="current-password"
               onChange={(v) => { setPassword(v); clearError() }}

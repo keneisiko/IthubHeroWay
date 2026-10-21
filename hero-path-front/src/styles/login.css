@@ -236,7 +236,8 @@
   border-radius: 8px;
 }
 
-.lp-field--password .lp-field__input { padding-right: 56px; }
+.lp-field__input { padding-right: 44px; }
+.lp-field--password .lp-field__input { padding-right: 92px; }
 
 /* точки пароля — квадратами, как пиксели знака */
 .lp-field__input[type='password'] {
@@ -295,35 +296,162 @@
   transform: none;
 }
 
-/* дорожка из пикселей: по символу на клетку — видно, что ввод идёт */
-.lp-field__track {
-  position: absolute;
-  right: 14px;
-  bottom: 9px;
-  display: flex;
-  gap: 3px;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s var(--lp-ease);
+/* слой символов: родной текст поля прозрачен, буквы рисуются поверх
+   и появляются по одной — поднимаются фиолетовыми и оседают чёрными.
+   Каретка, выделение и вставка остаются за настоящим полем */
+.lp-field__input,
+.lp-field__glyphs {
+  font-kerning: none;
+  font-variant-ligatures: none;
 }
 
-.lp-field--filled .lp-field__track { opacity: 1; }
+.lp-field__input {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
 
-.lp-field--password .lp-field__track { right: 58px; }
+.lp-field__glyphs {
+  position: absolute;
+  left: 16px;
+  right: 44px;
+  top: 0;
+  bottom: 0;
+  padding: 24px 0 6px;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ithub-black);
+  white-space: pre;
+  display: flex;
+  align-items: center;
+}
 
-.lp-field__track i {
+.lp-field--password .lp-field__glyphs { right: 92px; }
+
+.lp-field__run {
+  display: inline-flex;
+  will-change: transform;
+}
+
+/* точка пароля — пиксель шириной ровно в скрытый символ поля */
+.lp-field__glyphs--masked .lp-ch {
+  width: var(--pitch, 10px);
+  height: 1em;
+}
+
+.lp-field__glyphs--masked .lp-ch::before {
+  content: '';
+  position: absolute;
+  left: calc(50% - 0.09em - 3px);
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.lp-field__probe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  padding: 0;
+  border: 0;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 600;
+  -webkit-text-security: square;
+  letter-spacing: 0.18em;
+  font-kerning: none;
+}
+
+.lp-ch {
+  display: inline-block;
+  position: relative;
+  animation: lpCh 0.42s var(--lp-ease) both;
+}
+
+/* под новой буквой на миг вспыхивает пиксель — «штамп» ввода */
+.lp-ch::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
   width: 4px;
   height: 4px;
-  background: #e2e2e2;
-  transition: background 0.2s var(--lp-ease), transform 0.3s var(--lp-ease);
-}
-
-.lp-field__track i.is-on {
+  margin-left: -2px;
   background: var(--purple-500);
-  transform: translateY(-2px);
+  opacity: 0;
+  animation: lpChPx 0.5s var(--lp-ease) both;
 }
 
-.lp-field__track i.is-on:nth-child(n + 9) { background: var(--ithub-black); }
+.lp-field__glyphs--masked .lp-ch {
+  animation-name: lpDot;
+  animation-duration: 0.46s;
+}
+
+.lp-field__glyphs--masked .lp-ch::after { display: none; }
+
+/* автозаполнение браузера не сообщает значение до первого действия —
+   тогда показываем его родным текстом */
+.lp-field__input:-webkit-autofill ~ .lp-field__glyphs { visibility: hidden; }
+
+@keyframes lpCh {
+  0% { transform: translateY(55%); opacity: 0; color: var(--purple-500); }
+  55% { transform: translateY(-6%); opacity: 1; color: var(--purple-500); }
+  100% { transform: none; color: var(--ithub-black); }
+}
+
+@keyframes lpChPx {
+  0% { opacity: 1; transform: scale(1.6); }
+  100% { opacity: 0; transform: translateY(4px) scale(0.5); }
+}
+
+@keyframes lpDot {
+  0% { transform: scale(0) rotate(-90deg); color: var(--purple-500); }
+  55% { transform: scale(1.35) rotate(0deg); color: var(--purple-500); }
+  100% { transform: none; color: var(--ithub-black); }
+}
+
+/* знак готовности: квадрат IThub заполняется, когда длины хватает */
+.lp-field__ok {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border: 3px solid #d9d9d9;
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: border-color 0.3s var(--lp-ease), transform 0.5s var(--lp-ease);
+}
+
+.lp-field__ok i {
+  width: 4px;
+  height: 4px;
+  background: var(--purple-500);
+  transform: scale(0);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.lp-field--ready .lp-field__ok {
+  border-color: var(--purple-500);
+  transform: rotate(90deg);
+}
+
+.lp-field--ready .lp-field__ok i { transform: scale(1); }
+
+.lp-field--invalid .lp-field__ok { border-color: var(--sys-red); }
+
+.lp-field--password .lp-field__ok { right: 58px; }
 
 .lp-field__eye {
   position: absolute;
@@ -640,6 +768,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .lp-ch,
+  .lp-ch::after,
   .lp__field,
   .lp__logo,
   .lp__lead,
