@@ -182,7 +182,6 @@ export default function Shop() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [coins, setCoins] = useState('0')
-  const [purchasedCodes, setPurchasedCodes] = useState<Set<string>>(new Set())
   // id покупки, по которой сейчас идёт запрос: кнопка блокируется, чтобы
   // двойной клик не отправил применение и снятие подряд.
   const [applyingId, setApplyingId] = useState<number | null>(null)
@@ -251,10 +250,6 @@ export default function Shop() {
         consumed_at?: string | null
         item: { title: string; code?: string; item_type?: string; slot?: string }
       }>(purchasesRes.data)
-
-      setPurchasedCodes(new Set(
-        purchaseRows.map((p) => p.item?.code).filter((code): code is string => Boolean(code)),
-      ))
 
       setPurchases(purchaseRows.map((p) => ({
         id: p.id,
@@ -347,16 +342,54 @@ export default function Shop() {
       })
   }, [addToast, purchases])
 
+  // Чем владеет студент по коду товара. Сработавший буст уже не его —
+  // такой товар снова можно купить. Из двух одинаковых побеждает надетый.
+  const ownedByCode = useMemo(() => {
+    const map = new Map<string, Purchase>()
+    for (const p of purchases) {
+      if (!p.code || (p.slot === 'boost' && p.consumed)) continue
+      if (!map.has(p.code) || p.isApplied) map.set(p.code, p)
+    }
+    return map
+  }, [purchases])
+
+  // Купленную косметику надевают и снимают прямо в каталоге и карточке
+  // товара, не уходя в «Мои покупки».
+  const renderOwned = (owned: Purchase, base: string) => {
+    if (!isCosmeticSlot(owned.slot)) {
+      return (
+        <button type="button" className={base} disabled onClick={(e) => e.stopPropagation()}>
+          {owned.slot === 'boost' ? 'Ждёт квеста' : 'Куплено'}
+        </button>
+      )
+    }
+    const pending = applyingId === owned.id
+    return (
+      <button
+        type="button"
+        className={`${base} shop-buy--toggle${owned.isApplied ? ' shop-buy--on' : ''}${pending ? ' shop-buy--pending' : ''}${ring?.id === owned.id ? ` ring-${ring.n % 2 ? 'a' : 'b'}` : ''} btn-press`}
+        onClick={(e) => { e.stopPropagation(); togglePurchase(owned) }}
+        disabled={applyingId !== null || buying}
+        aria-pressed={owned.isApplied}
+        aria-busy={pending}
+      >
+        <span key={String(owned.isApplied)} className="shop-buy__label">
+          {owned.isApplied ? 'Снять' : 'Надеть'}
+        </span>
+      </button>
+    )
+  }
+
   const shownProducts = useMemo(() => {
     const list = products.filter((item) => {
-      if (catalogFilter === 'afford') return !purchasedCodes.has(item.code) && Number(item.price) <= Number(coins)
-      if (catalogFilter === 'fresh') return !purchasedCodes.has(item.code)
+      if (catalogFilter === 'afford') return !ownedByCode.has(item.code) && Number(item.price) <= Number(coins)
+      if (catalogFilter === 'fresh') return !ownedByCode.has(item.code)
       return true
     })
     if (priceSort === 'none') return list
     const dir = priceSort === 'asc' ? 1 : -1
     return [...list].sort((a, b) => (Number(a.price) - Number(b.price)) * dir)
-  }, [products, catalogFilter, priceSort, purchasedCodes, coins])
+  }, [products, catalogFilter, priceSort, ownedByCode, coins])
 
   // фильтр покупок: все, применённые и по типу — только типы, что есть
   const purchaseChips = useMemo<[string, string, number][]>(() => {
@@ -504,10 +537,8 @@ export default function Shop() {
                 {selectedDetail.desc || 'Описание пока не заполнено.'}
               </p>
             </div>
-            {purchasedCodes.has(selectedDetail.code) ? (
-              <button type="button" className="shop-detail__buy" disabled>
-                Куплено
-              </button>
+            {ownedByCode.has(selectedDetail.code) ? (
+              renderOwned(ownedByCode.get(selectedDetail.code)!, 'shop-detail__buy')
             ) : detailLack > 0 ? (
               <button type="button" className="shop-detail__buy shop-card__buy--lack" disabled>
                 {`Не хватает ${detailLack} ${plural(detailLack, ['монеты', 'монет', 'монет'])}`}
@@ -613,7 +644,8 @@ export default function Shop() {
             {catalogFilter === 'afford' ? 'Пока не хватает монет ни на что из этого раздела' : 'Всё из этого раздела уже куплено'}
           </p>
         ) : shownProducts.map((item, i) => {
-          const isPurchased = purchasedCodes.has(item.code)
+          const owned = ownedByCode.get(item.code)
+          const isPurchased = Boolean(owned)
           // В макете товар, на который не хватает монет, сразу показывает
           // серую кнопку с недостающей суммой, а не ошибку после нажатия.
           const lack = Number(item.price) - Number(coins)
@@ -634,18 +666,18 @@ export default function Shop() {
               <span className="shop-card__price-value">{item.price}</span>
             </div>
             <div className="shop-card__actions">
+              {owned ? renderOwned(owned, 'shop-card__buy') : (
               <button
                 type="button"
                 className={`shop-card__buy${tooExpensive ? ' shop-card__buy--lack' : ''} btn-press`}
                 onClick={(e) => { e.stopPropagation(); setShowPurchase(item.id) }}
                 disabled={isPurchased || tooExpensive || buying || applyingId !== null}
               >
-                {isPurchased
-                  ? 'Куплено'
-                  : tooExpensive
-                    ? `Не хватает ${lack} ${plural(lack, ['монеты', 'монет', 'монет'])}`
-                    : 'Купить'}
+                {tooExpensive
+                  ? `Не хватает ${lack} ${plural(lack, ['монеты', 'монет', 'монет'])}`
+                  : 'Купить'}
               </button>
+              )}
             </div>
           </article>
         )})}

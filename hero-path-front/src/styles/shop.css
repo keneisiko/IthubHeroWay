@@ -202,7 +202,24 @@
   100% { box-shadow: var(--card-shadow), 0 0 0 14px rgba(154, 51, 244, 0), 0 0 0 7px rgba(255, 217, 0, 0); }
 }
 
+/* Надеть / Снять прямо в каталоге и карточке товара: надетое —
+   белая кнопка с фиолетовой надписью, нажатие — то же кольцо */
+.shop-buy--toggle { transition: background-color 0.25s cubic-bezier(0.22, 1, 0.36, 1), color 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s cubic-bezier(0.22, 1, 0.36, 1); }
+.shop-buy--toggle.shop-buy--on { background: var(--ithub-white); color: var(--purple-500); border-color: var(--purple-500); }
+.shop-buy--toggle:disabled { cursor: progress; }
+.shop-buy--toggle.ring-a { animation: applyRingA 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.shop-buy--toggle.ring-b { animation: applyRingB 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.shop-buy--toggle.shop-buy--pending { animation: applyRingA 0.9s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+.shop-buy__label { display: inline-block; animation: buyLabelIn 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes buyLabelIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .shop-buy--toggle,
+  .shop-buy__label,
   .shop-purchase__apply.ring-a,
   .shop-purchase__apply.ring-b,
   .shop-purchase--pending .shop-purchase__apply { animation: none; }
