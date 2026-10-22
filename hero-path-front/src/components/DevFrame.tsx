@@ -7,14 +7,23 @@ const DEBRIS = Array.from({ length: 14 }, (_, i) => ({
   delay: (i % 5) * 0.06,
 }))
 
+// светящиеся пылинки ауры: своя орбита, темп и размер у каждой
+const MOTES = Array.from({ length: 11 }, (_, i) => ({
+  angle: i * 33 + (i % 3) * 17,
+  radius: 56 + (i % 4) * 8,
+  speed: 9 + (i % 5) * 2.3,
+  delay: -(i * 1.3),
+  size: 2 + (i % 3),
+  reverse: i % 3 === 0,
+}))
+
 /**
  * Рамка разработчика в карточке профиля. При открытии — чёрная дыра:
- * вокруг темнеет, в центре открывается сингулярность, пиксели
- * закручиваются по спирали и падают в неё, расходится волна
- * искажения, аватар выходит из горизонта, тушь и диск собираются в
- * рамку, выезжает плашка «Разработчик». Потом вокруг ходят спутники по
- * орбитам, от горизонта расходится волна, по аватару пробегает блик.
- * Стили — styles/avatar-frames.css.
+ * вокруг темнеет, в центре открывается сингулярность, пиксели падают в
+ * неё, аватар выходит из горизонта, тушь собирается в рамку, выезжает
+ * плашка «Разработчик». Дальше вокруг живёт аура: мягкое свечение
+ * перетекает и дышит (styles/avatar-frames.css, .dev-aura), плавают
+ * пылинки света, изредка расходится волна и по аватару пробегает блик.
  */
 export default function DevFrame() {
   return (
@@ -32,12 +41,20 @@ export default function DevFrame() {
         ))}
       </span>
       <DevFrameArt intro large />
-      {/* после проявления: две наклонённые орбиты со спутниками, бегущий по
-          контуру свет, волна от горизонта и блик — только transform и opacity */}
       <span className="dev-fx">
-        <span className="dev-fx__orbit dev-fx__orbit--a"><i /></span>
-        <span className="dev-fx__orbit dev-fx__orbit--b"><i /></span>
-        <span className="dev-fx__edge" />
+        {MOTES.map((m, i) => (
+          <i
+            key={i}
+            className={`dev-fx__mote${m.reverse ? ' dev-fx__mote--rev' : ''}`}
+            style={{
+              '--a': `${m.angle}deg`,
+              '--r': `${m.radius}px`,
+              '--s': `${m.speed}s`,
+              '--d': `${m.delay}s`,
+              '--z': `${m.size}px`,
+            } as React.CSSProperties}
+          />
+        ))}
         <span className="dev-fx__shock" />
         <span className="dev-fx__glint" />
       </span>

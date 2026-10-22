@@ -648,81 +648,106 @@
   33.33% { opacity: 0; }
 }
 
-/* мягкий ореол за аватаром: широкое размытое свечение медленно обходит
-   его по кругу — один плавный градиент, без отдельных пятен */
+/* Живая аура за аватаром: два слоя мягкого света вращаются навстречу
+   друг другу с разной скоростью, поэтому свечение всё время перетекает,
+   а весь ореол медленно дышит. Только transform и opacity. */
 .dev-aura {
   position: absolute;
   left: 50%;
   top: 50%;
   z-index: -1;
-  width: 200%;
-  height: 200%;
-  margin: -100% 0 0 -100%;
+  width: 230%;
+  height: 230%;
+  margin: -115% 0 0 -115%;
   border-radius: 50%;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(closest-side, #000 42%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 42%, transparent 100%);
+  -webkit-mask-image: radial-gradient(closest-side, #000 36%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 36%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
   opacity: 0;
-  animation: auraIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
+  will-change: transform, opacity;
+  animation:
+    auraIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards,
+    auraBreath 5.2s cubic-bezier(0.45, 0, 0.55, 1) 1.9s infinite;
+}
+
+.dev-aura::before,
+.dev-aura::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
 }
 
 .dev-aura::before {
-  content: '';
-  position: absolute;
-  inset: 12%;
-  border-radius: 50%;
+  inset: 14%;
   background: conic-gradient(
     from 0deg,
-    rgba(255, 255, 255, 0.05),
-    rgba(255, 255, 255, 0.55) 16%,
-    rgba(255, 255, 255, 0.08) 40%,
-    rgba(255, 255, 255, 0.04) 55%,
-    rgba(255, 255, 255, 0.38) 70%,
-    rgba(255, 255, 255, 0.05)
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.75) 14%,
+    rgba(255, 255, 255, 0.18) 34%,
+    rgba(255, 255, 255, 0.06) 52%,
+    rgba(255, 255, 255, 0.55) 68%,
+    rgba(255, 255, 255, 0.1) 86%,
+    rgba(255, 255, 255, 0.12)
   );
-  filter: blur(14px);
-  will-change: transform;
-  animation: orbitSpin 9s linear infinite;
+  filter: blur(16px);
+  animation: orbitSpin 8s linear infinite;
+}
+
+.dev-aura::after {
+  inset: 22%;
+  background: conic-gradient(
+    from 120deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.5) 20%,
+    rgba(255, 255, 255, 0) 42%,
+    rgba(255, 255, 255, 0.4) 64%,
+    rgba(255, 255, 255, 0) 84%
+  );
+  filter: blur(10px);
+  animation: orbitSpin 5.5s linear infinite reverse;
 }
 
 @keyframes auraIn { to { opacity: 1; } }
 
-/* свет бежит по контуру рамки: две «кометы» с длинным плавным хвостом.
-   Кольцо вырезано маской, внутри крутится конический градиент */
-.dev-fx__edge {
-  position: absolute;
-  inset: 1px;
-  overflow: hidden;
-  padding: 2.5px;
-  border-radius: 30%;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+@keyframes auraBreath {
+  0%, 100% { transform: scale(0.92); }
+  50% { transform: scale(1.08); }
 }
 
-.dev-fx__edge::before {
-  content: '';
+/* сам аватар — тонкий светлый край, будто подсвечен аурой изнутри */
+.profile-card__avatar--developer .profile-card__avatar-face {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 18px 2px rgba(255, 255, 255, 0.35);
+}
+
+/* пылинки света плавают вокруг по своим орбитам и мерцают */
+.dev-fx__mote {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 150%;
-  height: 150%;
-  margin: -75% 0 0 -75%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.05) 22%,
-    rgba(255, 255, 255, 0.55) 44%,
-    #fff 49.6%,
-    rgba(255, 255, 255, 0) 50%,
-    rgba(255, 255, 255, 0.05) 72%,
-    rgba(255, 255, 255, 0.55) 94%,
-    #fff 99.6%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  will-change: transform;
-  animation: orbitSpin 3.6s linear infinite;
+  width: var(--z);
+  height: var(--z);
+  margin: calc(var(--z) / -2) 0 0 calc(var(--z) / -2);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.85);
+  will-change: transform, opacity;
+  animation:
+    moteOrbit var(--s) linear var(--d) infinite,
+    moteTwinkle calc(var(--s) / 3) cubic-bezier(0.45, 0, 0.55, 1) var(--d) infinite alternate;
+}
+
+.dev-fx__mote--rev { animation-direction: reverse, alternate; }
+
+@keyframes moteOrbit {
+  0% { transform: rotate(var(--a)) translateX(var(--r)) scale(1); }
+  50% { transform: rotate(calc(var(--a) + 180deg)) translateX(calc(var(--r) * 1.14)) scale(0.7); }
+  100% { transform: rotate(calc(var(--a) + 360deg)) translateX(var(--r)) scale(1); }
+}
+
+@keyframes moteTwinkle {
+  from { opacity: 0.15; }
+  to { opacity: 1; }
 }
 
 .dev-fx {
@@ -732,55 +757,6 @@
   opacity: 0;
   animation: introFadeIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 2.15s forwards;
 }
-
-/* орбиты: наклонённое кольцо в 3D, внутри крутится спутник */
-.dev-fx__orbit {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 186%;
-  height: 186%;
-  margin: -93% 0 0 -93%;
-  border-radius: 50%;
-  border: 1px dashed rgba(255, 255, 255, 0.28);
-  transform: rotate(-24deg) scaleY(0.34);
-}
-
-.dev-fx__orbit--b {
-  width: 214%;
-  height: 214%;
-  margin: -107% 0 0 -107%;
-  border-color: rgba(255, 255, 255, 0.16);
-  transform: rotate(32deg) scaleY(0.26);
-}
-
-.dev-fx__orbit i {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  will-change: transform;
-  animation: orbitSpin 7s linear infinite;
-}
-
-.dev-fx__orbit--b i { animation-duration: 11s; animation-direction: reverse; }
-
-/* спутник — точка на верху вращающегося круга; сжатие орбиты его
-   вытягивает, поэтому обратно растягиваем по вертикали */
-.dev-fx__orbit i::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: -4px;
-  width: 7px;
-  height: 7px;
-  margin-left: -3.5px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.9), 0 0 18px 6px rgba(255, 255, 255, 0.35);
-  transform: scaleY(2.9);
-}
-
-.dev-fx__orbit--b i::after { width: 5px; height: 5px; margin-left: -2.5px; transform: scaleY(3.8); }
 
 @keyframes orbitSpin { to { transform: rotate(360deg); } }
 
@@ -839,9 +815,9 @@
   .dev-art__layer--boil,
   .dev-aura,
   .dev-aura::before,
-  .dev-fx__edge::before,
+  .dev-aura::after,
+  .dev-fx__mote,
   .dev-fx,
-  .dev-fx__orbit i,
   .dev-fx__shock,
   .dev-fx__glint::after { animation: none; }
   .dev-aura,
