@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from django.db import transaction
 
+from apps.accounts.callsigns import default_callsign
 from apps.accounts.models import Role, Squad, User
 from apps.accounts.tracks import assign_track_if_empty
 from apps.integrations.services.lxp_groups import group_students
@@ -71,11 +72,7 @@ def squad_code_for(group: dict) -> str:
 def _create_user(lxp_user_id: str, email: str, first_name: str, last_name: str) -> User:
     base = slug(email.split("@", 1)[0] if email else lxp_user_id, fallback="student")
     username = (f"{base}-{lxp_user_id[:8]}" if lxp_user_id else base)[:150]
-    callsign = username[:50]
-    suffix = 1
-    while User.objects.filter(callsign=callsign).exists():
-        suffix += 1
-        callsign = f"{username[:45]}-{suffix}"[:50]
+    callsign = default_callsign(first_name, last_name, fallback=username[:50])
     user = User(
         username=username,
         email=email or "",

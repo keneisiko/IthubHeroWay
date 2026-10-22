@@ -5,6 +5,7 @@ import re
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
+from apps.accounts.callsigns import default_callsign
 from apps.accounts.models import Role
 from apps.integrations.services.account_gate import deactivate_unlinked_agents
 from apps.integrations.services.lxp_graphql_client import LXPAuthError, LXPGraphQLClient, LXPRequestError
@@ -150,8 +151,6 @@ class Command(BaseCommand):
                 )
                 username = f"{base_slug}_{lxp_user_id[:8]}" if lxp_user_id else base_slug
                 username = username[:150]
-                callsign = f"lxp_{lxp_user_id[:12]}" if lxp_user_id else f"lxp_{base_slug}"
-                callsign = callsign[:50]
 
                 instance = None
                 if email:
@@ -183,12 +182,8 @@ class Command(BaseCommand):
                     candidate_username = f"{candidate_username[:140]}_{suffix}"[:150]
                     suffix += 1
 
-                # Resolve callsign conflicts.
-                candidate_callsign = callsign or f"lxp_student_{seen_total}"
-                cs_suffix = 1
-                while User.objects.filter(callsign=candidate_callsign).exists():
-                    candidate_callsign = f"{candidate_callsign[:45]}_{cs_suffix}"[:50]
-                    cs_suffix += 1
+                # Позывной «Имя Ф.»: служебный «lxp_…» распирал карточки.
+                candidate_callsign = default_callsign(first_name, last_name, fallback=candidate_username[:50])
 
                 created = User.objects.create(
                     username=candidate_username,
