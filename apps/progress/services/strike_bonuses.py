@@ -21,6 +21,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.integrations.models import ExternalEvent
 from apps.integrations.services.account_gate import agents_for_scoring
+from apps.operations.services.platform_settings import accruals_active_on, accruals_enabled
 from apps.progress.models import RatingChangeSource, RatingLog, UserStrike
 from apps.progress.services.late_penalties import (
     attendance_streak_bonus_for_days,
@@ -176,6 +177,14 @@ def apply_strike_bonuses(current_date: date | None = None) -> dict:
     # из-за чего серии рвались систематически.
     today = current_date or timezone.localdate()
     yesterday = today - timedelta(days=1)
+
+    if not accruals_enabled():
+        return {"date": today.isoformat(), "strikes_updated": 0, "bonuses_applied": 0, "skipped": "accruals_disabled"}
+    if not accruals_active_on(yesterday):
+        # Серия считается с первого дня после запуска: день до него не в счёт,
+        # иначе первый бонус «7 дней без опозданий» достался бы за дни, когда
+        # платформа ещё не работала.
+        return {"date": today.isoformat(), "strikes_updated": 0, "bonuses_applied": 0, "skipped": "before_launch"}
 
     if not hik_has_data_for_date(yesterday):
         logger.info("strike_bonuses date=%s: нет данных Hik за %s, серии не трогаем", today, yesterday)

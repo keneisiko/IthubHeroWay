@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.text import slugify
 
-from apps.operations.admin_actions import action_form
+from apps.operations.admin_actions import action_form, refuse_while_accruals_off
 from apps.operations.admin_rbac import (
     ManagedRoleAdminMixin,
     is_admin,
@@ -312,6 +312,8 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
     def award_badge(self, request, queryset):
         from apps.badges.services import award_badge_manually
 
+        if refuse_while_accruals_off(self, request):
+            return None
         students = queryset.filter(role=Role.AGENT)
         form, response = action_form(
             self, request, students, AwardBadgeForm,
@@ -355,6 +357,8 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         Пишет в журнал начислений с основанием и именем сотрудника, поэтому
         исправление видно студенту и проверяемо при обращении (раздел 10).
         """
+        if refuse_while_accruals_off(self, request):
+            return None
         form, response = action_form(
             self,
             request,
@@ -394,6 +398,8 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         «+10 монет за мероприятие» — мимо Положения, без рейтинга и записи
         в журнал начислений; новичок выбирал его как более простое.
         """
+        if refuse_while_accruals_off(self, request):
+            return None
         agents = queryset.filter(role=Role.AGENT)
         skipped = queryset.count() - agents.count()
         form, response = action_form(

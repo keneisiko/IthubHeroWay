@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
-from django.urls import reverse
+from django.template.response import TemplateResponse
+from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_admin, is_superadmin
 from apps.operations.models import PlatformSettings
-from apps.operations.services.platform_settings import default_values
+from apps.operations.services.platform_settings import default_values, switch_accruals
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(PlatformSettings)
@@ -23,6 +30,16 @@ class PlatformSettingsAdmin(ManagedRoleAdminMixin):
     """
 
     fieldsets = (
+        (
+            "Начисления",
+            {
+                "fields": ("accruals_panel",),
+                "description": (
+                    "До запуска платформа заморожена: рейтинг, монеты, квесты, нашивки, "
+                    "дуэли и респекты ничего не начисляют."
+                ),
+            },
+        ),
         ("Монеты и квесты", {"fields": ("max_daily_coins", "max_daily_self_reports")}),
         (
             "Отряды и соцмеханики",
@@ -62,7 +79,108 @@ class PlatformSettingsAdmin(ManagedRoleAdminMixin):
         ),
         ("Служебное", {"fields": ("updated_at",)}),
     )
-    readonly_fields = ("polozhenie_reference", "updated_at")
+    readonly_fields = ("accruals_panel", "polozhenie_reference", "updated_at")
+
+    # --- выключатель начислений ----------------------------------------------
+
+    def get_urls(self):
+        custom = [
+            path(
+                "accruals/",
+                self.admin_site.admin_view(self.accruals_view),
+                name="operations_platformsettings_accruals",
+            )
+        ]
+        return custom + super().get_urls()
+
+    @admin.display(description="Состояние")
+    def accruals_panel(self, obj):
+        """Крупный статус и кнопка: включить без неё можно только осознанно."""
+        url = reverse("admin:operations_platformsettings_accruals")
+        since = obj.accruals_started_on.strftime("%d.%m.%Y") if obj.accruals_started_on else "—"
+        if obj.accruals_enabled:
+            status = format_html(
+                '<span style="font-size:1.4em;font-weight:700;color:#1a7f37">Начисления включены</span>'
+                " — сезон идёт с {}.",
+                since,
+            )
+            label, css = "Остановить начисления", "btn btn-danger"
+        else:
+            last = format_html(" Последний период шёл с {}.", since) if obj.accruals_started_on else ""
+            status = format_html(
+                '<span style="font-size:1.4em;font-weight:700;color:#b42318">Начисления выключены</span>'
+                " — ничего не начисляется.{}",
+                last,
+            )
+            label, css = "Включить начисления", "btn btn-success"
+        return format_html('{}<br><a class="{}" style="margin-top:8px" href="{}">{}</a>', status, css, url, label)
+
+    def accruals_view(self, request):
+        """Страница подтверждения: GET показывает последствия, POST переключает."""
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        obj = self._get_or_create()
+        turning_on = not obj.accruals_enabled
+        change_url = reverse(
+            f"admin:{obj._meta.app_label}_{obj._meta.model_name}_change", args=[obj.pk]
+        )
+
+        if request.method == "POST" and request.POST.get("apply"):
+            # Страница подтверждения знает, КУДА переключает; применяем только если
+            # состояние ещё такое же. Иначе двойной клик включил бы и сразу выключил.
+            wanted = request.POST.get("target")
+            if wanted not in ("on", "off") or (wanted == "on") != turning_on:
+                self.message_user(
+                    request,
+                    "Начисления уже включены." if obj.accruals_enabled else "Начисления уже выключены.",
+                    level=messages.WARNING,
+                )
+                return HttpResponseRedirect(change_url)
+            before = obj.accruals_enabled
+            updated = switch_accruals(turning_on)
+            note = f"Начисления: {_display(None, before)} → {_display(None, updated.accruals_enabled)}"
+            if turning_on:
+                note += f"; сезон стартует с {updated.accruals_started_on:%d.%m.%Y}"
+            self.log_change(request, updated, note)
+            if turning_on:
+                try:
+                    self._spawn_period_quests()
+                except Exception:
+                    # Переключение уже сохранено; квесты создадутся ночной задачей.
+                    logger.exception("Не удалось завести квесты при включении начислений")
+                    self.message_user(
+                        request,
+                        "Начисления включены, но квесты на сегодня завести не удалось: "
+                        "они появятся при ближайшей проверке.",
+                        level=messages.WARNING,
+                    )
+            self.message_user(
+                request,
+                "Начисления включены. Сезон стартует с сегодняшнего дня."
+                if turning_on
+                else "Начисления остановлены.",
+                level=messages.SUCCESS,
+            )
+            return HttpResponseRedirect(change_url)
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Включить начисления" if turning_on else "Остановить начисления",
+            "opts": obj._meta,
+            "turning_on": turning_on,
+            "target": "on" if turning_on else "off",
+            "today": timezone.localdate(),
+            "started_on": obj.accruals_started_on,
+            "cancel_url": change_url,
+        }
+        return TemplateResponse(request, "admin/operations/accruals_switch.html", context)
+
+    @staticmethod
+    def _spawn_period_quests() -> None:
+        """Квесты на сегодня заводятся сразу, а не ночью: в день запуска они нужны с утра."""
+        from apps.quests.services.quest_periods import ensure_period_quests
+
+        ensure_period_quests()
 
     # --- одна строка вместо списка -------------------------------------------
 

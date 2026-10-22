@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.operations.services.cache import invalidate_rating_views
+from apps.operations.services.platform_settings import require_accruals
 from apps.progress.models import RatingChangeSource
 from apps.progress.services.rewards import apply_rating_delta_with_cap, remaining_daily_coin_budget
 from apps.quests.models import Quest, QuestRewardTransaction, UserQuestProgress
@@ -26,7 +27,12 @@ def complete_quest_idempotent(
     """
     Mark quest completed and grant reward once per (user, quest).
     Returns (progress, reward_created).
+
+    До запуска платформы выполнение не фиксируется вовсе: ни прогресс, ни
+    транзакция награды. Нулевая транзакция заблокировала бы получение
+    настоящей награды (она уникальна по паре «студент + квест»).
     """
+    require_accruals()
     progress, _ = UserQuestProgress.objects.select_for_update().get_or_create(user=user, quest=quest)
     if not progress.is_completed:
         progress.is_completed = True

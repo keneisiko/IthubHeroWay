@@ -1,0 +1,48 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+Подтверждение включения и остановки начислений. Оформление то же, что у
+admin/action_confirm.html: карточка с заголовком, пояснением и двумя кнопками.
+{% endcomment %}
+
+{% block title %}{{ title }} | {{ site_title|default:"Администрирование" }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="mb-3">{{ title }}</h3>
+
+    {% if turning_on %}
+      <p>
+        <b>Сезон стартует с сегодняшнего дня ({{ today|date:"d.m.Y" }}).</b>
+        С этого момента начинают начисляться рейтинг и монеты, засчитываются квесты,
+        нашивки, дуэли, респекты и шефство.
+      </p>
+      <p class="text-muted">
+        Данные за прошлые дни (турникеты Hik, LXP) ничего не дадут: посещаемость и
+        опоздания считаются только с сегодняшнего дня, а неделя запуска оплачивается
+        только за дни после включения.
+        {% if started_on %}Прежняя дата старта ({{ started_on|date:"d.m.Y" }}) будет заменена сегодняшней.{% endif %}
+      </p>
+    {% else %}
+      <p>
+        <b>Начисления будут остановлены.</b> Задачи по расписанию, квесты, нашивки,
+        дуэли, респекты и ручные корректировки перестанут что-либо менять.
+      </p>
+      <p class="text-muted">
+        Уже начисленное остаётся. Дата старта сезона ({{ started_on|date:"d.m.Y" }}) сохранится;
+        при следующем включении сезон стартует заново с того дня.
+      </p>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="apply" value="1">
+      <input type="hidden" name="target" value="{{ target }}">
+      <button type="submit" onclick="var b=this; setTimeout(function(){ b.disabled = true }, 0)" class="btn {% if turning_on %}btn-success{% else %}btn-danger{% endif %}">
+        {% if turning_on %}Включить начисления{% else %}Остановить начисления{% endif %}
+      </button>
+      <a href="{{ cancel_url }}" class="btn btn-outline-secondary ml-2">Отмена</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

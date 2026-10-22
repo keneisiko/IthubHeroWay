@@ -44,6 +44,7 @@ from apps.accounts.models import User
 from apps.integrations.models import LXPSnapshot
 from apps.integrations.services.account_gate import agents_for_scoring
 from apps.integrations.services.lxp_snapshot_format import unwrap_category
+from apps.operations.services.platform_settings import accruals_active_on
 from apps.progress.models import LXPTopicState, RatingChangeSource, RatingLog
 from apps.progress.services.academic_year import academic_year_label
 from apps.progress.services.course_norm import observe_course_volume, points_per_topic
@@ -318,9 +319,11 @@ def apply_rating_from_lxp_snapshot(
             positive = outcome.delta_positive + outcome.all_closed_bonus
             negative = outcome.delta_negative
 
-            if not _event_rating_enabled():
+            if not _event_rating_enabled() or not accruals_active_on(snapshot_date):
                 # Рейтинг за учёбу начисляет недельный расчёт по Положению.
                 # Здесь остаётся только учёт состояния тем: его ждут квесты.
+                # То же до запуска платформы и для снимков за дни до него:
+                # состояние тем собираем, рейтинг не трогаем.
                 stale_total = min(outcome.stale_total, 65535)
                 if user.unclosed_ct_count != stale_total:
                     User.objects.filter(pk=user.pk).update(unclosed_ct_count=stale_total)

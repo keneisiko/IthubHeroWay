@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role
 from apps.integrations.services.account_gate import agents_for_scoring
+from apps.operations.services.platform_settings import accruals_active_on
 from apps.quests.models import Quest, QuestType, QuestVerifierKind
 from apps.quests.services.quest_completion import complete_quest_idempotent, update_quest_progress
 from apps.quests.services.quest_conditions import is_auto_verified, resolve_verifier_config
@@ -55,6 +56,9 @@ def verify_quest_for_user(
     target_date = target_date or timezone.localdate()
     if not is_auto_verified(quest):
         return {"skipped": True, "reason": "not_auto"}
+    if not accruals_active_on(target_date):
+        # Ни прогресс, ни награда за дни до запуска не фиксируются.
+        return {"skipped": True, "reason": "accruals_disabled"}
 
     verifier, params = verifier_config if verifier_config is not None else resolve_verifier_config(quest)
     if not verifier or verifier == QuestVerifierKind.MANUAL:
@@ -99,6 +103,8 @@ def verify_all_auto_quests(
     quest_types: list[str] | None = None,
 ) -> dict:
     target_date = target_date or timezone.localdate()
+    if not accruals_active_on(target_date):
+        return {"date": target_date.isoformat(), "skipped": "accruals_disabled"}
     if quest_types is None:
         quest_types = [QuestType.DAILY, QuestType.WEEKLY]
 

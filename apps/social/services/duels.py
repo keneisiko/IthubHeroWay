@@ -20,7 +20,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.notifications.services import events
-from apps.operations.services.platform_settings import platform_setting
+from apps.operations.services.platform_settings import accruals_enabled, platform_setting
 from apps.social.models import Duel, DuelStatus
 
 
@@ -122,6 +122,10 @@ def resolve_duel(duel: Duel, *, now=None) -> Duel:
     duel = Duel.objects.select_for_update().get(pk=duel.pk)
     if duel.status != DuelStatus.ACCEPTED or duel.resolved_at:
         return duel
+    if not accruals_enabled():
+        # Итог двигает монеты: до запуска дуэль остаётся открытой и будет
+        # подведена после включения, а не закроется «ничьей» без ставки.
+        return duel
 
     challenger = User.objects.select_for_update().get(pk=duel.challenger_id)
     opponent = User.objects.select_for_update().get(pk=duel.opponent_id)
@@ -165,6 +169,8 @@ def resolve_duel(duel: Duel, *, now=None) -> Duel:
 
 def resolve_due_duels(now=None) -> dict:
     """Подвести итоги дуэлям, у которых вышел срок, и снять протухшие вызовы."""
+    if not accruals_enabled():
+        return {"resolved": 0, "expired_invites": 0, "skipped": "accruals_disabled"}
     now = now or timezone.now()
     resolved = 0
     for duel in Duel.objects.filter(

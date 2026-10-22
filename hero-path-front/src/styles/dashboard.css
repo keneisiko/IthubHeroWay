@@ -33,3 +33,14 @@
   /* верх больше не держит высоту под второй ряд блоков */
   .dashboard--home .dashboard__top { min-height: 0; }
 }
+
+/* Плашка «до запуска»: ненавязчивая, не конкурирует с карточками */
+.dashboard__accruals-notice {
+  margin: 0 0 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}

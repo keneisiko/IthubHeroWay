@@ -21,6 +21,7 @@ from django.utils.dateparse import parse_datetime
 
 from apps.integrations.models import ExternalEvent, HikEvent
 from apps.integrations.services.hik_web_client import DIRECTION_ENTRY
+from apps.operations.services.platform_settings import accruals_active_on
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.progress.services.late_penalties import late_penalty_delta
 from apps.progress.services.rewards import apply_rating_delta_with_cap
@@ -156,6 +157,10 @@ def _apply_late_penalty_if_needed(user, *, event_dt: datetime, late_minutes: int
         # Положение не знает штрафа за опоздание: единственное списание —
         # за подтверждённый пропуск пары. Сам факт опоздания сохраняется
         # в событии и используется квестами, которые дают только монеты.
+        return
+
+    # Проход до запуска начислений штрафа не даёт: платформа его не видела.
+    if not accruals_active_on(timezone.localtime(event_dt).date()):
         return
 
     source_id = late_penalty_source_id(user.pk, event_dt)

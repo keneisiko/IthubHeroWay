@@ -11,6 +11,7 @@ from apps.badges.metrics import (
     required_metrics,
 )
 from apps.operations.services.cache import invalidate_rating_views
+from apps.operations.services.platform_settings import accruals_enabled, require_accruals
 from apps.progress.services.rewards import grant_coins_with_daily_cap
 
 from .models import Badge, UserBadge
@@ -68,6 +69,10 @@ def _condition_matches(badge: Badge, metrics: dict) -> bool:
 
 
 def award_badges_for_user(user: User, badges: list[Badge] | None = None) -> list[UserBadge]:
+    # Нашивки до запуска не выдаются: у всех должно быть пусто, а выданная
+    # сейчас нашивка с наградой стала бы «разовой» и пропала из будущих выдач.
+    if not accruals_enabled():
+        return []
     if badges is None:
         badges = list(Badge.objects.filter(is_active=True))
     if not badges:
@@ -120,6 +125,7 @@ def award_badge_manually(user: User, badge: Badge, *, by: str) -> tuple[bool, in
     ничего не меняет. Монеты идут через общий дневной предел — как и у
     автоматической выдачи, — поэтому их может прийти меньше награды.
     """
+    require_accruals()
     with transaction.atomic():
         user_badge, created = UserBadge.objects.get_or_create(
             user=user, badge=badge, defaults={"source": f"manual:{by}"}

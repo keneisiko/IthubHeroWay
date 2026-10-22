@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from apps.badges.models import UserBadge
 from apps.badges.serializers import UserBadgeSerializer
 from apps.operations.services.cache import invalidate_profile
+from apps.operations.services.platform_settings import accruals_enabled
 from apps.progress.models import RatingLog, UserStrike
 from apps.progress.services.late_penalties import late_streak_bonus_for_days
 from apps.progress.services.pillar_labels import skills_percent_by_label
@@ -185,6 +186,8 @@ class DashboardView(views.APIView):
             "rating_progress": rating_progress(user.rating_current),
             "recent_badges": _recent_badges(user),
             "feed": _dashboard_feed(user),
+            # Фронт показывает плашку «Начисления стартуют с запуска платформы».
+            "accruals_enabled": accruals_enabled(),
         }
         return Response(data)
 

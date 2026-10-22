@@ -11,6 +11,8 @@ import ActiveBoostNotice from '../components/BoostPlaque'
 import '../styles/dashboard.css'
 
 interface DashboardData {
+  // false до запуска платформы: ничего не начисляется
+  accruals_enabled?: boolean
   user: {
     callsign: string
     level: number
@@ -152,6 +154,12 @@ export default function Dashboard() {
       <div className="dash-glow dash-glow--b" aria-hidden="true" />
 
       <ActiveBoostNotice />
+
+      {data?.accruals_enabled === false && (
+        <p className="dashboard__accruals-notice" role="status">
+          Начисления стартуют с запуска платформы
+        </p>
+      )}
 
       <div className="dashboard__top">
         <div className="dashboard__left-col">

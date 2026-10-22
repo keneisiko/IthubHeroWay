@@ -253,6 +253,39 @@ def verify_lxp_attendance(user: User, params: dict, target_date: date) -> Verifi
         )
 
     min_percent = float(params.get("min_percent", 80))
+    from apps.operations.services.platform_settings import accruals_start_date
+
+    started_on = accruals_start_date()
+    if started_on is not None:
+        # Семестровый процент из снимка включает пары до запуска начислений.
+        # Считаем по поимённым отметкам только с даты старта.
+        marks = list(
+            LessonAttendance.objects.filter(
+                user=user, lesson_date__gte=started_on, lesson_date__lte=target_date
+            ).values_list("status", flat=True)
+        )
+        if not marks:
+            return VerificationResult(
+                completed=False,
+                progress=0.0,
+                evidence={"verifier": QuestVerifierKind.LXP_ATTENDANCE, "since": started_on.isoformat()},
+                message="Нет отметок посещаемости с запуска начислений",
+            )
+        present = sum(
+            1 for m in marks if m in (LessonAttendanceStatus.PRESENT, LessonAttendanceStatus.ONLINE)
+        )
+        percent = round(present * 100 / len(marks), 2)
+        return VerificationResult(
+            completed=percent >= min_percent,
+            progress=min(1.0, percent / min_percent) if min_percent else 0.0,
+            evidence={
+                "verifier": QuestVerifierKind.LXP_ATTENDANCE,
+                "percent": percent,
+                "min_percent": min_percent,
+                "since": started_on.isoformat(),
+            },
+            message=f"Посещаемость {percent}% при пороге {min_percent}% (с запуска начислений)",
+        )
     row = get_student_attendance(str(user.lxp_user_id), prefer_date=target_date)
     if not isinstance(row, dict):
         return VerificationResult(
@@ -473,7 +506,40 @@ VERIFIERS = {
 }
 
 
+# Проверки с окном «за последние N дней» и окно по умолчанию.
+LOOKBACK_DAYS_DEFAULT = {
+    QuestVerifierKind.HIK_NO_LATE: 1,
+    QuestVerifierKind.LXP_CT_CLOSED: 7,
+    QuestVerifierKind.YOUGILE_TASKS: 7,
+    QuestVerifierKind.LXP_NO_MISSES: 7,
+}
+
+
+def _window_starts_before_launch(verifier: str, params: dict, target_date: date) -> bool:
+    """Заходит ли окно проверки на дни до запуска начислений.
+
+    Квест «неделя без пропусков» в неделю запуска иначе засчитался бы по
+    парам, пройденным до включения. Пока окно целиком не уместилось после
+    запуска, квест просто не выполнен.
+    """
+    from apps.operations.services.platform_settings import accruals_start_date
+
+    started_on = accruals_start_date()
+    default_days = LOOKBACK_DAYS_DEFAULT.get(verifier)
+    if started_on is None or default_days is None:
+        return False
+    days = int((params or {}).get("days", default_days))
+    return target_date - timedelta(days=days - 1) < started_on
+
+
 def run_verifier(user: User, verifier: str, params: dict, target_date: date) -> VerificationResult:
+    if _window_starts_before_launch(verifier, params, target_date):
+        return VerificationResult(
+            completed=False,
+            progress=0.0,
+            evidence={"verifier": verifier, "error": "window_before_launch"},
+            message="Период проверки начался до запуска начислений",
+        )
     fn = VERIFIERS.get(verifier)
     if not fn:
         return VerificationResult(

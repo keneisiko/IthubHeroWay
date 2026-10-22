@@ -7,12 +7,14 @@ from django.contrib import admin, messages
 from django.contrib.admin.models import ADDITION, CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.integrations.services.lxp_group_import import slug
 from apps.notifications.services import events
+from apps.operations.admin_actions import FrozenWhileAccrualsOffMixin
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_curator, is_hq, is_superadmin, is_tutor
 from apps.quests.services.quest_completion import complete_quest_idempotent
 
@@ -268,7 +270,7 @@ class QuestAdmin(ManagedRoleAdminMixin):
 
 
 @admin.register(UserQuestProgress)
-class UserQuestProgressAdmin(ManagedRoleAdminMixin):
+class UserQuestProgressAdmin(FrozenWhileAccrualsOffMixin, ManagedRoleAdminMixin):
     list_display = ("user", "quest", "progress_value", "is_completed", "updated_at")
     list_filter = ("is_completed", "quest__quest_type", "updated_at")
     search_fields = ("user__callsign", "user__username", "quest__code", "quest__title")
@@ -484,6 +486,12 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
 
     @admin.action(description="Одобрить: начислить награду за квест")
     def approve_proofs(self, request, queryset):
+        from apps.operations.admin_actions import refuse_while_accruals_off
+
+        # Одобрение сразу начисляет награду, а статус «одобрено» нельзя
+        # откатить: до запуска заявки остаются на проверке.
+        if refuse_while_accruals_off(self, request):
+            return
         if is_hq(request.user):
             self.message_user(request, "Штаб не проверяет подтверждения.", level=messages.ERROR)
             return
@@ -492,12 +500,14 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
         for proof in queryset.select_related("quest", "user", "quest_progress"):
             if proof.status == SelfReportProofStatus.APPROVED:
                 continue
-            # Mark approved
-            proof.status = SelfReportProofStatus.APPROVED
-            proof.reviewed_by = request.user
-            proof.reviewed_at = now
-            proof.save(update_fields=["status", "reviewed_by", "reviewed_at"])
-            _complete_quest_idempotent(proof.user, proof.quest, request.user)
+            # Сначала награда, потом статус: если начисление не прошло, заявка
+            # остаётся на проверке, а не «одобрена без награды».
+            with transaction.atomic():
+                _complete_quest_idempotent(proof.user, proof.quest, request.user)
+                proof.status = SelfReportProofStatus.APPROVED
+                proof.reviewed_by = request.user
+                proof.reviewed_at = now
+                proof.save(update_fields=["status", "reviewed_by", "reviewed_at"])
             events.proof_reviewed(proof, approved=True)
             updated += 1
         self.message_user(request, f"Одобрено: {updated}", level=messages.SUCCESS)

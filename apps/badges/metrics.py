@@ -73,11 +73,24 @@ def _ct_closed(user: User) -> int:
     state = LXPTopicState.objects.filter(user=user).first()
     if state is None or not isinstance(state.topics, dict):
         return 0
-    return sum(
-        1
-        for entry in state.topics.values()
-        if isinstance(entry, dict) and entry.get("closed") and not entry.get("baseline")
-    )
+    from datetime import date
+
+    from apps.operations.services.platform_settings import accruals_start_date
+
+    started_on = accruals_start_date()
+    count = 0
+    for entry in state.topics.values():
+        if not isinstance(entry, dict) or not entry.get("closed") or entry.get("baseline"):
+            continue
+        if started_on is not None:
+            # Тема, закрытая до запуска начислений, не считается.
+            try:
+                if date.fromisoformat(str(entry.get("since"))) < started_on:
+                    continue
+            except (TypeError, ValueError):
+                continue
+        count += 1
+    return count
 
 
 def _respects_given(user: User) -> int:
@@ -113,9 +126,16 @@ def _coins_spent(user: User) -> Decimal:
 
 def _max_pillar(user: User) -> Decimal:
     """Самая развитая опора студента по шкале 0–20."""
+    from apps.operations.services.platform_settings import accruals_start_date
     from apps.progress.models import Characteristic
 
-    top = Characteristic.objects.filter(user=user).aggregate(top=Max("current"))["top"]
+    rows = Characteristic.objects.filter(user=user)
+    started_on = accruals_start_date()
+    if started_on is not None:
+        # Характеристика пересчитывается раз в неделю и хранит накопленное
+        # значение: посчитанное до запуска начислений в зачёт не идёт.
+        rows = rows.filter(last_updated__date__gte=started_on)
+    top = rows.aggregate(top=Max("current"))["top"]
     return Decimal(str(top or 0))
 
 

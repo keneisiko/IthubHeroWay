@@ -23,6 +23,7 @@ from django.conf import settings
 from django.db import transaction
 
 from apps.accounts.models import User
+from apps.operations.services.platform_settings import accruals_active_on
 from apps.progress.models import (
     LessonAttendance,
     LessonAttendanceStatus,
@@ -34,6 +35,7 @@ from apps.progress.models import (
 from apps.progress.services.polozhenie_ledger import grant
 from apps.progress.services.polozhenie_period import (
     is_payable_week,
+    payable_window_start,
     period_key,
     quantize_money,
     week_end,
@@ -88,6 +90,8 @@ def accrue_roles_for_user(user: User, day: date) -> AwardOutcome:
         return AwardOutcome(False, Decimal("0"), Decimal("0"), "before_season_start")
 
     key = period_key(start)
+    # В неделе запуска роль оплачивается только за дни со дня включения.
+    window = payable_window_start(day)
     total_rating = Decimal("0")
     total_coins = Decimal("0")
     paid_any = False
@@ -96,7 +100,7 @@ def accrue_roles_for_user(user: User, day: date) -> AwardOutcome:
         ended_on__lt=start
     )
     for assignment in assignments:
-        days = school_days_active(assignment, start, end)
+        days = school_days_active(assignment, window, end)
         if days == 0:
             continue
         try:
@@ -425,6 +429,10 @@ def absence_penalty_for_day(
     daily_max = Decimal(
         str(getattr(settings, "POLOZHENIE_PENALTIES", {}).get("ABSENCE_DAILY_MAX", 4))
     )
+
+    if not accruals_active_on(day):
+        # Пропуск до запуска начислений не штрафуется (и пока они выключены).
+        return AwardOutcome(False, Decimal("0"), Decimal("0"), "accruals_disabled")
 
     missed = LessonAttendance.objects.filter(
         user=user, lesson_date=day, status=LessonAttendanceStatus.MISSED

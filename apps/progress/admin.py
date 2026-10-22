@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from apps.operations.admin_actions import FrozenWhileAccrualsOffMixin
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
 
 from .models import (
@@ -72,7 +73,7 @@ class CharacteristicHistoryAdmin(ManagedRoleAdminMixin):
 
 
 @admin.register(UserStrike)
-class UserStrikeAdmin(ManagedRoleAdminMixin):
+class UserStrikeAdmin(FrozenWhileAccrualsOffMixin, ManagedRoleAdminMixin):
     list_display = (
         "user",
         "attendance_strike",

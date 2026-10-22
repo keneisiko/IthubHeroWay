@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from apps.accounts.permissions import IsKnownRole
 from apps.notifications.services import events
+from apps.operations.api_guard import accruals_off_response
 from apps.operations.services.platform_settings import platform_setting
 from apps.progress.services.rewards import local_day_start
 
@@ -107,6 +108,9 @@ class QuestCompleteView(views.APIView):
     throttle_scope = "heavy"
 
     def post(self, request, code: str) -> Response:
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
         serializer = CompleteQuestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -189,6 +193,9 @@ class SelfReportCreateView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def post(self, request, code: str) -> Response:
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
         serializer = SelfReportCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

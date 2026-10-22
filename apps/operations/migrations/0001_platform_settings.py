@@ -12,7 +12,11 @@ def seed_current_values(apps, schema_editor):
     from apps.operations.services.platform_settings import default_values
 
     PlatformSettings = apps.get_model("operations", "PlatformSettings")
-    PlatformSettings.objects.update_or_create(pk=1, defaults=default_values())
+    # Новые поля появились в более поздних миграциях: историческая модель
+    # на этом шаге их ещё не знает.
+    known = {field.name for field in PlatformSettings._meta.get_fields()}
+    defaults = {key: value for key, value in default_values().items() if key in known}
+    PlatformSettings.objects.update_or_create(pk=1, defaults=defaults)
 
 
 class Migration(migrations.Migration):

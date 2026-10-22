@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import admin, messages
+from django.http import HttpResponseRedirect
 
 from apps.integrations.services.lxp_group_import import slug
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
@@ -162,6 +163,15 @@ class UserBadgeAdmin(ManagedRoleAdminMixin):
     search_fields = ("user__callsign", "user__username", "badge__code", "badge__title")
     list_select_related = ("user", "badge",)
     autocomplete_fields = ("user", "badge")
+
+    def add_view(self, request, form_url="", extra_context=None):
+        from apps.operations.admin_actions import refuse_while_accruals_off
+
+        # Выдача руками тоже награждает монетами: до запуска её блокируем
+        # до сохранения, а не ловим исключение посреди save_model.
+        if request.method == "POST" and refuse_while_accruals_off(self, request):
+            return HttpResponseRedirect(request.path)
+        return super().add_view(request, form_url, extra_context)
 
     def save_model(self, request, obj, form, change):
         """Выдать нашивку и начислить монеты за неё — как это делает автомат.

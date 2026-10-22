@@ -6,6 +6,7 @@ from celery import shared_task
 from django.core.management import call_command
 from django.utils import timezone
 
+from apps.operations.services.platform_settings import accruals_active_on
 from apps.quests.models import QuestType
 from apps.quests.services.quest_periods import ensure_period_quests
 from apps.quests.services.quest_verification import verify_all_auto_quests
@@ -27,6 +28,10 @@ def create_period_quests(target_date_iso: str | None = None) -> dict:
     после первой проверки.
     """
     target = date.fromisoformat(target_date_iso) if target_date_iso else timezone.localdate()
+    if not accruals_active_on(target):
+        # До запуска квестов нет: студент не должен видеть задания, за которые
+        # ничего не получит. Экземпляры заводятся при включении начислений.
+        return {"date": target.isoformat(), "skipped": "accruals_disabled"}
     return ensure_period_quests(target)
 
 
@@ -34,6 +39,8 @@ def create_period_quests(target_date_iso: str | None = None) -> dict:
 def verify_auto_quests(target_date_iso: str | None = None) -> dict:
     """Проверка daily + weekly квестов с auto_verify."""
     target = date.fromisoformat(target_date_iso) if target_date_iso else timezone.localdate()
+    if not accruals_active_on(target):
+        return {"date": target.isoformat(), "skipped": "accruals_disabled"}
     daily = verify_all_auto_quests(target, quest_types=[QuestType.DAILY])
     weekly = verify_all_auto_quests(target, quest_types=[QuestType.WEEKLY])
     return {"daily": daily, "weekly": weekly}

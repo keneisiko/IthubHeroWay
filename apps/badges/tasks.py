@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 from apps.accounts.models import Role
 from apps.badges.services import award_badges_for_user
 from apps.integrations.services.account_gate import agents_for_scoring
+from apps.operations.services.platform_settings import accruals_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,9 @@ def check_badges_weekly() -> str:
     привязки получал монеты за учёбу, но не получал нашивок: правило
     «кому начисляем» должно жить в одном месте.
     """
+    if not accruals_enabled():
+        return "accruals_disabled"
+
     User = get_user_model()
     users = (
         agents_for_scoring(User.objects.filter(role=Role.AGENT))

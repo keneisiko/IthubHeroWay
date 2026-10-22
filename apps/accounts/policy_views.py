@@ -17,6 +17,7 @@ from rest_framework.response import Response
 
 from apps.accounts.models import PolicyAcceptance
 from apps.accounts.permissions import IsKnownRole
+from apps.progress.services.polozhenie_period import season_start_date
 
 
 def current_version() -> str:
@@ -62,9 +63,7 @@ class PolicyStateView(views.APIView):
                 "document_date": getattr(settings, "POLOZHENIE_DATE", ""),
                 "accepted": accepted is not None,
                 "accepted_at": accepted.accepted_at if accepted else None,
-                "season_start": getattr(settings, "POLOZHENIE_PERIOD", {}).get(
-                    "SEASON_START_DATE", ""
-                ),
+                "season_start": season_start_date().isoformat(),
             }
         )
 

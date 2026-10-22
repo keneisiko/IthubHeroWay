@@ -6,7 +6,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.operations.services.anticheat import apply_unclosed_tests_rule
 from apps.operations.services.cache import invalidate_rating_views
-from apps.operations.services.platform_settings import platform_setting
+from apps.operations.services.platform_settings import accruals_enabled, platform_setting
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.quests.models import QuestRewardTransaction
 
@@ -16,6 +16,10 @@ def max_daily_coins() -> int:
 
 
 def apply_rating_delta_with_cap(user: User, delta: int, source: str, reason: str = "", source_id: str = "") -> int:
+    # До запуска платформы рейтинг не двигается ни за квесты, ни за нашивки,
+    # ни за социальные механики: «у всех ноль» должно быть правдой.
+    if not accruals_enabled():
+        return 0
     before = user.rating_current
     after = before + delta
 
@@ -82,7 +86,7 @@ def remaining_daily_coin_budget(user: User, day_limit: int | None = None) -> int
 
 def grant_coins_with_daily_cap(user: User, amount: int) -> int:
     """Grant coins respecting MAX_DAILY_COINS (quest ledger only). Returns amount granted."""
-    if amount <= 0:
+    if amount <= 0 or not accruals_enabled():
         return 0
     allowed = min(int(amount), remaining_daily_coin_budget(user))
     if allowed:

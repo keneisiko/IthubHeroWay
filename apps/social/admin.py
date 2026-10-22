@@ -1,12 +1,13 @@
 from django.contrib import admin
 
+from apps.operations.admin_actions import FrozenWhileAccrualsOffMixin
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
 
 from .models import Duel, Mentorship, Respect
 
 
 @admin.register(Respect)
-class RespectAdmin(ManagedRoleAdminMixin):
+class RespectAdmin(FrozenWhileAccrualsOffMixin, ManagedRoleAdminMixin):
     list_display = ("from_user", "to_user", "message", "created_at")
     list_filter = ("created_at",)
     search_fields = ("from_user__callsign", "to_user__callsign", "message")
@@ -18,7 +19,7 @@ class RespectAdmin(ManagedRoleAdminMixin):
 
 
 @admin.register(Duel)
-class DuelAdmin(ManagedRoleAdminMixin):
+class DuelAdmin(FrozenWhileAccrualsOffMixin, ManagedRoleAdminMixin):
     list_display = ("challenger", "opponent", "status", "created_at", "resolved_at")
     list_filter = ("status", "created_at")
     search_fields = ("challenger__callsign", "opponent__callsign")

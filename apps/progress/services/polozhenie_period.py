@@ -36,7 +36,17 @@ def period_key(day: date) -> str:
 
 
 def season_start_date() -> date:
-    """Первая дата, с которой вообще производятся начисления (п. 2.2)."""
+    """Первая дата, с которой вообще производятся начисления (п. 2.2).
+
+    День, когда администратор включил начисления, главнее даты из настроек:
+    сезон стартует с него, а не с запланированной заранее даты. Данные за дни
+    до включения (Hik, LXP) ничего не дают.
+    """
+    from apps.operations.services.platform_settings import accruals_start_date
+
+    started_on = accruals_start_date()
+    if started_on is not None:
+        return started_on
     raw = getattr(settings, "POLOZHENIE_PERIOD", {}).get("SEASON_START_DATE", "2026-10-19")
     return date.fromisoformat(str(raw))
 
@@ -48,4 +58,15 @@ def is_payable_week(day: date) -> bool:
     до запуска начисления не производятся». Неделя, на которую запуск
     приходится, оплачивается — иначе первая неделя сезона пропала бы.
     """
-    return week_end(day) >= season_start_date()
+    from apps.operations.services.platform_settings import accruals_enabled
+
+    return accruals_enabled() and week_end(day) >= season_start_date()
+
+
+def payable_window_start(day: date) -> date:
+    """Первый день недели, данные которого оплачиваются.
+
+    В неделе запуска это день включения, а не понедельник: пары, пройденные
+    до включения, не засчитываются. Во всех остальных неделях — понедельник.
+    """
+    return max(week_start(day), season_start_date())

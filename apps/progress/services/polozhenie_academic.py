@@ -35,6 +35,7 @@ from apps.progress.models import LessonAttendance, LessonAttendanceStatus, Ratin
 from apps.progress.services.polozhenie_ledger import grant
 from apps.progress.services.polozhenie_period import (
     is_payable_week,
+    payable_window_start,
     period_key,
     quantize_money,
     week_end,
@@ -130,6 +131,9 @@ def ct_scope() -> str:
 
 def ct_percent_from_snapshot(control_points_for_user: dict) -> tuple[Decimal | None, int, int]:
     """Средний процент актуальных КТ студента.
+
+    Сознательно: это процент ТЕКУЩЕГО состояния тем, а не прирост за период, поэтому
+    в неделю запуска начислений он учтёт и темы, сданные раньше.
 
     Возвращает (процент, сколько актуальных, сколько сданных). Процент равен
     `None`, когда считать не из чего: п. 3.6 — начисление компонента не
@@ -245,7 +249,8 @@ def accrue_week_for_user(user: User, day: date) -> dict:
     start, end = week_start(day), week_end(day)
     key = period_key(start)
     ct_data = snapshot_ct_data(start, end)
-    return _accrue(user, start, end, key, components_for_user(user, start, end, ct_data))
+    window = payable_window_start(day)
+    return _accrue(user, start, end, key, components_for_user(user, window, end, ct_data))
 
 
 def _accrue(user: User, start: date, end: date, key: str, parts: WeeklyComponents) -> dict:
@@ -344,6 +349,8 @@ def run_weekly_accrual(day: date | None = None) -> WeeklyAccrualResult:
         )
 
     ct_data = snapshot_ct_data(start, end)
+    # В неделе запуска учитываются только дни со дня включения.
+    window = payable_window_start(day)
     considered = paid = deferred_ct = deferred_att = 0
     rating_total = Decimal("0")
     coins_total = Decimal("0")
@@ -354,7 +361,7 @@ def run_weekly_accrual(day: date | None = None) -> WeeklyAccrualResult:
     audience = agents_for_scoring(User.objects.filter(role=Role.AGENT))
     for user in audience.select_related("squad").iterator(chunk_size=200):
         considered += 1
-        parts = components_for_user(user, start, end, ct_data)
+        parts = components_for_user(user, window, end, ct_data)
         outcome = _accrue(user, start, end, key, parts)
         if outcome["rating"] or outcome["coins"]:
             paid += 1

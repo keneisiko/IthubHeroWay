@@ -51,3 +51,8 @@ HIK_DATA_MODE = "snapshot"
 HIK_PROCESS_ENABLED = True
 HIK_FETCH_ENABLED = False
 LXP_USE_BROWSER_TOKEN_BOT = False
+
+# Тесты проверяют начисления, а не выключатель: платформа в них «запущена».
+# Сам выключатель тестируется в apps/operations/tests_accruals_switch.py,
+# где состояние «до запуска» выставляется явно.
+ACCRUALS_ENABLED_BY_DEFAULT = True

@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
 from apps.notifications.services import events
+from apps.operations.api_guard import accruals_off_response
 from apps.operations.services.platform_settings import platform_setting
 
 from .models import Duel, DuelStatus, Mentorship, Respect
@@ -39,6 +40,9 @@ class RespectCreateView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def post(self, request, *args, **kwargs):
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
         serializer = RespectCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         to_user = generics.get_object_or_404(User, username=serializer.validated_data["to_username"])
@@ -91,6 +95,9 @@ class DuelCreateView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def post(self, request, *args, **kwargs):
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
         serializer = DuelCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         opponent = generics.get_object_or_404(User, username=serializer.validated_data["opponent_username"])
@@ -142,6 +149,9 @@ class DuelAcceptView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def post(self, request, duel_id: int, *args, **kwargs):
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
         try:
             duel = accept_duel(request.user, duel_id)
         except DuelNotAllowed as exc:

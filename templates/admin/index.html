@@ -1,8 +1,23 @@
 {% extends "admin/index.html" %}
-{% load review_queue %}
+{% load review_queue accruals %}
 
 {% block content %}
   {% pending_proofs_for request.user as pending_count %}
+  {% accruals_status as accruals %}
+
+  {# Состояние выключателя видно сразу: «почему всем ноль» не надо искать в настройках. #}
+  {% if accruals.enabled %}
+    <div class="review-queue">
+      <span class="review-queue__text">Начисления включены{% if accruals.since %} — сезон идёт с {{ accruals.since|date:"d.m.Y" }}{% endif %}</span>
+    </div>
+  {% else %}
+    <div class="review-queue review-queue--has-work">
+      <span class="review-queue__text">Начисления выключены — до запуска платформы ничего не начисляется</span>
+      {% if request.user.is_superuser or request.user.role == "admin" %}
+        <a class="role-link" href="{% url 'admin:operations_platformsettings_changelist' %}">Включить</a>
+      {% endif %}
+    </div>
+  {% endif %}
 
   {% if pending_count %}
     {# Число прямо на главной: иначе в раздел проверок заходят наугад. #}

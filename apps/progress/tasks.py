@@ -4,6 +4,7 @@ from django.utils.dateparse import parse_date
 
 from apps.integrations.services.telegram_alert import send_alert_to_admin
 from apps.operations.services.health_monitor import monitor_health_and_alert_sync
+from apps.operations.services.platform_settings import accruals_enabled
 from apps.progress.services.characteristics import update_all_characteristics
 from apps.progress.services.strike_bonuses import apply_strike_bonuses
 
@@ -47,7 +48,11 @@ def recalculate_pillars_weekly() -> None:
 @shared_task
 def check_strikes_daily() -> str:
     """Ежедневная проверка серий и начисление бонусов."""
+    if not accruals_enabled():
+        return "accruals_disabled"
     result = apply_strike_bonuses()
+    if not result.get("strikes_updated") and result.get("skipped"):
+        return f"strikes:{result['date']}:skipped={result['skipped']}"
     return (
         f"strikes:{result['date']}:updated={result['strikes_updated']}"
         f":bonuses={result['bonuses_applied']}"
@@ -81,6 +86,11 @@ def accrue_polozhenie_week(self, day_iso: str | None = None) -> str:
     from datetime import timedelta
 
     from django.utils import timezone
+
+    # До запуска неделю не считаем и ничего не помечаем оплаченной: ключ
+    # периода записывается в журнал только вместе с начислением.
+    if not accruals_enabled():
+        return "accruals_disabled"
 
     from apps.progress.services.polozhenie_academic import run_weekly_accrual
     from apps.progress.services.polozhenie_awards import run_weekly_roles

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsKnownRole
+from apps.operations.api_guard import accruals_off_response
 from apps.operations.services.cache import invalidate_profile
 
 from .models import Purchase, ShopItem, ShopItemSlot
@@ -38,6 +39,9 @@ class PurchaseCreateView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def post(self, request, *args, **kwargs):
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
         serializer = PurchaseCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

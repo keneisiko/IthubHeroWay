@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
+from apps.operations.services.platform_settings import accruals_enabled
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.progress.services.rewards import apply_rating_delta_with_cap, grant_coins_with_daily_cap
 from apps.social.models import Mentorship
@@ -76,6 +77,15 @@ def pay_mentors_weekly(now=None) -> dict:
     per_mentee = int(_rewards().get("MENTEE_WEEKLY_COINS", 2))
     if per_mentee <= 0:
         return {"week": week_key, "mentors_paid": 0, "coins_granted": 0}
+    if not accruals_enabled():
+        # Без этого выхода ниже писались бы нулевые записи-маркеры выплаты,
+        # и после включения за эту неделю наставнику уже не заплатили бы.
+        return {
+            "week": week_key,
+            "mentors_paid": 0,
+            "coins_granted": 0,
+            "skipped": "accruals_disabled",
+        }
 
     pending: dict[int, list] = {}
     active = (

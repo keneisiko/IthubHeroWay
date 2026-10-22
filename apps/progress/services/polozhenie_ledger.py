@@ -26,6 +26,7 @@ from django.db import transaction
 
 from apps.accounts.models import User
 from apps.operations.services.cache import invalidate_rating_views
+from apps.operations.services.platform_settings import accruals_enabled
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.progress.services.polozhenie_period import quantize_money
 
@@ -71,6 +72,12 @@ def grant(
     """
     rating_delta = quantize_money(rating)
     coins_delta = quantize_money(coins)
+
+    # Страховка на уровне ядра: что бы ни вызвало начисление (задача, команда,
+    # админка), до запуска оно ничего не меняет и не оставляет записи в журнале,
+    # иначе её ключ потом заблокировал бы настоящую оплату периода.
+    if not accruals_enabled():
+        return LedgerResult(False, Decimal("0"), Decimal("0"), "accruals_disabled")
 
     if rating_delta == 0 and coins_delta == 0:
         return LedgerResult(False, Decimal("0"), Decimal("0"), "nothing_to_grant")
