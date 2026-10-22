@@ -46,13 +46,19 @@ class PathMapTests(TestCase):
         self.daily = Quest.objects.create(code="d1", title="Ежедневный", quest_type=QuestType.DAILY)
         self.weekly = Quest.objects.create(code="w1", title="Недельный", quest_type=QuestType.WEEKLY)
 
-    def test_account_without_telegram_has_no_milestones(self):
-        """Без привязки студент даже войти не может — путь не начат."""
-        TelegramAccountLink.objects.filter(user=self.user).update(is_active=False)
-        # Перечитываем: связь telegram_link кешируется на объекте пользователя.
+    def test_inactive_account_has_no_milestones(self):
+        """Не активированный аккаунт ещё не вошёл — путь не начат."""
+        User.objects.filter(pk=self.user.pk).update(is_active=False)
         user = User.objects.get(pk=self.user.pk)
 
         self.assertEqual(path_reached(user), [])
+
+    def test_web_activation_without_telegram_reaches_entry(self):
+        """Активировался первым входом на сайт, Telegram не привязан — вход есть."""
+        TelegramAccountLink.objects.filter(user=self.user).delete()
+        user = User.objects.get(pk=self.user.pk)
+
+        self.assertEqual(path_reached(user), ["entry"])
 
     def test_activated_account_reaches_entry(self):
         self.assertEqual(path_reached(self.user), ["entry"])

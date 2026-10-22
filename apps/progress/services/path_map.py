@@ -45,10 +45,10 @@ def path_reached(user) -> list[str]:
     """Коды пройденных вех карты пути в порядке следования."""
     reached: list[str] = []
 
-    # Вход: аккаунт подтверждён в Telegram. Без привязки студент вообще
-    # не может войти на платформу, так что до этой точки он не дошёл.
-    telegram_link = getattr(user, "telegram_link", None)
-    if telegram_link and telegram_link.is_active:
+    # Вход: аккаунт активирован — первым входом на сайт или в боте. Раньше
+    # засчитывался только по Telegram, и вошедший через сайт оставался «за
+    # дверью», хотя пользовался платформой.
+    if user.is_active:
         reached.append(PATH_ENTRY)
 
     if QuestRewardTransaction.objects.filter(user=user).exists():

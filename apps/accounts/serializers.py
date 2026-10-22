@@ -15,6 +15,8 @@ from .models import User
 class MeProfileSerializer(serializers.ModelSerializer):
     track = serializers.CharField(source="track.name", read_only=True)
     squad = serializers.CharField(source="squad.name", read_only=True)
+    # Курс — подсказка на карте пути (что впереди); сами вехи — только по событиям.
+    course = serializers.IntegerField(source="squad.course", read_only=True, default=None)
     # Карта пути в профиле: без этого поля фронт подставлял ['entry'] всем.
     path_reached = serializers.SerializerMethodField()
     # Активные покупки: какая рамка аватара и какое свечение значка надеты.
@@ -37,6 +39,7 @@ class MeProfileSerializer(serializers.ModelSerializer):
             "avatar",
             "track",
             "squad",
+            "course",
             "level",
             "rating_current",
             "rating_status",
@@ -84,6 +87,8 @@ class MeProfileSerializer(serializers.ModelSerializer):
 class PublicProfileSerializer(serializers.ModelSerializer):
     track = serializers.CharField(source="track.name", read_only=True)
     squad = serializers.CharField(source="squad.name", read_only=True)
+    # Курс — подсказка на карте пути (что впереди); сами вехи — только по событиям.
+    course = serializers.IntegerField(source="squad.course", read_only=True, default=None)
     rating_zone = serializers.SerializerMethodField()
     rating_current = serializers.SerializerMethodField()
     path_reached = serializers.SerializerMethodField()
@@ -109,6 +114,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "avatar",
             "track",
             "squad",
+            "course",
             "level",
             "rating_zone",
             "rating_status",

@@ -40,6 +40,7 @@ interface ProfileData {
   avatar?: string | null
   track: string
   squad: string
+  course?: number | null
   level: number
   rating_current: number | null
   coins_balance?: number
@@ -291,9 +292,21 @@ export default function Profile() {
     (last, point, i) => (reachedCodes.includes(point.code) ? i : last),
     -1,
   )
-  const pathReached = (i: number) => i <= lastReachedIndex
-  const pathNodeState = (i: number) =>
-    i === lastReachedIndex ? 'current' : i < lastReachedIndex ? 'done' : 'idle'
+  // Закрашено только пройденное: раньше всё до последней вехи считалось
+  // пройденным, и «Первый провал» горел у того, кто ни разу не ошибался.
+  const reachedAt = (i: number) => reachedCodes.includes(pathPoints[i].code)
+  // отрезок пути пройден, когда пройдены обе его вехи
+  const pathLineDone = (i: number) => reachedAt(i - 1) && reachedAt(i)
+  // Курс — подсказка, а не факт: у старших курсов продукт и стажировка
+  // наверняка уже были, но засчитывает их только куратор.
+  const course = profile?.course ?? 0
+  const curatorHint = (code: string) =>
+    ((code === 'product' || code === 'internship') && course >= 3)
+    || (code === 'graduation' && course >= 4)
+  const pathNodeState = (i: number) => {
+    if (reachedAt(i)) return i === lastReachedIndex ? 'current' : 'done'
+    return curatorHint(pathPoints[i].code) ? 'pending' : 'idle'
+  }
 
 
 
@@ -585,7 +598,7 @@ export default function Profile() {
                 {PATH_TOP.map((point, i) => (
                   <Fragment key={point.code}>
                     {i > 0 && (
-                      <span className={`profile-map__line profile-map__line--${pathReached(i) ? 'done' : 'idle'}`} />
+                      <span className={`profile-map__line profile-map__line--${pathLineDone(i) ? 'done' : 'idle'}`} />
                     )}
                     <span className={`profile-map__node profile-map__node--${pathNodeState(i)} profile-map__node--n${i}`} />
                   </Fragment>
@@ -595,14 +608,14 @@ export default function Profile() {
                 {PATH_TOP.map((point) => <span key={point.code}>{point.label}</span>)}
               </div>
               <span
-                className={`profile-map__turn profile-map__turn--${pathReached(PATH_TOP.length) ? 'done' : 'idle'}`}
+                className={`profile-map__turn profile-map__turn--${pathLineDone(PATH_TOP.length) ? 'done' : 'idle'}`}
               />
               <div className="profile-map__row profile-map__row--bottom">
                 {PATH_BOTTOM.map((point, i) => (
                   <Fragment key={point.code}>
                     {i > 0 && (
                       <span
-                        className={`profile-map__line profile-map__line--${pathReached(PATH_TOP.length + i) ? 'done' : 'idle'}`}
+                        className={`profile-map__line profile-map__line--${pathLineDone(PATH_TOP.length + i) ? 'done' : 'idle'}`}
                       />
                     )}
                     <span className={`profile-map__node profile-map__node--${pathNodeState(PATH_TOP.length + i)} profile-map__node--n${PATH_TOP.length + i}`} />
@@ -610,7 +623,14 @@ export default function Profile() {
                 ))}
               </div>
               <div className="profile-map__labels profile-map__labels--bottom">
-                {PATH_BOTTOM.map((point) => <span key={point.code}>{point.label}</span>)}
+                {PATH_BOTTOM.map((point, i) => (
+                  <span key={point.code}>
+                    {point.label}
+                    {!reachedAt(PATH_TOP.length + i) && curatorHint(point.code) && (
+                      <small className="profile-map__hint">отметит куратор</small>
+                    )}
+                  </span>
+                ))}
               </div>
             </div>
           </section>

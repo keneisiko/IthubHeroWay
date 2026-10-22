@@ -750,3 +750,26 @@ textarea.popup__input {
 .leaderboard-list .leaderboard-item__card {
   overflow: clip;
 }
+
+/* --- карта пути: веха, которую засчитывает куратор ---
+   У старших курсов продукт и стажировка, скорее всего, уже были, но
+   засчитываются только отметкой куратора: узел пунктирный, под подписью
+   пояснение. */
+.profile-map__node--pending {
+  background: #f5f5f5;
+  border-style: dashed;
+  border-color: #9a33f4;
+}
+
+.profile-map__labels--bottom span {
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile-map__hint {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9a33f4;
+  white-space: nowrap;
+}
