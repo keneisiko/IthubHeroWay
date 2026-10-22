@@ -41,6 +41,70 @@
   height: 100%;
 }
 
+/* туманности: огромные размытые облака дыма плывут навстречу друг другу */
+.cosmos-sky__nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.cosmos-sky__nebula--a {
+  left: -18vmax;
+  top: 30vh;
+  width: 70vmax;
+  height: 40vmax;
+  background: radial-gradient(closest-side, rgba(200, 200, 215, 0.22), rgba(120, 120, 140, 0.08) 60%, transparent);
+  animation: cosNebulaA 40s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+.cosmos-sky__nebula--b {
+  right: -10vmax;
+  top: -12vh;
+  width: 56vmax;
+  height: 34vmax;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.16), rgba(150, 150, 170, 0.06) 60%, transparent);
+  animation: cosNebulaB 52s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes cosNebulaA {
+  from { transform: translate(0, 0) rotate(-8deg) scale(1); }
+  to { transform: translate(14vmax, -8vmax) rotate(10deg) scale(1.18); }
+}
+
+@keyframes cosNebulaB {
+  from { transform: translate(0, 0) rotate(6deg) scale(1.1); }
+  to { transform: translate(-16vmax, 10vmax) rotate(-8deg) scale(0.92); }
+}
+
+/* далёкая спиральная галактика — медленно поворачивается */
+.cosmos-sky__galaxy {
+  position: absolute;
+  left: 6vw;
+  top: 58vh;
+  width: 15vmax;
+  height: 15vmax;
+  opacity: 0.55;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25) 14%, transparent 34%),
+    conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.4) 6%, transparent 22%, transparent 50%, rgba(255, 255, 255, 0.4) 56%, transparent 72%);
+  -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
+  filter: blur(1.5px);
+  transform: rotate(-30deg) scaleY(0.42);
+}
+
+.cosmos-sky__galaxy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 90deg, transparent, rgba(255, 255, 255, 0.3) 10%, transparent 30%, transparent 50%, rgba(255, 255, 255, 0.3) 60%, transparent 80%);
+  animation: cosSpin 60s linear infinite;
+}
+
 /* чёрная дыра: наклонённый диск аккреции крутится, вокруг тени —
    кольцо света, искривлённое гравитацией */
 .cosmos-sky__hole {
@@ -50,7 +114,7 @@
   width: 46vmax;
   height: 46vmax;
   opacity: 0.6;
-  animation: cosHoleIn 2.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  animation: cosDrift 22s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
 }
 
 .cosmos-sky__disk {
@@ -123,12 +187,13 @@
 
 @keyframes cosSkyIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cosSpin { to { transform: rotate(360deg); } }
-@keyframes cosHoleIn {
-  from { opacity: 0; transform: scale(0.4) rotate(-40deg); }
-  to { opacity: 0.6; transform: none; }
+@keyframes cosDrift {
+  from { transform: translate(0, 0) rotate(0deg); }
+  to { transform: translate(-2.5vmax, 3vmax) rotate(6deg); }
 }
 
 @media (max-width: 768px) {
+  .cosmos-sky__galaxy { left: auto; right: 4vw; top: 12vh; width: 24vmax; height: 24vmax; }
   .cosmos-sky__hole {
     right: -26vmax;
     top: auto;
@@ -172,18 +237,6 @@
 
 .profile--cosmos .profile-card--banner::before,
 .profile--cosmos .profile-card--banner::after { display: none; }
-
-/* карточки проявляются из тумана */
-.profile--cosmos .card-entrance {
-  animation-name: cosEnter;
-  animation-duration: 0.9s;
-  animation-timing-function: var(--cos-ease);
-}
-
-@keyframes cosEnter {
-  from { opacity: 0; transform: translateY(22px) scale(0.98); filter: blur(10px); }
-  to { opacity: 1; transform: none; filter: none; }
-}
 
 /* ---------- шрифты и текст ---------- */
 
@@ -316,42 +369,172 @@
   color: var(--cos-text);
 }
 
-/* ---------- карта пути: созвездие ---------- */
+/* ---------- карта пути: планетная система ----------
+   Пройденные точки — планеты (у каждой свой вид), текущая — чёрная
+   дыра с вращающимся диском, впереди — далёкие звёзды. Линии — орбиты,
+   по пройденным бежит искра. */
+
+@property --cos-spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.profile--cosmos .profile-map__line {
+  height: 2px;
+  border-radius: 2px;
+}
 
 .profile--cosmos .profile-map__line--done {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6));
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
+  background:
+    linear-gradient(90deg, transparent, #fff 50%, transparent) -60% 0 / 40% 100% no-repeat,
+    rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
+  animation: cosSpark 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes cosSpark {
+  from { background-position: -60% 0, 0 0; }
+  to { background-position: 160% 0, 0 0; }
 }
 
 .profile--cosmos .profile-map__line--idle {
-  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0 6px, transparent 6px 12px);
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.3) 0 2px, transparent 2px 9px);
 }
 
-.profile--cosmos .profile-map__turn--done { border-color: rgba(255, 255, 255, 0.85); }
+.profile--cosmos .profile-map__turn { border-width: 2px; }
+.profile--cosmos .profile-map__turn--done { border-color: rgba(255, 255, 255, 0.6); box-shadow: 6px 0 10px -6px rgba(255, 255, 255, 0.4); }
 .profile--cosmos .profile-map__turn--idle { border-color: rgba(255, 255, 255, 0.22); border-style: dashed; }
 
 .profile--cosmos .profile-map__node {
-  border-color: #0b0b10;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+  border: 0;
+  overflow: visible;
 }
 
+/* планета: свет слева сверху, тень терминатора справа снизу */
 .profile--cosmos .profile-map__node--done {
-  background: #fff;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 14px 3px rgba(255, 255, 255, 0.45);
+  background: radial-gradient(circle at 34% 30%, #fff 0%, #c9c9d2 32%, #6c6c78 68%, #24242c 100%);
+  box-shadow:
+    inset -7px -5px 9px rgba(0, 0, 0, 0.7),
+    0 0 14px 2px rgba(255, 255, 255, 0.28);
 }
 
-.profile--cosmos .profile-map__node--idle { background: #1a1a22; }
+/* кольцо: видна нижняя дуга перед планетой */
+.profile--cosmos .profile-map__node--done:is(.profile-map__node--n0, .profile-map__node--n4)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 50px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-top-color: transparent;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
+}
 
+/* луна в кратерах */
+.profile--cosmos .profile-map__node--done:is(.profile-map__node--n1, .profile-map__node--n5) {
+  background:
+    radial-gradient(circle at 30% 62%, rgba(0, 0, 0, 0.35) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 62% 30%, rgba(0, 0, 0, 0.3) 0 2.5px, transparent 3px),
+    radial-gradient(circle at 55% 70%, rgba(0, 0, 0, 0.25) 0 1.8px, transparent 2.3px),
+    radial-gradient(circle at 36% 30%, #f2f2f5 0%, #a9a9b4 55%, #3a3a44 100%);
+}
+
+/* газовый гигант: полосы облаков медленно вращаются */
+.profile--cosmos .profile-map__node--done:is(.profile-map__node--n2, .profile-map__node--n6) {
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.55), transparent 55%),
+    repeating-linear-gradient(172deg, #d8d8e0 0 4px, #8a8a96 4px 7px, #b9b9c4 7px 10px, #5c5c68 10px 12px) 0 0 / 60px 100%;
+  animation: cosBands 9s linear infinite;
+}
+
+@keyframes cosBands {
+  to { background-position: 0 0, 60px 0; }
+}
+
+/* планета со спутником на орбите */
+.profile--cosmos .profile-map__node--done:is(.profile-map__node--n3, .profile-map__node--n7)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px #fff;
+  animation: cosMoon 4.5s linear infinite;
+}
+
+@keyframes cosMoon {
+  from { transform: rotate(0deg) translateX(23px) scale(1); }
+  50% { transform: rotate(180deg) translateX(23px) scale(0.7); }
+  to { transform: rotate(360deg) translateX(23px) scale(1); }
+}
+
+/* текущая точка — чёрная дыра */
 .profile--cosmos .profile-map__node--current {
-  background: #fff;
-  border-color: #0b0b10;
-  animation: cosNode 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  background: #000;
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.9),
+    0 0 14px 4px rgba(255, 255, 255, 0.5),
+    0 0 34px 10px rgba(255, 255, 255, 0.14);
+  animation: cosHole 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
-@keyframes cosNode {
-  0%, 100% { box-shadow: 0 0 0 1px #fff, 0 0 12px 3px rgba(255, 255, 255, 0.5), 0 0 0 0 rgba(255, 255, 255, 0.35); }
-  50% { box-shadow: 0 0 0 1px #fff, 0 0 22px 6px rgba(255, 255, 255, 0.7), 0 0 0 12px rgba(255, 255, 255, 0); }
+.profile--cosmos .profile-map__node--current::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from var(--cos-spin),
+    rgba(255, 255, 255, 0.1),
+    #fff 12%,
+    rgba(255, 255, 255, 0.25) 30%,
+    rgba(255, 255, 255, 0.85) 52%,
+    rgba(255, 255, 255, 0.1) 70%,
+    rgba(255, 255, 255, 0.7) 86%,
+    rgba(255, 255, 255, 0.1)
+  );
+  -webkit-mask-image: radial-gradient(closest-side, transparent 40%, #000 47%, #000 70%, transparent 100%);
+  mask-image: radial-gradient(closest-side, transparent 40%, #000 47%, #000 70%, transparent 100%);
+  transform: translate(-50%, -50%) rotate(-14deg) scaleY(0.3);
+  filter: blur(0.6px);
+  animation: cosDisk 3.5s linear infinite;
 }
+
+@keyframes cosDisk { to { --cos-spin: 360deg; } }
+
+@keyframes cosHole {
+  0%, 100% { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 0 14px 4px rgba(255, 255, 255, 0.5), 0 0 34px 10px rgba(255, 255, 255, 0.14); }
+  50% { box-shadow: 0 0 0 1.5px #fff, 0 0 20px 6px rgba(255, 255, 255, 0.65), 0 0 46px 16px rgba(255, 255, 255, 0.2); }
+}
+
+/* впереди — далёкие звёзды */
+.profile--cosmos .profile-map__node--idle {
+  background: transparent;
+  box-shadow: none;
+}
+
+.profile--cosmos .profile-map__node--idle::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  background: rgba(255, 255, 255, 0.55);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation: cosTwinkle 3.6s ease-in-out infinite;
+}
+
+.profile--cosmos .profile-map__node--idle.profile-map__node--n5::after { animation-delay: -1.2s; }
+.profile--cosmos .profile-map__node--idle.profile-map__node--n6::after { animation-delay: -2.4s; }
 
 .profile--cosmos :is(.profile-map__labels--top, .profile-map__labels--bottom) { font-family: var(--cos-mono); }
 .profile--cosmos .profile-map__labels--top { color: var(--cos-text); }
@@ -506,12 +689,15 @@
   .cosmos-sky,
   .cosmos-sky__hole,
   .cosmos-sky__disk::before,
-  .profile--cosmos .card-entrance,
+  .cosmos-sky__nebula,
+  .cosmos-sky__galaxy::after,
+  .profile--cosmos .profile-map__line--done,
+  .profile--cosmos .profile-map__node,
+  .profile--cosmos .profile-map__node::after,
   .profile--cosmos .profile-card__nickname,
   .profile--cosmos .profile-map__node--current,
   .profile--cosmos .ach--glow :is(.ach__icon, .path-card__icon),
   .profile--cosmos :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before { animation: none; }
-  .profile--cosmos .card-entrance { opacity: 1; transform: none; filter: none; }
 }
 
 /* кнопка «наверх» на этой странице — тоже серебро */
@@ -520,4 +706,216 @@ body:has(.profile--cosmos) .scroll-top {
   color: #050507;
   border-color: #fff;
   box-shadow: 0 0 22px rgba(255, 255, 255, 0.3);
+}
+
+/* =========================
+   ОБОЛОЧКА НА КОСМИЧЕСКОМ ПРОФИЛЕ
+   Шапка, боковое меню, нижняя навигация и шторка нашивки уходят в то же
+   тёмное стекло, пока открыт профиль разработчика.
+   ========================= */
+
+body:has(.profile--cosmos) {
+  --cos-glass: rgba(14, 14, 20, 0.78);
+  --cos-line: rgba(255, 255, 255, 0.14);
+  --cos-line-hi: rgba(255, 255, 255, 0.32);
+  --cos-text: #f4f4f7;
+  --cos-dim: #9b9ba8;
+  --cos-void: #050507;
+  --cos-display: 'Unbounded', var(--font-display);
+  --cos-mono: 'JetBrains Mono', ui-monospace, monospace;
+  background-color: #050507;
+}
+
+body:has(.profile--cosmos) :is(.top-header, .right-sidebar, .bottom-nav, .header-user-menu) {
+  background:
+    radial-gradient(1px 1px at 18% 30%, rgba(255, 255, 255, 0.6) 50%, transparent 52%),
+    radial-gradient(1px 1px at 64% 72%, rgba(255, 255, 255, 0.45) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 86% 24%, rgba(255, 255, 255, 0.5) 50%, transparent 52%),
+    radial-gradient(120% 140% at 0% 0%, rgba(255, 255, 255, 0.08), transparent 60%),
+    var(--cos-glass) !important;
+  border: 1px solid var(--cos-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 50px -26px rgba(0, 0, 0, 0.95);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  transition: background-color 0.5s var(--cos-ease, ease), border-color 0.5s ease;
+}
+
+/* шапка: по нижней кромке медленно проходит серебряный блик */
+body:has(.profile--cosmos) .top-header {
+  border-bottom: 1px solid var(--cos-line);
+  position: relative;
+  overflow: hidden;
+}
+
+body:has(.profile--cosmos) .top-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent) -40% 0 / 40% 100% no-repeat;
+  animation: cosEdge 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes cosEdge {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+body:has(.profile--cosmos) :is(.top-header__title, .top-header__username) { color: var(--cos-text); }
+body:has(.profile--cosmos) .top-header__title { font-family: var(--cos-display); font-weight: 500; letter-spacing: 0.04em; }
+body:has(.profile--cosmos) .top-header__divider { border-color: var(--cos-line-hi); }
+body:has(.profile--cosmos) .top-header__money { color: var(--cos-text); font-family: var(--cos-mono); }
+body:has(.profile--cosmos) .top-header__coin {
+  background: radial-gradient(circle at 35% 30%, #fff, #b9b9c4 60%, #6c6c78);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+body:has(.profile--cosmos) .header-user-menu { border-color: var(--cos-line-hi); }
+body:has(.profile--cosmos) .header-user-menu__item { color: var(--cos-text); }
+body:has(.profile--cosmos) .header-user-menu__divider { background: var(--cos-line); border-color: var(--cos-line); }
+
+/* боковое меню */
+body:has(.profile--cosmos) .right-sidebar__item { color: var(--cos-dim); }
+body:has(.profile--cosmos) .right-sidebar__item svg :is([fill]:not([fill='none'])) { fill: var(--cos-dim); transition: fill 0.3s ease, stroke 0.3s ease; }
+body:has(.profile--cosmos) .right-sidebar__item svg [stroke] { stroke: var(--cos-dim); }
+body:has(.profile--cosmos) .right-sidebar__item--active {
+  color: #fff;
+  background: linear-gradient(270deg, transparent 0%, rgba(255, 255, 255, 0.16) 50%, transparent 100%) top center / 100% 52px no-repeat;
+}
+body:has(.profile--cosmos) .right-sidebar__item--active svg :is([fill]:not([fill='none'])) { fill: #fff; }
+body:has(.profile--cosmos) .right-sidebar__item--active svg [stroke] { stroke: #fff; }
+body:has(.profile--cosmos) .right-sidebar__item--active span { color: #fff; }
+body:has(.profile--cosmos) .right-sidebar__item--active .right-sidebar__icon { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8)) !important; }
+body:has(.profile--cosmos) .right-sidebar__pulse { background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.1) 0%, transparent 70%) !important; }
+body:has(.profile--cosmos) .right-sidebar__marker {
+  background: #fff !important;
+  box-shadow: 0 0 16px 2px rgba(255, 255, 255, 0.7) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .right-sidebar__item:hover { color: #fff; }
+  body:has(.profile--cosmos) .right-sidebar__item:hover svg :is([fill]:not([fill='none'])) { fill: #fff; }
+  body:has(.profile--cosmos) .right-sidebar__item:hover svg [stroke] { stroke: #fff; }
+}
+
+/* нижняя навигация на телефоне */
+body:has(.profile--cosmos) .bottom-nav { border-bottom: 0; }
+body:has(.profile--cosmos) .bottom-nav__item svg :is([fill]:not([fill='none'])) { fill: var(--cos-dim); }
+body:has(.profile--cosmos) .bottom-nav__item svg [stroke] { stroke: var(--cos-dim); }
+body:has(.profile--cosmos) .bottom-nav__item--active svg :is([fill]:not([fill='none'])) { fill: var(--cos-void); }
+body:has(.profile--cosmos) .bottom-nav__item--active svg [stroke] { stroke: var(--cos-void); }
+body:has(.profile--cosmos) .bottom-nav__pill,
+body:has(.profile--cosmos) .bottom-nav:not(.bottom-nav--measured) .bottom-nav__item--active {
+  background: #fff;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.45);
+}
+
+/* шторка нашивки */
+body:has(.profile--cosmos) .bd-sheet__scrim {
+  background: rgba(2, 2, 4, 0.72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+body:has(.profile--cosmos) .bd-sheet__panel {
+  background: #0c0c11;
+  border: 1px solid var(--cos-line-hi);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 40px 80px -30px #000, 0 0 60px -20px rgba(255, 255, 255, 0.18);
+}
+
+body:has(.profile--cosmos) .bd-sheet__stage {
+  background:
+    radial-gradient(1.2px 1.2px at 12% 22%, #fff 50%, transparent 52%),
+    radial-gradient(1px 1px at 28% 74%, rgba(255, 255, 255, 0.8) 50%, transparent 52%),
+    radial-gradient(1.4px 1.4px at 82% 18%, #fff 50%, transparent 52%),
+    radial-gradient(1px 1px at 70% 82%, rgba(255, 255, 255, 0.7) 50%, transparent 52%),
+    radial-gradient(1px 1px at 92% 60%, rgba(255, 255, 255, 0.6) 50%, transparent 52%),
+    radial-gradient(1px 1px at 46% 10%, rgba(255, 255, 255, 0.7) 50%, transparent 52%),
+    radial-gradient(60% 80% at 50% 55%, rgba(255, 255, 255, 0.12), transparent 70%),
+    #050507;
+  border-bottom: 1px solid var(--cos-line);
+}
+
+/* за эмблемой — кольцо горизонта событий, медленно вращается */
+body:has(.profile--cosmos) .bd-sheet__stage::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: conic-gradient(from var(--cos-spin, 0deg), transparent, rgba(255, 255, 255, 0.55) 14%, transparent 34%, rgba(255, 255, 255, 0.35) 58%, transparent 78%);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 52%, #000 58%, #000 66%, transparent 76%);
+  mask-image: radial-gradient(closest-side, transparent 52%, #000 58%, #000 66%, transparent 76%);
+  transform: translate(-50%, -50%) rotate(-12deg) scaleY(0.34);
+  filter: blur(1px);
+  animation: cosDisk 9s linear infinite;
+}
+
+body:has(.profile--cosmos) .bd-sheet__halo,
+body:has(.profile--cosmos) .bd-sheet__panel:is(.bd-sheet__panel--rare, .bd-sheet__panel--epic, .bd-sheet__panel--legendary) .bd-sheet__halo {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 65%);
+}
+
+body:has(.profile--cosmos) .bd-sheet__emblem {
+  filter: grayscale(1) contrast(1.15) drop-shadow(0 0 18px rgba(255, 255, 255, 0.35));
+}
+
+body:has(.profile--cosmos) .bd-sheet__close { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .bd-sheet__close:hover { background: rgba(255, 255, 255, 0.22); }
+}
+
+body:has(.profile--cosmos) .bd-sheet__title { font-family: var(--cos-display); font-weight: 700; color: var(--cos-text); }
+body:has(.profile--cosmos) .bd-sheet__desc { color: #b9b9c4; }
+body:has(.profile--cosmos) .bd-sheet__status { color: var(--cos-text); font-family: var(--cos-mono); font-weight: 500; }
+body:has(.profile--cosmos) .bd-sheet__status--locked { color: var(--cos-dim); }
+
+body:has(.profile--cosmos) .bd-sheet .bd-chip {
+  background: transparent;
+  color: var(--cos-text);
+  border-color: var(--cos-line-hi);
+  box-shadow: inset 0 0 0 1px var(--cos-line-hi);
+  font-family: var(--cos-mono);
+}
+
+body:has(.profile--cosmos) .bd-sheet .bd-chip:first-child { background: #fff; color: var(--cos-void); box-shadow: none; }
+
+body:has(.profile--cosmos) .bd-sheet__action {
+  background: #fff;
+  color: var(--cos-void);
+  border: 1px solid #fff;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  transition: transform 0.2s var(--cos-ease, ease), box-shadow 0.35s var(--cos-ease, ease);
+}
+
+body:has(.profile--cosmos) .bd-sheet__action--ghost {
+  background: transparent;
+  color: var(--cos-text);
+  border-color: var(--cos-line-hi);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .bd-sheet__action:hover:not(:disabled) { box-shadow: 0 0 26px rgba(255, 255, 255, 0.3); }
+}
+
+body:has(.profile--cosmos) .bd-sheet__action:focus-visible { outline-color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  body:has(.profile--cosmos) .top-header::after,
+  body:has(.profile--cosmos) .bd-sheet__stage::before { animation: none; }
+}
+
+body:has(.profile--cosmos) .bd-sheet .bd-coins { color: var(--cos-text); background: transparent; box-shadow: inset 0 0 0 1px var(--cos-line-hi); font-family: var(--cos-mono); }
+body:has(.profile--cosmos) .bd-sheet .bd-coins i {
+  background: radial-gradient(circle at 35% 30%, #fff, #b9b9c4 60%, #6c6c78);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile--cosmos .profile-map__node--done:is(.profile-map__node--n3, .profile-map__node--n7)::after { transform: rotate(-35deg) translateX(23px); }
 }

@@ -587,7 +587,7 @@ export default function Profile() {
                     {i > 0 && (
                       <span className={`profile-map__line profile-map__line--${pathReached(i) ? 'done' : 'idle'}`} />
                     )}
-                    <span className={`profile-map__node profile-map__node--${pathNodeState(i)}`} />
+                    <span className={`profile-map__node profile-map__node--${pathNodeState(i)} profile-map__node--n${i}`} />
                   </Fragment>
                 ))}
               </div>
@@ -605,7 +605,7 @@ export default function Profile() {
                         className={`profile-map__line profile-map__line--${pathReached(PATH_TOP.length + i) ? 'done' : 'idle'}`}
                       />
                     )}
-                    <span className={`profile-map__node profile-map__node--${pathNodeState(PATH_TOP.length + i)}`} />
+                    <span className={`profile-map__node profile-map__node--${pathNodeState(PATH_TOP.length + i)} profile-map__node--n${PATH_TOP.length + i}`} />
                   </Fragment>
                 ))}
               </div>
