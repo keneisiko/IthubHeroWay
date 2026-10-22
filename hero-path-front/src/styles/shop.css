@@ -342,3 +342,15 @@
 @media (hover: hover) and (pointer: fine) {
   .shop-purchases__card .shop-chip:not([aria-pressed='true']):hover { background: rgba(255, 255, 255, 0.14); }
 }
+
+/* Купленный товар: плашка «В наличии» на месте цены — того же размера,
+   чтобы карточки в ряду не съезжали. */
+.shop-card__price--owned {
+  background: #f1e6fe;
+  color: var(--purple-500);
+  border: 2px solid var(--purple-500);
+  font-family: var(--font-text);
+  font-size: 22px;
+  font-weight: 700;
+  box-sizing: border-box;
+}

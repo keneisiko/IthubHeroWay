@@ -527,10 +527,14 @@ export default function Shop() {
 
           <div className="shop-detail__info">
             <h2 className="shop-detail__title">{selectedDetail.title}</h2>
-            <div className="shop-detail__price">
-              <span className="shop-card__coin" aria-hidden="true" />
-              <span className="shop-card__price-value">{selectedDetail.price}</span>
-            </div>
+            {ownedByCode.has(selectedDetail.code) ? (
+              <div className="shop-detail__price shop-card__price--owned">В наличии</div>
+            ) : (
+              <div className="shop-detail__price">
+                <span className="shop-card__coin" aria-hidden="true" />
+                <span className="shop-card__price-value">{selectedDetail.price}</span>
+              </div>
+            )}
             <div className="shop-detail__about">
               <h3 className="shop-detail__about-title">Описание</h3>
               <p className="shop-detail__desc">
@@ -661,10 +665,15 @@ export default function Shop() {
               <ShopItemEmblem code={item.code} slot={item.slot} itemType={item.itemType} size={120} />
             </div>
             <h2 className="shop-card__title">{item.title}</h2>
-            <div className="shop-card__price">
-              <span className="shop-card__coin" aria-hidden="true" />
-              <span className="shop-card__price-value">{item.price}</span>
-            </div>
+            {/* купленное уже не продаётся — цена ничего не говорит */}
+            {owned ? (
+              <div className="shop-card__price shop-card__price--owned">В наличии</div>
+            ) : (
+              <div className="shop-card__price">
+                <span className="shop-card__coin" aria-hidden="true" />
+                <span className="shop-card__price-value">{item.price}</span>
+              </div>
+            )}
             <div className="shop-card__actions">
               {owned ? renderOwned(owned, 'shop-card__buy') : (
               <button
@@ -683,6 +692,12 @@ export default function Shop() {
         )})}
       </div>
 
+      </>
+      )}
+
+      {/* Окна и уведомления — вне веток каталога, страницы товара и покупок:
+          раньше они жили внутри каталога, и «Купить» на странице товара
+          открывало окно, которого на экране не было. */}
       <Modal open={showPurchase !== null} onClose={() => setShowPurchase(null)} title="Подтвердите покупку">
         <div className="shop-modal__product">
           <span className="shop-modal__name">{selectedProduct?.title}</span>
@@ -728,8 +743,6 @@ export default function Shop() {
           </div>
         ))}
       </div>
-      </>
-      )}
     </div>
   )
 }
