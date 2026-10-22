@@ -910,3 +910,18 @@ body:has(.profile--cosmos) .header-user-menu {
 
 /* фоновая «атмосфера» приложения целиком под небом — не тратим на неё кадры */
 body:has(.profile--cosmos) .atmo { display: none; }
+
+/* «У кого есть» в шторке нашивки на космическом профиле */
+body:has(.profile--cosmos) .bd-holders { border-top-color: var(--cos-line); }
+body:has(.profile--cosmos) .bd-holders__toggle { background: rgba(255, 255, 255, 0.06); color: var(--cos-text); }
+body:has(.profile--cosmos) .bd-holders__toggle:disabled { color: var(--cos-dim); }
+body:has(.profile--cosmos) .bd-holders__face.avatar { box-shadow: 0 0 0 2px #0c0c11; filter: grayscale(1); }
+body:has(.profile--cosmos) .bd-holders__avatar.avatar { filter: grayscale(1) contrast(1.1); }
+body:has(.profile--cosmos) .bd-holders__name { color: var(--cos-text); }
+body:has(.profile--cosmos) :is(.bd-holders__squad, .bd-holders__when, .bd-holders__more) { color: var(--cos-dim); font-family: var(--cos-mono); }
+body:has(.profile--cosmos) .bd-holders__first { background: #fff; color: #050507; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .bd-holders__toggle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+  body:has(.profile--cosmos) .bd-holders__link:hover { background: rgba(255, 255, 255, 0.07); }
+}

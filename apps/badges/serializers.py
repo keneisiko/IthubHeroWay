@@ -55,3 +55,26 @@ class PublicUserBadgeSerializer(serializers.ModelSerializer):
         model = UserBadge
         fields = ["id", "badge", "acquired_at", "is_pinned"]
 
+
+
+class BadgeHolderSerializer(serializers.ModelSerializer):
+    """Владелец нашивки в её карточке: кто и когда получил.
+
+    Только то, что и так видно в рейтинге и профиле, — без точного
+    рейтинга и без `source` (там логин выдавшего сотрудника).
+    """
+
+    username = serializers.CharField(source="user.username", read_only=True)
+    callsign = serializers.CharField(source="user.callsign", read_only=True)
+    avatar = serializers.ImageField(source="user.avatar", read_only=True)
+    squad = serializers.CharField(source="user.squad.name", read_only=True, default="")
+    avatar_frame = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserBadge
+        fields = ["username", "callsign", "avatar", "avatar_frame", "squad", "acquired_at"]
+
+    def get_avatar_frame(self, obj: UserBadge) -> str:
+        from apps.accounts.frames import resolve_frame
+
+        return resolve_frame(getattr(obj, "badge_frame", None), getattr(obj, "applied_cosmetic", None))

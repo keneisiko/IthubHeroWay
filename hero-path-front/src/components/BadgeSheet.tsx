@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import BadgeEmblem from './BadgeEmblem'
+import BadgeHolders from './BadgeHolders'
 import { RARITY_LABELS, formatDateRu } from '../lib/apiData'
 import { CATEGORY_LABELS, ownersLabel, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
 import '../styles/badges.css'
@@ -148,6 +149,8 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
               Ещё не получена — условие выше
             </p>
           )}
+
+          <BadgeHolders code={shown.code} onNavigate={onClose} />
         </div>
       </section>
     </div>
