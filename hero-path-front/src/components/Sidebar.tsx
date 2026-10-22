@@ -39,7 +39,7 @@ export default function Sidebar() {
     <aside className="right-sidebar" ref={sidebarRef} style={{ position: 'absolute' }}>
       {/* Скользящий индикатор */}
       {ready && (
-        <div style={{
+        <div className="right-sidebar__marker" style={{
           position: 'absolute',
           right: '-7px',
           width: '14px',
@@ -73,7 +73,7 @@ export default function Sidebar() {
             }}
           >
             {isActive && (
-              <div style={{
+              <div className="right-sidebar__pulse" style={{
                 position: 'absolute', inset: 0, borderRadius: '12px',
                 background: 'radial-gradient(ellipse at center, #9a33f422 0%, transparent 70%)',
                 animation: 'sidebarPulse 2s ease-in-out infinite',
