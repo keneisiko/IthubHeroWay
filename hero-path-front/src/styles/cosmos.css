@@ -394,6 +394,25 @@
 .profile--cosmos .profile-map__node--idle.profile-map__node--n5::after { animation-delay: -1.2s; }
 .profile--cosmos .profile-map__node--idle.profile-map__node--n6::after { animation-delay: -2.4s; }
 
+/* веха, которую засчитает куратор: та же тусклая звезда, но в пунктирной
+   орбите — заметна, но не ярче пройденных планет */
+.profile--cosmos .profile-map__node--pending {
+  background: transparent;
+  border: 1.5px dashed rgba(255, 255, 255, 0.45);
+  box-shadow: none;
+}
+
+.profile--cosmos .profile-map__node--pending::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  background: rgba(255, 255, 255, 0.55);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation: cosTwinkle 3.6s ease-in-out infinite;
+}
+
+.profile--cosmos .profile-map__hint { color: var(--cos-dim); }
+
 .profile--cosmos :is(.profile-map__labels--top, .profile-map__labels--bottom) { font-family: var(--cos-mono); }
 .profile--cosmos .profile-map__labels--top { color: var(--cos-text); }
 .profile--cosmos .profile-map__labels--bottom { color: var(--cos-dim); }
