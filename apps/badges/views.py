@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsKnownRole
+from apps.operations.services.cache import invalidate_leaderboards, invalidate_profile
 from apps.shop.models import Purchase, ShopItemSlot
 
 from .models import Badge, UserBadge
@@ -68,17 +69,21 @@ class BadgePinView(views.APIView):
             UserBadge.objects.select_related("badge"), user=request.user, badge__code=code
         )
 
-    def post(self, request, code: str) -> Response:
+    def _set_pinned(self, request, code: str, pinned: bool) -> Response:
         user_badge = self._get_badge(request, code)
-        user_badge.is_pinned = True
+        user_badge.is_pinned = pinned
         user_badge.save(update_fields=["is_pinned"])
+        # закреплённая нашивка с рамкой меняет аватар в профиле и рейтингах
+        if user_badge.badge.avatar_frame:
+            invalidate_profile(request.user.username)
+            invalidate_leaderboards()
         return Response(UserBadgeSerializer(user_badge).data, status=status.HTTP_200_OK)
 
+    def post(self, request, code: str) -> Response:
+        return self._set_pinned(request, code, True)
+
     def delete(self, request, code: str) -> Response:
-        user_badge = self._get_badge(request, code)
-        user_badge.is_pinned = False
-        user_badge.save(update_fields=["is_pinned"])
-        return Response(UserBadgeSerializer(user_badge).data, status=status.HTTP_200_OK)
+        return self._set_pinned(request, code, False)
 
 
 class BadgeAwardCheckView(views.APIView):
@@ -107,7 +112,7 @@ class BadgeHoldersView(views.APIView):
         badge = get_object_or_404(Badge, code=code, is_active=True)
         # рамка аватара одним подзапросом на строку, как в рейтинге
         badge_frame = (
-            UserBadge.objects.filter(user=OuterRef("user"))
+            UserBadge.objects.filter(user=OuterRef("user"), is_pinned=True)
             .exclude(badge__avatar_frame="")
             .order_by("acquired_at")
             .values("badge__avatar_frame")[:1]

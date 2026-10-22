@@ -1,8 +1,9 @@
 """Рамка аватара: какую рисовать интерфейсу.
 
 Нашивка с рамкой (например, «Разработчик») главнее купленной в
-магазине: её не снять и не купить. Интерфейс получает одно поле —
-код рамки или пустую строку.
+магазине и работает, пока нашивка закреплена в профиле: открепил —
+вернулась рамка из магазина. Интерфейс получает одно поле — код
+рамки или пустую строку.
 """
 
 from __future__ import annotations
@@ -21,11 +22,11 @@ FRAME_BY_ITEM: dict[str, str] = {
 
 
 def badge_frame_subquery():
-    """Подзапрос для annotate: рамка от полученной нашивки или NULL."""
+    """Подзапрос для annotate: рамка от закреплённой нашивки или NULL."""
     from apps.badges.models import UserBadge
 
     return Subquery(
-        UserBadge.objects.filter(user=OuterRef("pk"))
+        UserBadge.objects.filter(user=OuterRef("pk"), is_pinned=True)
         .exclude(badge__avatar_frame="")
         .order_by("acquired_at")
         .values("badge__avatar_frame")[:1]
@@ -43,7 +44,7 @@ def avatar_frame_for(user) -> str:
     from apps.shop.services import applied_purchases
 
     badge_frame = (
-        UserBadge.objects.filter(user=user)
+        UserBadge.objects.filter(user=user, is_pinned=True)
         .exclude(badge__avatar_frame="")
         .order_by("acquired_at")
         .values_list("badge__avatar_frame", flat=True)

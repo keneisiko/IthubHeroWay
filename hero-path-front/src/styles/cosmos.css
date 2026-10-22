@@ -925,3 +925,34 @@ body:has(.profile--cosmos) .bd-holders__first { background: #fff; color: #050507
   body:has(.profile--cosmos) .bd-holders__toggle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
   body:has(.profile--cosmos) .bd-holders__link:hover { background: rgba(255, 255, 255, 0.07); }
 }
+
+/* =========================
+   МЕЛОЧИ ПРОФИЛЯ РАЗРАБОТЧИКА
+   Скроллбар, выделение текста и фокус — в той же серебряной гамме,
+   без фиолетового системного цвета бренда.
+   ========================= */
+
+html:has(.profile--cosmos) {
+  scrollbar-color: rgba(255, 255, 255, 0.32) #050507;
+  scrollbar-width: thin;
+}
+
+html:has(.profile--cosmos)::-webkit-scrollbar { width: 10px; background: #050507; }
+html:has(.profile--cosmos)::-webkit-scrollbar-thumb {
+  border: 2px solid #050507;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.18));
+}
+html:has(.profile--cosmos)::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.6); }
+
+/* внутренние прокрутки: список агентов, шторка нашивки, вкладки */
+body:has(.profile--cosmos) :is(.agent-picker, .bd-sheet__panel, .bd-holders__list, .profile-path__tabs-scroll, .modal-fixed__content) {
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  scrollbar-width: thin;
+}
+
+body:has(.profile--cosmos) ::selection { background: #fff; color: #050507; }
+
+body:has(.profile--cosmos) :is(.profile--cosmos, .top-header, .right-sidebar, .bottom-nav, .bd-sheet, .modal-fixed) :focus-visible {
+  outline-color: #fff;
+}

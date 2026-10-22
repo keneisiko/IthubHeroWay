@@ -31,7 +31,8 @@ class BadgeHoldersTests(TestCase):
         self.badge = Badge.objects.create(code="dev", title="Разработчик", condition={"manual": True}, avatar_frame=AvatarFrame.DEVELOPER)
         now = timezone.now()
         for user, days_ago in ((self.second, 1), (self.first, 5), (self.gone, 3), (self.staff, 2)):
-            ub = UserBadge.objects.create(user=user, badge=self.badge)
+            # рамка разработчика — только у закрепившего нашивку
+            ub = UserBadge.objects.create(user=user, badge=self.badge, is_pinned=user is self.first)
             UserBadge.objects.filter(pk=ub.pk).update(acquired_at=now - timedelta(days=days_ago))
 
         self.client = APIClient()
@@ -47,6 +48,7 @@ class BadgeHoldersTests(TestCase):
         self.assertEqual(row["callsign"], "Первый")
         self.assertEqual(row["squad"], "Альфа")
         self.assertEqual(row["avatar_frame"], "developer")
+        self.assertEqual(data["results"][1]["avatar_frame"], "")
         self.assertIn("acquired_at", row)
         # чужие закрытые данные в списке не светятся
         self.assertNotIn("rating_current", row)

@@ -31,7 +31,7 @@ class AvatarFrameTests(TestCase):
         dev_badge = Badge.objects.create(
             code="dev", title="Разработчик", condition={"manual": True}, avatar_frame=AvatarFrame.DEVELOPER
         )
-        UserBadge.objects.create(user=self.dev, badge=dev_badge)
+        self.dev_badge = UserBadge.objects.create(user=self.dev, badge=dev_badge, is_pinned=True)
         frame = ShopItem.objects.create(
             code="cosmetic-avatar-frame", title="Рамка", item_type=ShopItemType.COSMETIC, slot="avatar_frame", price_coins=30
         )
@@ -58,3 +58,26 @@ class AvatarFrameTests(TestCase):
         rows = rows.get("results", rows) if isinstance(rows, dict) else rows
         rows = {r["username"]: r["avatar_frame"] for r in rows}
         self.assertEqual(rows, {"dev": "developer", "buyer": "purple", "plain": ""})
+
+    def test_unpinned_badge_gives_no_developer_frame(self):
+        """Набор разработчика держится на закреплённой нашивке: открепил — снял."""
+        UserBadge.objects.filter(pk=self.dev_badge.pk).update(is_pinned=False)
+        # купленная фиолетовая снова видна
+        self.assertEqual(self.client.get("/api/v1/profile/dev/").json()["avatar_frame"], "purple")
+        rows = self.client.get("/api/v1/leaderboard/agents/").json()
+        rows = rows.get("results", rows) if isinstance(rows, dict) else rows
+        self.assertEqual({r["username"]: r["avatar_frame"] for r in rows}["dev"], "purple")
+
+    def test_pin_and_unpin_refresh_cached_views(self):
+        dev_client = APIClient()
+        dev_client.force_authenticate(self.dev)
+        # прогреваем кеш рейтинга и профиля
+        self.client.get("/api/v1/leaderboard/agents/")
+        self.client.get("/api/v1/profile/dev/")
+        self.assertEqual(dev_client.delete("/api/v1/badges/dev/pin/").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/profile/dev/").json()["avatar_frame"], "purple")
+        rows = self.client.get("/api/v1/leaderboard/agents/").json()
+        rows = rows.get("results", rows) if isinstance(rows, dict) else rows
+        self.assertEqual({r["username"]: r["avatar_frame"] for r in rows}["dev"], "purple")
+        self.assertEqual(dev_client.post("/api/v1/badges/dev/pin/").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/profile/dev/").json()["avatar_frame"], "developer")

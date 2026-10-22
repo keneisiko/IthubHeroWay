@@ -19,6 +19,16 @@ interface Meteor {
   life: number
 }
 
+// пылинка шлейфа за курсором
+interface Dust {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  size: number
+}
+
 interface Scene {
   w: number
   h: number
@@ -304,7 +314,7 @@ function drawHole(ctx: CanvasRenderingContext2D, s: Scene, x: number, y: number,
  * Небо профиля разработчика: туманность на WebGL сама перетекает, как
  * жидкость, сверху на 2D-холсте — мерцающие звёзды, галактика, метеоры
  * и массивная чёрная дыра с диском, линзой и фотонным кольцом. На прокрутку
- * и курсор небо не реагирует — оно живёт само.
+ * небо не реагирует — оно живёт само; за курсором тянется звёздная пыль.
  *
  * Вход: экран начинается внутри чёрной дыры, кольцо горизонта сжимается
  * и открывает космос, садится на место дыры, вокруг раскрывается диск.
@@ -336,6 +346,9 @@ export default function CosmosSky() {
     let lastDraw = 0
     let spin = 0
     const born = last
+    // шлейф звёздной пыли за курсором — только мышью, на телефоне его нет
+    const dust: Dust[] = []
+    const cursor = { x: -1, y: -1, px: -1, py: -1 }
 
     const fit = () => {
       el.width = Math.round(s.w * s.dpr)
@@ -411,6 +424,8 @@ export default function CosmosSky() {
       const shadowR = s.R + (far - s.R) * (1 - iris)
       drawHole(ctx, s, hx, hy, spin, shadowR, unfold)
 
+      drawDust(dt)
+
       if (still || p < 1) return
       nextMeteor -= dt
       if (!meteor && nextMeteor <= 0) {
@@ -449,6 +464,50 @@ export default function CosmosSky() {
       }
     }
 
+    function drawDust(dt: number) {
+      if (cursor.x >= 0 && cursor.px >= 0) {
+        const moved = Math.hypot(cursor.x - cursor.px, cursor.y - cursor.py)
+        // чем быстрее ведут мышь, тем гуще шлейф, но не больше 60 пылинок
+        const spawn = Math.min(3, Math.floor(moved / 14))
+        for (let i = 0; i < spawn && dust.length < 60; i++) {
+          dust.push({
+            x: cursor.x + rand(-4, 4),
+            y: cursor.y + rand(-4, 4),
+            vx: rand(-0.02, 0.02),
+            vy: rand(-0.035, 0.005),
+            life: 1,
+            size: rand(6, 15),
+          })
+        }
+        cursor.px = cursor.x
+        cursor.py = cursor.y
+      }
+      for (let i = dust.length - 1; i >= 0; i--) {
+        const d = dust[i]
+        d.x += d.vx * dt
+        d.y += d.vy * dt
+        d.life -= dt / 1400
+        if (d.life <= 0) {
+          dust.splice(i, 1)
+          continue
+        }
+        ctx!.globalAlpha = d.life * d.life
+        const sz = d.size * (0.4 + d.life * 0.6)
+        ctx!.drawImage(s.glow, d.x - sz / 2, d.y - sz / 2, sz, sz)
+      }
+      ctx!.globalAlpha = 1
+    }
+
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return
+      if (cursor.px < 0) {
+        cursor.px = e.clientX
+        cursor.py = e.clientY
+      }
+      cursor.x = e.clientX
+      cursor.y = e.clientY
+    }
+
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop)
       if (frameMs && now - lastDraw < frameMs) return
@@ -476,11 +535,15 @@ export default function CosmosSky() {
     window.addEventListener('resize', onResize)
     document.addEventListener('visibilitychange', onVisibility)
     if (still) draw(performance.now())
-    else raf = requestAnimationFrame(loop)
+    else {
+      window.addEventListener('pointermove', onPointer, { passive: true })
+      raf = requestAnimationFrame(loop)
+    }
 
     return () => {
       cancelAnimationFrame(raf)
       window.clearTimeout(nebulaTimer)
+      window.removeEventListener('pointermove', onPointer)
       window.removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVisibility)
       nebula?.dispose()

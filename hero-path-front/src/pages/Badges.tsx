@@ -8,6 +8,7 @@ import PixelText from '../components/PixelText'
 import RollNumber from '../components/RollNumber'
 import { useToasts } from '../useToasts'
 import { useTabIndicator } from '../useTabIndicator'
+import { notifyBalanceChanged } from '../lib/balance'
 import { celebrate } from '../lib/celebrate'
 import { RARITY_LABELS, unwrapList } from '../lib/apiData'
 import { CATEGORY_LABELS, ownersLabel, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
@@ -166,6 +167,8 @@ export default function Badges() {
     request
       .then(() => {
         addToast(row.is_pinned ? 'Нашивка откреплена' : 'Нашивка закреплена', 'success')
+        // закреплённая «Разработчик» включает рамку и космос — шапка перечитает профиль
+        notifyBalanceChanged()
         if (!row.is_pinned) {
           setStamp((prev) => ({ code: badge.code, n: prev.n + 1 }))
           celebrate('small')

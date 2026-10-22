@@ -386,6 +386,8 @@ export default function Profile() {
       .then(() => {
         addToast(isPinned ? 'Нашивка откреплена' : 'Нашивка закреплена!', 'success')
         loadProfile({ quiet: true })
+        // нашивка с рамкой меняет и аватар в шапке — пусть перечитает профиль
+        notifyBalanceChanged()
       })
       .catch(() => addToast('Не удалось изменить нашивку', 'error'))
   }
