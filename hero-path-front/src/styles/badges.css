@@ -1042,3 +1042,16 @@
   margin-top: 4px;
   font-size: 11px;
 }
+
+/* то же под закреплёнными нашивками в профиле */
+.ach__owners {
+  max-width: 100%;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: #848484;
+}
+
+.profile--cosmos .ach__owners { color: var(--cos-dim); }

@@ -9,7 +9,7 @@ import { plural } from '../lib/plural'
 import { useTabIndicator } from '../useTabIndicator'
 import BadgeEmblem from '../components/BadgeEmblem'
 import BadgeSheet from '../components/BadgeSheet'
-import type { Badge, EarnedBadge } from '../lib/badges'
+import { ownersLabel, type Badge, type EarnedBadge } from '../lib/badges'
 import CharacteristicsRadar, { type CharacteristicItem } from '../components/CharacteristicsRadar'
 import PixelText from '../components/PixelText'
 import Avatar from '../components/Avatar'
@@ -352,6 +352,8 @@ export default function Profile() {
     return 'ach__rarity--common'
   }
 
+  // Процент владельцев приходит только из каталога: в своих нашивках его нет.
+  const ownersByCode = new Map(allBadges.map((b) => [b.code, b.owners_percent]))
   const pinnedBadges = useMemo(() => {
     const pinned = badges.filter((b) => b.is_pinned).slice(0, 3)
     // В чужом профиле пустой ряд «нет закреплённых» ничего не говорит о
@@ -842,6 +844,9 @@ export default function Profile() {
               <span className={`ach__rarity ${rarityClass(item.badge.rarity)}`}>
                 {RARITY_LABELS[item.badge.rarity] ?? item.badge.rarity}
               </span>
+              {ownersLabel(ownersByCode.get(item.badge.code)) && (
+                <span className="ach__owners">{ownersLabel(ownersByCode.get(item.badge.code))}</span>
+              )}
             </button>
           ))}
         </div>
