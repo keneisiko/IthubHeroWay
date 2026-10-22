@@ -322,13 +322,21 @@ class SquadLeaderboardView(views.APIView):
         except (TypeError, ValueError):
             limit = self.DEFAULT_LIMIT
         limit = max(1, min(limit, self.MAX_LIMIT))
+        # фильтр по курсу — тот же, что у рейтинга агентов; мусор игнорируем
+        try:
+            course = int(request.query_params.get("course", ""))
+        except ValueError:
+            course = None
 
-        cache_key = f"leaderboard:squads:{limit}"
+        cache_key = f"leaderboard:squads:{limit}:{course or 'all'}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
 
-        squads = _squad_stats_queryset().order_by("-avg_rating", "id")[:limit]
+        squads = _squad_stats_queryset()
+        if course:
+            squads = squads.filter(course=course)
+        squads = squads.order_by("-avg_rating", "id")[:limit]
         data = [
             {
                 "code": s.code,

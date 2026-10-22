@@ -178,7 +178,7 @@ export default function Leaderboard() {
 
     Promise.all([
       api.get('/api/v1/leaderboard/agents/', { params: agentsParams }),
-      api.get('/api/v1/squads/leaderboard/', { params: { limit: 10 } }),
+      api.get('/api/v1/squads/leaderboard/', { params: selectedCourse ? { limit: 10, course: selectedCourse } : { limit: 10 } }),
       api.get('/api/v1/rating/me/'),
     ]).then(([agentsRes, squadsRes, meRes]) => {
       if (requestId !== requestSequence.current) return
