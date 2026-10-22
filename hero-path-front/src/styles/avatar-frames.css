@@ -648,72 +648,31 @@
   33.33% { opacity: 0; }
 }
 
-/* Живая аура за аватаром: два слоя мягкого света вращаются навстречу
-   друг другу с разной скоростью, поэтому свечение всё время перетекает,
-   а весь ореол медленно дышит. Только transform и opacity. */
+/* Свечение вокруг рамки: ровный мягкий свет повторяет её скруглённый
+   квадрат и расходится наружу. Без пульсации и вращения — просто свет. */
 .dev-aura {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  inset: -16%;
   z-index: -1;
-  width: 230%;
-  height: 230%;
-  margin: -115% 0 0 -115%;
-  border-radius: 50%;
+  border-radius: 34%;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(closest-side, #000 36%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 36%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
+  background: rgba(255, 255, 255, 0.55);
+  filter: blur(18px);
   opacity: 0;
-  will-change: transform, opacity;
-  animation:
-    auraIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards,
-    auraBreath 5.2s cubic-bezier(0.45, 0, 0.55, 1) 1.9s infinite;
+  animation: auraIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
 }
 
-.dev-aura::before,
-.dev-aura::after {
+/* второй, широкий слой — свет мягко тает в карточке */
+.dev-aura::before {
   content: '';
   position: absolute;
-  border-radius: 50%;
-  will-change: transform;
-}
-
-.dev-aura::before {
-  inset: 14%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 255, 255, 0.12),
-    rgba(255, 255, 255, 0.75) 14%,
-    rgba(255, 255, 255, 0.18) 34%,
-    rgba(255, 255, 255, 0.06) 52%,
-    rgba(255, 255, 255, 0.55) 68%,
-    rgba(255, 255, 255, 0.1) 86%,
-    rgba(255, 255, 255, 0.12)
-  );
-  filter: blur(16px);
-  animation: orbitSpin 8s linear infinite;
-}
-
-.dev-aura::after {
-  inset: 22%;
-  background: conic-gradient(
-    from 120deg,
-    rgba(255, 255, 255, 0),
-    rgba(255, 255, 255, 0.5) 20%,
-    rgba(255, 255, 255, 0) 42%,
-    rgba(255, 255, 255, 0.4) 64%,
-    rgba(255, 255, 255, 0) 84%
-  );
-  filter: blur(10px);
-  animation: orbitSpin 5.5s linear infinite reverse;
+  inset: -22%;
+  border-radius: 40%;
+  background: rgba(255, 255, 255, 0.22);
+  filter: blur(26px);
 }
 
 @keyframes auraIn { to { opacity: 1; } }
-
-@keyframes auraBreath {
-  0%, 100% { transform: scale(0.92); }
-  50% { transform: scale(1.08); }
-}
 
 /* сам аватар — тонкий светлый край, будто подсвечен аурой изнутри */
 .profile-card__avatar--developer .profile-card__avatar-face {
@@ -814,8 +773,6 @@
 @media (prefers-reduced-motion: reduce) {
   .dev-art__layer--boil,
   .dev-aura,
-  .dev-aura::before,
-  .dev-aura::after,
   .dev-fx__mote,
   .dev-fx,
   .dev-fx__shock,
