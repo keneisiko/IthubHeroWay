@@ -388,15 +388,15 @@ export default function Profile() {
 
   // Карточка нашивки — та же шторка, что на странице нашивок: описание
   // берём из каталога, дату и закрепление — из своих нашивок.
-  // В теме космоса карточка профиля всплывает через секунду, когда камера
-  // отъехала от чёрной дыры, — проявление рамки запускаем к этому моменту,
+  // В теме космоса карточка профиля всплывает, когда кольцо горизонта
+  // открыло экран, — проявление рамки запускаем к этому моменту,
   // иначе его начало прошло бы под невидимой карточкой.
   const cosmosOwner = profile?.avatar_frame === 'developer' ? profile.username : null
   const [frameReadyFor, setFrameReadyFor] = useState<string | null>(null)
   useEffect(() => {
     if (!cosmosOwner) return
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const timer = window.setTimeout(() => setFrameReadyFor(cosmosOwner), still ? 0 : 1050)
+    const timer = window.setTimeout(() => setFrameReadyFor(cosmosOwner), still ? 0 : 720)
     return () => window.clearTimeout(timer)
   }, [cosmosOwner])
   const frameReady = cosmosOwner !== null && frameReadyFor === cosmosOwner

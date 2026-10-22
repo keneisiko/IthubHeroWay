@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { createNebula, type Nebula } from '../lib/nebulaGL'
 
 interface Star {
   x: number
@@ -23,7 +24,7 @@ interface Scene {
   h: number
   dpr: number
   stars: Star[]
-  nebula: HTMLCanvasElement
+  nebula: HTMLCanvasElement | null
   galaxy: HTMLCanvasElement
   glow: HTMLCanvasElement
   halo: HTMLCanvasElement
@@ -35,12 +36,13 @@ interface Scene {
   home: { x: number; y: number }
 }
 
-const INTRO_MS = 2600
+const INTRO_MS = 1500
 const DISK_TILT = 0.15
 const TAU = Math.PI * 2
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 4)
+const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const wrap = (v: number, max: number) => ((v % max) + max) % max
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
 
@@ -134,8 +136,8 @@ function paintDisk(inner: number, outer: number, q: number): HTMLCanvasElement {
   g.scale(q, q)
   const m = outer
   g.lineCap = 'round'
-  for (let k = 0; k < 240; k++) {
-    const t = Math.pow(k / 239, 1.35)
+  for (let k = 0; k < 170; k++) {
+    const t = Math.pow(k / 169, 1.35)
     const r = inner + (outer - inner) * t
     const fall = Math.pow(1 - t, 1.8)
     g.lineWidth = rand(0.7, 2)
@@ -193,11 +195,11 @@ function paintLens(R: number, q: number): HTMLCanvasElement {
   return c
 }
 
-function build(dprCap: number): Scene {
+function build(dprCap: number, withNebula: boolean): Scene {
   const w = window.innerWidth
   const h = window.innerHeight
   const dpr = Math.min(window.devicePixelRatio || 1, dprCap)
-  const q = Math.min(3, dpr * 1.6)
+  const q = Math.min(2.2, dpr * 1.5)
   const mobile = w < 768
   const R = mobile ? Math.min(w, h) * 0.1 : Math.min(w, h) * 0.115
   const inner = R * 1.55
@@ -212,7 +214,8 @@ function build(dprCap: number): Scene {
     h,
     dpr,
     stars,
-    nebula: paintNebula(w * 0.6, h * 0.6),
+    // запасная туманность нужна, только если WebGL недоступен
+    nebula: withNebula ? paintNebula(w * 0.6, h * 0.6) : null,
     galaxy: paintGalaxy(mobile ? 160 : 220),
     glow: paintGlow(32, [[0, 0.9], [0.2, 0.35], [1, 0]]),
     halo: paintGlow(256, [[0, 0.32], [0.25, 0.14], [0.6, 0.04], [1, 0]]),
@@ -221,8 +224,8 @@ function build(dprCap: number): Scene {
     R,
     inner,
     outer,
-    // в покое — там, где у профиля свободно: слева под картой пути и у пятиугольника
-    home: mobile ? { x: w * 0.96, y: h * 0.84 } : { x: Math.max(w * 0.15, w / 2 - 520), y: h * 0.9 },
+    // в покое — в пустом поле слева от контента, на уровне верхних карточек
+    home: mobile ? { x: w * 0.92, y: h * 0.6 } : { x: Math.max((w - Math.min(1180, w - 40)) / 4, R * 0.7), y: h * 0.42 },
   }
 }
 
@@ -253,131 +256,160 @@ function drawDiskHalf(ctx: CanvasRenderingContext2D, s: Scene, spin: number, fro
   ctx.restore()
 }
 
-function drawHole(ctx: CanvasRenderingContext2D, s: Scene, x: number, y: number, scale: number, spin: number) {
+// Чёрная дыра. shadowR — радиус тени: на входе он во весь экран (мы
+// внутри горизонта), кольцо света сжимается до обычного размера.
+// unfold — насколько раскрыт диск: 0 — его ещё нет, 1 — на месте.
+function drawHole(ctx: CanvasRenderingContext2D, s: Scene, x: number, y: number, spin: number, shadowR: number, unfold: number) {
   const { R, outer } = s
   ctx.save()
   ctx.translate(x, y)
-  ctx.scale(scale, scale)
-  const haloR = outer * 1.5
-  ctx.drawImage(s.halo, -haloR, -haloR, haloR * 2, haloR * 2)
-  drawDiskHalf(ctx, s, spin, false)
-  ctx.drawImage(s.lens, -R * 2, -R * 2, R * 4, R * 4)
+  if (unfold > 0) {
+    ctx.globalAlpha = unfold
+    const haloR = outer * 1.5
+    ctx.drawImage(s.halo, -haloR, -haloR, haloR * 2, haloR * 2)
+    ctx.save()
+    const k = 0.55 + 0.45 * unfold
+    ctx.scale(k, k)
+    drawDiskHalf(ctx, s, spin, false)
+    ctx.restore()
+    ctx.drawImage(s.lens, -R * 2, -R * 2, R * 4, R * 4)
+  }
+  ctx.globalAlpha = 1
   ctx.fillStyle = '#000'
   ctx.beginPath()
-  ctx.arc(0, 0, R, 0, TAU)
+  ctx.arc(0, 0, shadowR, 0, TAU)
   ctx.fill()
-  drawDiskHalf(ctx, s, spin, true)
+  if (shadowR > R * 1.02) {
+    // кольцо горизонта на входе: широкое свечение и тонкая яркая кромка
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)'
+    ctx.lineWidth = 34
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'
+    ctx.lineWidth = 8
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+  if (unfold > 0) {
+    ctx.globalAlpha = unfold
+    const k = 0.55 + 0.45 * unfold
+    ctx.scale(k, k)
+    drawDiskHalf(ctx, s, spin, true)
+  }
   ctx.restore()
 }
 
 /**
- * Небо профиля разработчика целиком на одном canvas: туманность со
- * звёздным рукавом, спиральная галактика, мерцающие звёзды с
- * параллаксом, метеоры и массивная чёрная дыра — диск аккреции,
- * линзированная дуга, фотонное кольцо. При входе камера отъезжает от
- * горизонта событий, а звёзды раскручиваются вихрем на свои места.
+ * Небо профиля разработчика: туманность на WebGL сама перетекает, как
+ * жидкость, сверху на 2D-холсте — мерцающие звёзды, галактика, метеоры
+ * и массивная чёрная дыра с диском, линзой и фотонным кольцом. На прокрутку
+ * и курсор небо не реагирует — оно живёт само.
+ *
+ * Вход: экран начинается внутри чёрной дыры, кольцо горизонта сжимается
+ * и открывает космос, садится на место дыры, вокруг раскрывается диск.
  */
 export default function CosmosSky() {
+  const glRef = useRef<HTMLCanvasElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
     const el = canvasRef.current
+    const glEl = glRef.current
     const ctx = el?.getContext('2d')
-    if (!el || !ctx) return
+    if (!el || !glEl || !ctx) return
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const coarse = window.matchMedia('(pointer: coarse)').matches
-    // на телефоне меньше пикселей и 30 кадров — батарея важнее
-    const dprCap = coarse ? 1.25 : 1.5
+    // звёзды мягкие, им хватает 1× плотности; на телефоне ещё и 30 кадров
+    const dprCap = 1
     const frameMs = coarse ? 1000 / 31 : 0
-    let s = build(dprCap)
+    // Туманность создаётся после входа, в свободное время браузера: в момент
+    // входа видеокарта занята сборкой страницы, и WebGL стоил бы ~0,3 с
+    // заминки. Пока идёт вход, мы внутри дыры — туманность ещё не видна.
+    let nebula: Nebula | null = null
+    let nebulaFailed = false
+    let s = build(dprCap, false)
     let meteor: Meteor | null = null
-    let nextMeteor = INTRO_MS + 900
+    let nextMeteor = INTRO_MS + 1500
     let raf = 0
     let last = performance.now()
     let lastDraw = 0
     let spin = 0
     const born = last
-    const aim = { x: 0, y: 0 }
-    const cam = { x: 0, y: 0 }
 
     const fit = () => {
       el.width = Math.round(s.w * s.dpr)
       el.height = Math.round(s.h * s.dpr)
+      nebula?.resize(s.w, s.h, coarse ? 0.4 : 0.5)
     }
+
+    const startNebula = () => {
+      nebula = createNebula(glEl)
+      if (!nebula) {
+        nebulaFailed = true
+        s = build(dprCap, true)
+        return
+      }
+      nebula.resize(s.w, s.h, coarse ? 0.4 : 0.5)
+      glEl.classList.add('is-on')
+      if (still) draw(performance.now())
+    }
+    const idle = (cb: () => void) => {
+      if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(cb, { timeout: 800 })
+      else setTimeout(cb, 0)
+    }
+    const nebulaTimer = window.setTimeout(() => idle(startNebula), still ? 0 : INTRO_MS + 300)
 
     const draw = (now: number) => {
       const dt = Math.min(now - last, 50)
       last = now
       const { w, h, dpr } = s
       const p = still ? 1 : Math.min(1, (now - born) / INTRO_MS)
-      const k = easeInOut(p)
-      const reveal = easeOut(Math.min(1, p * 1.4))
-      cam.x += (aim.x - cam.x) * Math.min(1, dt * 0.003)
-      cam.y += (aim.y - cam.y) * Math.min(1, dt * 0.003)
-      const scroll = window.scrollY
-      spin += dt * (0.00012 + (1 - k) * 0.0022)
+      // кольцо горизонта сжимается за первые 80% входа, диск раскрывается во второй половине
+      const iris = easeOutCubic(Math.min(1, p / 0.8))
+      const move = easeInOut(Math.min(1, p / 0.8))
+      const unfold = easeOut(Math.max(0, (p - 0.42) / 0.58))
+      spin += dt * (0.00012 + (1 - unfold) * 0.004)
 
+      nebula?.render(now / 1000)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, w, h)
+      if (s.nebula) {
+        ctx.globalAlpha = 0.95
+        ctx.drawImage(s.nebula, 0, 0, w, h)
+      }
 
-      // камера: на входе дыра в центре и огромная, потом уходит на место
-      const holeScale = 1 + (1 - k) * 2.4
-      const hx = w / 2 + (s.home.x - cam.x * 10 - w / 2) * k
-      const hy = h / 2 + (s.home.y - cam.y * 8 - scroll * 0.06 - h / 2) * k
-
-      ctx.globalAlpha = 0.95 * reveal
-      const nx = -cam.x * 14 - w * 0.05
-      const ny = wrap(-scroll * 0.04, h * 0.1) - cam.y * 10 - h * 0.05
-      ctx.drawImage(s.nebula, nx, ny, w * 1.1, h * 1.1)
-
-      ctx.globalAlpha = 0.75 * reveal
+      ctx.globalAlpha = 0.75
       const gs = s.galaxy.width
-      const gx = w < 768 ? w * 0.16 : w * 0.955
-      const gy = (w < 768 ? h * 0.16 : h * 0.14) - scroll * 0.03
       ctx.save()
-      ctx.translate(gx - cam.x * 6, gy - cam.y * 5)
+      ctx.translate(w < 768 ? w * 0.16 : w * 0.955, w < 768 ? h * 0.16 : h * 0.14)
       ctx.rotate(-0.5)
       ctx.scale(1, 0.42)
       ctx.rotate(now * 0.00004)
       ctx.drawImage(s.galaxy, -gs / 2, -gs / 2)
       ctx.restore()
 
-      // звёзды: на входе закручены вокруг дыры и раскручиваются наружу
-      const swirl = (1 - k) * (1 - k) * 3.4
-      const pull = 0.25 + 0.75 * k
       for (const st of s.stars) {
         if (!still) {
-          st.y -= dt * 0.005 * (0.2 + st.z)
-          st.x += dt * 0.0016 * (0.2 + st.z)
-        }
-        const depth = 0.15 + st.z * 0.85
-        let x = wrap(st.x - cam.x * depth * 28, w)
-        let y = wrap(st.y - scroll * depth * 0.2 - cam.y * depth * 18, h)
-        if (k < 1) {
-          const dx = x - hx
-          const dy = y - hy
-          const a = swirl * (1.4 - Math.min(1, Math.hypot(dx, dy) / Math.max(w, h)))
-          const ca = Math.cos(a)
-          const sa = Math.sin(a)
-          x = hx + (dx * ca - dy * sa) * pull
-          y = hy + (dx * sa + dy * ca) * pull
+          st.y = wrap(st.y - dt * 0.004 * (0.2 + st.z), h)
+          st.x = wrap(st.x + dt * 0.0014 * (0.2 + st.z), w)
         }
         const tw = still ? 0.85 : 0.5 + 0.5 * Math.sin(now * 0.001 * st.tw + st.ph)
-        const alpha = (0.2 + st.z * 0.8) * tw * reveal
+        ctx.globalAlpha = (0.2 + st.z * 0.8) * tw
         if (st.r > 1.3) {
-          ctx.globalAlpha = alpha
           const gsz = st.r * 9
-          ctx.drawImage(s.glow, x - gsz / 2, y - gsz / 2, gsz, gsz)
+          ctx.drawImage(s.glow, st.x - gsz / 2, st.y - gsz / 2, gsz, gsz)
         } else {
-          ctx.globalAlpha = alpha
           ctx.fillStyle = '#fff'
-          ctx.fillRect(x - st.r / 2, y - st.r / 2, st.r, st.r)
+          ctx.fillRect(st.x - st.r / 2, st.y - st.r / 2, st.r, st.r)
         }
       }
 
-      // чёрная дыра
-      ctx.globalAlpha = 1
-      drawHole(ctx, s, hx, hy, holeScale, spin)
+      const far = Math.hypot(w, h)
+      const hx = w / 2 + (s.home.x - w / 2) * move
+      const hy = h / 2 + (s.home.y - h / 2) * move
+      const shadowR = s.R + (far - s.R) * (1 - iris)
+      drawHole(ctx, s, hx, hy, spin, shadowR, unfold)
 
       if (still || p < 1) return
       nextMeteor -= dt
@@ -403,6 +435,7 @@ export default function CosmosSky() {
         const grad = ctx.createLinearGradient(meteor.x, meteor.y, tx, ty)
         grad.addColorStop(0, `rgba(255,255,255,${0.95 * fade})`)
         grad.addColorStop(1, 'rgba(255,255,255,0)')
+        ctx.globalAlpha = 1
         ctx.strokeStyle = grad
         ctx.lineWidth = 1.5
         ctx.beginPath()
@@ -424,16 +457,11 @@ export default function CosmosSky() {
     }
 
     const onResize = () => {
+      // на телефоне высота окна скачет от панели браузера — это не повод пересобирать небо
       if (window.innerWidth === s.w && Math.abs(window.innerHeight - s.h) < 120) return
-      s = build(dprCap)
+      s = build(dprCap, nebulaFailed)
       fit()
       if (still) draw(performance.now())
-    }
-
-    const onPointer = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse') return
-      aim.x = e.clientX / s.w - 0.5
-      aim.y = e.clientY / s.h - 0.5
     }
 
     const onVisibility = () => {
@@ -448,21 +476,20 @@ export default function CosmosSky() {
     window.addEventListener('resize', onResize)
     document.addEventListener('visibilitychange', onVisibility)
     if (still) draw(performance.now())
-    else {
-      window.addEventListener('pointermove', onPointer, { passive: true })
-      raf = requestAnimationFrame(loop)
-    }
+    else raf = requestAnimationFrame(loop)
 
     return () => {
       cancelAnimationFrame(raf)
+      window.clearTimeout(nebulaTimer)
       window.removeEventListener('resize', onResize)
-      window.removeEventListener('pointermove', onPointer)
       document.removeEventListener('visibilitychange', onVisibility)
+      nebula?.dispose()
     }
   }, [])
 
   return createPortal(
     <div className="cosmos-sky" aria-hidden="true">
+      <canvas ref={glRef} className="cosmos-sky__nebula" />
       <canvas ref={canvasRef} className="cosmos-sky__stars" />
       <span className="cosmos-sky__vignette" />
     </div>,

@@ -3,7 +3,7 @@ import { useId } from 'react'
 interface DevFrameArtProps {
   /** Проявление при открытии профиля: тушь прорисовывается, звёзды вспыхивают. */
   intro?: boolean
-  /** Крупный размер: тушь «кипит» — у маленьких аватаров это не видно, а стоит дорого. */
+  /** Крупный размер (профиль): свои стили масштаба. */
   large?: boolean
 }
 
@@ -55,59 +55,64 @@ export default function DevFrameArt({ intro = false, large = false }: DevFrameAr
   const glow = `dfg-${id}`
   const still = reduceMotion()
 
+  // Три слоя друг над другом. Фильтры SVG пересчитываются при любой
+  // перерисовке своего svg, поэтому всё движущееся вынесено в отдельный
+  // слой без фильтров: кольцо туши считается один раз, свечение «дышит»
+  // прозрачностью всего слоя — это делает композитор без перерисовки.
   return (
-    <svg
+    <span
       className={`dev-art${intro ? ' dev-art--intro' : ''}${large ? ' dev-art--large' : ''}`}
-      viewBox="0 0 140 140"
       aria-hidden="true"
     >
-      <defs>
-        {/* рваный край кисти; на крупном аватаре шум «кипит» */}
-        <filter id={rough} x="-25%" y="-25%" width="150%" height="150%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="noise">
-            {large && !still && (
-              <animate attributeName="seed" values="7;8;9;10;7" dur="0.9s" calcMode="discrete" repeatCount="indefinite" />
-            )}
-          </feTurbulence>
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" />
-        </filter>
-        <filter id={glow} x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="4" />
-        </filter>
-      </defs>
+      <svg className="dev-art__layer dev-art__layer--glow" viewBox="0 0 140 140">
+        <defs>
+          <filter id={glow} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+        </defs>
+        <path className="dev-art__energy" d={RING} filter={`url(#${glow})`} />
+      </svg>
 
-      {/* фиолетовая энергия под тушью — дышит */}
-      <path className="dev-art__energy" d={RING} filter={`url(#${glow})`} />
-
-      <g className="dev-art__flames" filter={`url(#${rough})`}>
-        {FLAMES.map((d, i) => <path key={i} d={d} style={{ '--i': i } as React.CSSProperties} />)}
-      </g>
-
-      <g filter={`url(#${rough})`}>
-        <path className="dev-art__ink" d={RING} pathLength={100} />
-        <path className="dev-art__ink dev-art__ink--dry" d={RING} pathLength={100} />
-      </g>
-
-      <path className="dev-art__chain" d={CHAIN} pathLength={100} />
-
-      {!still && COMETS.map((c, i) => (
-        <g key={i} className={`dev-art__comet dev-art__comet--${i}`}>
-          {[0, 0.12, 0.24, 0.36].map((lag, j) => (
-            <rect key={j} x={-2.6 + j * 0.5} y={-2.6 + j * 0.5} width={5.2 - j} height={5.2 - j} className={j === 0 ? 'is-head' : undefined} style={{ opacity: 1 - j * 0.24 }}>
-              <animateMotion dur={`${c.dur}s`} begin={`${c.begin - lag}s`} repeatCount="indefinite" rotate="auto" path={ORBIT} />
-            </rect>
-          ))}
+      <svg className="dev-art__layer" viewBox="0 0 140 140">
+        <defs>
+          {/* рваный край кисти */}
+          <filter id={rough} x="-25%" y="-25%" width="150%" height="150%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" />
+          </filter>
+        </defs>
+        <g filter={`url(#${rough})`}>
+          <path className="dev-art__ink" d={RING} pathLength={100} />
         </g>
-      ))}
+      </svg>
 
-      {STARS.map(([x, y, r], i) => (
-        <path
-          key={i}
-          className="dev-art__star"
-          d={star(x, y, r)}
-          style={{ '--i': i, transformOrigin: `${x}px ${y}px` } as React.CSSProperties}
-        />
-      ))}
-    </svg>
+      <svg className="dev-art__layer" viewBox="0 0 140 140">
+        <g className="dev-art__flames">
+          {FLAMES.map((d, i) => <path key={i} d={d} style={{ '--i': i } as React.CSSProperties} />)}
+        </g>
+        <path className="dev-art__ink dev-art__ink--dry" d={RING} pathLength={100} />
+        <path className="dev-art__chain" d={CHAIN} pathLength={100} />
+
+        {/* кометы — только в крупной рамке: в шапке и списках их не видно, а SMIL стоит кадров */}
+        {large && !still && COMETS.map((c, i) => (
+          <g key={i} className={`dev-art__comet dev-art__comet--${i}`}>
+            {[0, 0.12, 0.24, 0.36].map((lag, j) => (
+              <rect key={j} x={-2.6 + j * 0.5} y={-2.6 + j * 0.5} width={5.2 - j} height={5.2 - j} className={j === 0 ? 'is-head' : undefined} style={{ opacity: 1 - j * 0.24 }}>
+                <animateMotion dur={`${c.dur}s`} begin={`${c.begin - lag}s`} repeatCount="indefinite" rotate="auto" path={ORBIT} />
+              </rect>
+            ))}
+          </g>
+        ))}
+
+        {STARS.map(([x, y, r], i) => (
+          <path
+            key={i}
+            className="dev-art__star"
+            d={star(x, y, r)}
+            style={{ '--i': i, transformOrigin: `${x}px ${y}px` } as React.CSSProperties}
+          />
+        ))}
+      </svg>
+    </span>
   )
 }
