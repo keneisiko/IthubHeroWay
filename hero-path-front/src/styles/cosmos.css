@@ -741,18 +741,18 @@ body:has(.profile--cosmos) :is(.top-header, .right-sidebar, .bottom-nav, .header
 }
 
 /* шапка: по нижней кромке медленно проходит серебряный блик */
+/* без overflow: hidden — внутри шапки живёт выпадающее меню профиля */
 body:has(.profile--cosmos) .top-header {
   border-bottom: 1px solid var(--cos-line);
   position: relative;
-  overflow: hidden;
 }
 
 body:has(.profile--cosmos) .top-header::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 24px;
+  right: 24px;
+  bottom: -1px;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent) -40% 0 / 40% 100% no-repeat;
   animation: cosEdge 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
@@ -918,4 +918,112 @@ body:has(.profile--cosmos) .bd-sheet .bd-coins i {
 
 @media (prefers-reduced-motion: reduce) {
   .profile--cosmos .profile-map__node--done:is(.profile-map__node--n3, .profile-map__node--n7)::after { transform: rotate(-35deg) translateX(23px); }
+}
+
+/* окна профиля: настройка, наставник, дуэль, завершение шефства */
+body:has(.profile--cosmos) .modal-fixed { background: rgba(2, 2, 4, 0.6); }
+
+body:has(.profile--cosmos) .modal-fixed__content {
+  position: relative;
+  background:
+    radial-gradient(1px 1px at 14% 20%, rgba(255, 255, 255, 0.6) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 88% 16%, rgba(255, 255, 255, 0.55) 50%, transparent 52%),
+    radial-gradient(1px 1px at 72% 86%, rgba(255, 255, 255, 0.45) 50%, transparent 52%),
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.09), transparent 60%),
+    #0c0c11;
+  border: 1px solid var(--cos-line-hi);
+  box-shadow: 0 40px 80px -30px #000, 0 0 60px -20px rgba(255, 255, 255, 0.16);
+  color: var(--cos-text);
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .popup__title {
+  font-family: var(--cos-display);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--cos-text);
+  padding-right: 48px;
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .popup__label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--cos-dim);
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .popup__input {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--cos-text);
+  border: 1px solid var(--cos-line-hi);
+  caret-color: #fff;
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .popup__input::placeholder { color: rgba(255, 255, 255, 0.35); }
+
+body:has(.profile--cosmos) .modal-fixed__content .popup__input:focus {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12), 0 0 22px rgba(255, 255, 255, 0.14);
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .popup__close { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .modal-fixed__content .popup__close:hover { background: rgba(255, 255, 255, 0.2); }
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .shop-modal__btn--primary {
+  background: #fff;
+  color: var(--cos-void);
+  border: 1px solid #fff;
+  box-shadow: 0 0 24px -6px rgba(255, 255, 255, 0.45);
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .shop-modal__btn--primary::after {
+  background: linear-gradient(105deg, transparent 30%, rgba(0, 0, 0, 0.12) 50%, transparent 70%);
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .shop-modal__btn--secondary {
+  background: transparent;
+  color: var(--cos-text);
+  border: 1px solid var(--cos-line-hi);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .modal-fixed__content .shop-modal__btn--primary:hover:not(:disabled) { background: #fff; box-shadow: 0 0 32px -4px rgba(255, 255, 255, 0.6); }
+  body:has(.profile--cosmos) .modal-fixed__content .shop-modal__btn--secondary:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+}
+
+body:has(.profile--cosmos) .modal-fixed__content .shop-modal__btn:disabled { opacity: 0.45; }
+
+/* список агентов в окнах наставника и дуэли */
+body:has(.profile--cosmos) .agent-picker { scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }
+body:has(.profile--cosmos) .agent-picker__row { background: rgba(255, 255, 255, 0.04); border: 1px solid transparent; }
+body:has(.profile--cosmos) .agent-picker__name { color: var(--cos-text); }
+body:has(.profile--cosmos) :is(.agent-picker__meta, .agent-picker__hint) { color: var(--cos-dim); }
+body:has(.profile--cosmos) .agent-picker__avatar { filter: grayscale(1) contrast(1.1); }
+body:has(.profile--cosmos) .agent-picker__row--picked { background: rgba(255, 255, 255, 0.12); border-color: #fff; box-shadow: 0 0 18px -6px rgba(255, 255, 255, 0.5); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .agent-picker__row:hover { background: rgba(255, 255, 255, 0.09); }
+  body:has(.profile--cosmos) .agent-picker__row--disabled:hover { background: rgba(255, 255, 255, 0.04); }
+}
+
+/* прочий текст внутри окон (подсказки, предупреждения) */
+body:has(.profile--cosmos) .modal-fixed__content :is(p, .profile-social__hint) { color: var(--cos-dim); }
+
+body:has(.profile--cosmos) .modal-fixed__content .popup__input:focus-visible { outline: none; }
+body:has(.profile--cosmos) .header-user-menu__item svg [fill]:not([fill='none']) { fill: var(--cos-text); }
+body:has(.profile--cosmos) .header-user-menu__item svg [stroke] { stroke: var(--cos-text); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--cosmos) .header-user-menu__item:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+}
+
+/* меню лежит внутри шапки со своим blur — вложенный blur не срабатывает,
+   поэтому фон меню плотный, иначе сквозь него читается карточка профиля */
+body:has(.profile--cosmos) .header-user-menu {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(255, 255, 255, 0.1), transparent 60%),
+    #0e0e14 !important;
+  z-index: 120;
+  box-shadow: 0 24px 50px -16px #000, 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
