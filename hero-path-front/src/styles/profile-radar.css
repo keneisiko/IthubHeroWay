@@ -583,7 +583,8 @@
 @media (min-width: 901px) {
   .profile-radar.profile-radar--compact {
     margin: 0;
-    padding: 64px 72px 28px;
+    /* подпись верхней оси иначе упиралась в шапку */
+    padding: 104px 72px 28px;
   }
 
   .profile-radar--compact .profile-radar__chart {
