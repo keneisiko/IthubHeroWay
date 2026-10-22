@@ -10,6 +10,16 @@ export interface Badge {
   category: string
   rarity: string
   reward_coins: number
+  /** Доля активированных студентов с этой нашивкой; приходит только из каталога. */
+  owners_percent?: number | null
+}
+
+/** «Есть у 12% студентов» — редкость нашивки, как у достижений в Steam. */
+export function ownersLabel(percent?: number | null): string | null {
+  if (percent === null || percent === undefined) return null
+  if (percent === 0) return 'Пока ни у кого нет'
+  if (percent < 1) return 'Есть меньше чем у 1% студентов'
+  return `Есть у ${Math.round(percent)}% студентов`
 }
 
 export interface EarnedBadge {

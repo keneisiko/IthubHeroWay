@@ -1027,3 +1027,18 @@
   .bd-sheet__float[data-stamp],
   .bd-sheet__float[data-stamp]::after { animation: none; }
 }
+
+/* --- редкость: у скольких студентов нашивка есть --- */
+.bd-owners {
+  margin: 6px 0 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #848484;
+}
+
+.bd-owners--card {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+}

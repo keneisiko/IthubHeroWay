@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import BadgeEmblem from './BadgeEmblem'
 import { RARITY_LABELS, formatDateRu } from '../lib/apiData'
-import { CATEGORY_LABELS, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
+import { CATEGORY_LABELS, ownersLabel, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
 import '../styles/badges.css'
 
 interface SheetProps {
@@ -122,6 +122,9 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
           </div>
           <h2 id="bd-sheet-title" className="bd-sheet__title">{shown.title}</h2>
           <p className="bd-sheet__desc">{shown.description || 'Условие уточняется'}</p>
+          {ownersLabel(shown.owners_percent) && (
+            <p className="bd-owners">{ownersLabel(shown.owners_percent)}</p>
+          )}
 
           {isEarned ? (
             <>

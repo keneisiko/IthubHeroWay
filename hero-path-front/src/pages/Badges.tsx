@@ -10,7 +10,7 @@ import { useToasts } from '../useToasts'
 import { useTabIndicator } from '../useTabIndicator'
 import { celebrate } from '../lib/celebrate'
 import { RARITY_LABELS, unwrapList } from '../lib/apiData'
-import { CATEGORY_LABELS, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
+import { CATEGORY_LABELS, ownersLabel, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
 import '../styles/badges.css'
 
 const RARITY_ORDER = ['common', 'rare', 'epic', 'legendary']
@@ -285,6 +285,9 @@ export default function Badges() {
                       {isFresh && <span className="bd-new">Новая</span>}
                       {isEarned ? `Получена ${shortDate(row!.acquired_at)}` : 'Ещё не получена'}
                     </span>
+                    {ownersLabel(badge.owners_percent) && (
+                      <span className="bd-owners bd-owners--card">{ownersLabel(badge.owners_percent)}</span>
+                    )}
                   </button>
                 )
               })}

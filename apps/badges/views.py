@@ -1,6 +1,8 @@
+from django.db.models import Count, Q
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 
+from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsKnownRole
 
 from .models import Badge, UserBadge
@@ -15,7 +17,26 @@ class BadgeListView(generics.ListAPIView):
     pagination_class = None
     permission_classes = [IsKnownRole]
     serializer_class = BadgeSerializer
-    queryset = Badge.objects.filter(is_active=True).order_by("id")
+
+    def get_queryset(self):
+        # Считаем только активированных студентов: неактивированные импорты
+        # (их сотни) нашивок получить не могут и занижали бы долю.
+        return (
+            Badge.objects.filter(is_active=True)
+            .annotate(
+                owners_count=Count(
+                    "awarded_users",
+                    filter=Q(awarded_users__user__role=Role.AGENT, awarded_users__user__is_active=True),
+                    distinct=True,
+                )
+            )
+            .order_by("id")
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["students_total"] = User.objects.filter(role=Role.AGENT, is_active=True).count()
+        return context
 
 
 class MyBadgeListView(generics.ListAPIView):

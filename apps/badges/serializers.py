@@ -11,6 +11,11 @@ class BadgeSerializer(serializers.ModelSerializer):
     в `description`.
     """
 
+    # Доля активированных студентов, у которых нашивка есть, — как редкость
+    # достижений в Steam. Отдаётся только каталогом (там есть аннотация);
+    # во вложенных нашивках профиля — null.
+    owners_percent = serializers.SerializerMethodField()
+
     class Meta:
         model = Badge
         fields = [
@@ -22,7 +27,15 @@ class BadgeSerializer(serializers.ModelSerializer):
             "rarity",
             "reward_coins",
             "is_active",
+            "owners_percent",
         ]
+
+    def get_owners_percent(self, obj: Badge) -> float | None:
+        owners = getattr(obj, "owners_count", None)
+        total = self.context.get("students_total")
+        if owners is None or not total:
+            return None
+        return round(owners / total * 100, 1)
 
 
 class UserBadgeSerializer(serializers.ModelSerializer):

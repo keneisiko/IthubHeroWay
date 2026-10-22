@@ -116,6 +116,7 @@ interface UserBadge {
     category: string
     description?: string
     reward_coins?: number
+    owners_percent?: number | null
   }
   acquired_at: string
 }
@@ -417,6 +418,7 @@ export default function Profile() {
         rarity: sheetSource.rarity,
         description: sheetSource.description ?? '',
         reward_coins: sheetSource.reward_coins ?? 0,
+        owners_percent: sheetSource.owners_percent ?? null,
       }
     : null
   const sheetOwn = sheetBadge ? badges.find((b) => b.badge.code === sheetBadge.code) : undefined
