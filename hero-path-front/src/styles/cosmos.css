@@ -7,8 +7,8 @@
 
 .profile--cosmos {
   --cos-void: #050507;
-  --cos-glass: rgba(14, 14, 20, 0.74);
-  --cos-glass-hi: rgba(28, 28, 38, 0.82);
+  --cos-glass: rgba(12, 12, 17, 0.86);
+  --cos-glass-hi: rgba(22, 22, 30, 0.9);
   --cos-line: rgba(255, 255, 255, 0.14);
   --cos-line-hi: rgba(255, 255, 255, 0.32);
   --cos-text: #f4f4f7;
@@ -28,10 +28,9 @@
   pointer-events: none;
   overflow: hidden;
   background:
-    radial-gradient(120% 70% at 50% 115%, #17171f 0%, transparent 60%),
-    radial-gradient(80% 60% at 0% 0%, #101016 0%, transparent 70%),
-    #050507;
-  animation: cosSkyIn 0.7s var(--cos-ease, ease-out) both;
+    radial-gradient(120% 70% at 50% 115%, #121218 0%, transparent 60%),
+    #030305;
+  animation: cosSkyIn 0.5s ease-out both;
 }
 
 .cosmos-sky__stars {
@@ -41,144 +40,6 @@
   height: 100%;
 }
 
-/* туманности: огромные размытые облака дыма плывут навстречу друг другу */
-.cosmos-sky__nebula {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.5;
-  will-change: transform;
-}
-
-.cosmos-sky__nebula--a {
-  left: -18vmax;
-  top: 30vh;
-  width: 70vmax;
-  height: 40vmax;
-  background: radial-gradient(closest-side, rgba(200, 200, 215, 0.22), rgba(120, 120, 140, 0.08) 60%, transparent);
-  animation: cosNebulaA 40s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
-}
-
-.cosmos-sky__nebula--b {
-  right: -10vmax;
-  top: -12vh;
-  width: 56vmax;
-  height: 34vmax;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.16), rgba(150, 150, 170, 0.06) 60%, transparent);
-  animation: cosNebulaB 52s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
-}
-
-@keyframes cosNebulaA {
-  from { transform: translate(0, 0) rotate(-8deg) scale(1); }
-  to { transform: translate(14vmax, -8vmax) rotate(10deg) scale(1.18); }
-}
-
-@keyframes cosNebulaB {
-  from { transform: translate(0, 0) rotate(6deg) scale(1.1); }
-  to { transform: translate(-16vmax, 10vmax) rotate(-8deg) scale(0.92); }
-}
-
-/* далёкая спиральная галактика — медленно поворачивается */
-.cosmos-sky__galaxy {
-  position: absolute;
-  left: 6vw;
-  top: 58vh;
-  width: 15vmax;
-  height: 15vmax;
-  opacity: 0.55;
-  border-radius: 50%;
-  background:
-    radial-gradient(closest-side, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25) 14%, transparent 34%),
-    conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.4) 6%, transparent 22%, transparent 50%, rgba(255, 255, 255, 0.4) 56%, transparent 72%);
-  -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
-  filter: blur(1.5px);
-  transform: rotate(-30deg) scaleY(0.42);
-}
-
-.cosmos-sky__galaxy::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(from 90deg, transparent, rgba(255, 255, 255, 0.3) 10%, transparent 30%, transparent 50%, rgba(255, 255, 255, 0.3) 60%, transparent 80%);
-  animation: cosSpin 60s linear infinite;
-}
-
-/* чёрная дыра: наклонённый диск аккреции крутится, вокруг тени —
-   кольцо света, искривлённое гравитацией */
-.cosmos-sky__hole {
-  position: absolute;
-  right: -9vmax;
-  top: 14vh;
-  width: 46vmax;
-  height: 46vmax;
-  opacity: 0.6;
-  animation: cosDrift 22s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
-}
-
-.cosmos-sky__disk {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  transform: rotate(-16deg) scaleY(0.26);
-}
-
-.cosmos-sky__disk::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 255, 255, 0.05),
-    rgba(255, 255, 255, 0.85) 8%,
-    rgba(255, 255, 255, 0.15) 22%,
-    rgba(255, 255, 255, 0.6) 41%,
-    rgba(255, 255, 255, 0.05) 55%,
-    rgba(255, 255, 255, 0.75) 72%,
-    rgba(255, 255, 255, 0.1) 88%,
-    rgba(255, 255, 255, 0.05)
-  );
-  -webkit-mask-image: radial-gradient(closest-side, transparent 34%, #000 40%, #000 62%, transparent 100%);
-  mask-image: radial-gradient(closest-side, transparent 34%, #000 40%, #000 62%, transparent 100%);
-  filter: blur(3px);
-  animation: cosSpin 26s linear infinite;
-}
-
-.cosmos-sky__disk--front {
-  z-index: 1;
-  clip-path: inset(50% 0 0 0);
-}
-
-.cosmos-sky__core {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 26%;
-  height: 26%;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: #000;
-  box-shadow:
-    0 0 0 1.5px rgba(255, 255, 255, 0.75),
-    0 0 18px 4px rgba(255, 255, 255, 0.35),
-    0 0 90px 26px rgba(255, 255, 255, 0.1);
-}
-
-/* дуга линзы над тенью — свет диска за дырой */
-.cosmos-sky__core::after {
-  content: '';
-  position: absolute;
-  inset: -34%;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-bottom-color: transparent;
-  border-left-color: rgba(255, 255, 255, 0.12);
-  filter: blur(2px);
-  transform: rotate(-16deg) scaleX(1.25);
-}
-
 .cosmos-sky__vignette {
   position: absolute;
   inset: 0;
@@ -186,24 +47,6 @@
 }
 
 @keyframes cosSkyIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes cosSpin { to { transform: rotate(360deg); } }
-@keyframes cosDrift {
-  from { transform: translate(0, 0) rotate(0deg); }
-  to { transform: translate(-2.5vmax, 3vmax) rotate(6deg); }
-}
-
-@media (max-width: 768px) {
-  .cosmos-sky__galaxy { left: auto; right: 4vw; top: 12vh; width: 24vmax; height: 24vmax; }
-  .cosmos-sky__hole {
-    right: -26vmax;
-    top: auto;
-    bottom: 6vh;
-    width: 62vmax;
-    height: 62vmax;
-    opacity: 0.45;
-  }
-}
-
 /* ---------- карточки: тёмное стекло ---------- */
 
 .profile--cosmos .profile-card,
@@ -221,8 +64,6 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 30px 60px -30px rgba(0, 0, 0, 0.9);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
 }
 
 .profile--cosmos .profile-card--primary,
@@ -237,6 +78,23 @@
 
 .profile--cosmos .profile-card--banner::before,
 .profile--cosmos .profile-card--banner::after { display: none; }
+
+/* вход на страницу: камера отъезжает от чёрной дыры (CosmosSky),
+   затем карточки по очереди всплывают из глубины */
+.profile--cosmos .card-entrance {
+  animation: cosArrive 1.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.profile--cosmos .profile-card--primary { animation-delay: 1.05s !important; }
+.profile--cosmos .profile-card--map { animation-delay: 1.2s !important; }
+.profile--cosmos .profile-card--aside { animation-delay: 1.3s !important; }
+.profile--cosmos .profile-radar { animation-delay: 1.45s !important; }
+.profile--cosmos .profile-path { animation-delay: 1.6s !important; }
+
+@keyframes cosArrive {
+  from { opacity: 0; transform: perspective(900px) translateY(46px) rotateX(10deg) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
 
 /* ---------- шрифты и текст ---------- */
 
@@ -595,8 +453,6 @@
   background: rgba(14, 14, 20, 0.92);
   color: var(--cos-text);
   box-shadow: 0 0 0 1px var(--cos-line-hi), 0 18px 40px -16px rgba(0, 0, 0, 0.9);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
 }
 
 .profile--cosmos :is(.axis-tip__num, .axis-tip__peak) { color: var(--cos-dim); font-family: var(--cos-mono); }
@@ -687,10 +543,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cosmos-sky,
-  .cosmos-sky__hole,
-  .cosmos-sky__disk::before,
-  .cosmos-sky__nebula,
-  .cosmos-sky__galaxy::after,
+  .profile--cosmos .card-entrance,
   .profile--cosmos .profile-map__line--done,
   .profile--cosmos .profile-map__node,
   .profile--cosmos .profile-map__node::after,
@@ -715,7 +568,7 @@ body:has(.profile--cosmos) .scroll-top {
    ========================= */
 
 body:has(.profile--cosmos) {
-  --cos-glass: rgba(14, 14, 20, 0.78);
+  --cos-glass: rgba(12, 12, 17, 0.9);
   --cos-line: rgba(255, 255, 255, 0.14);
   --cos-line-hi: rgba(255, 255, 255, 0.32);
   --cos-text: #f4f4f7;
@@ -735,8 +588,6 @@ body:has(.profile--cosmos) :is(.top-header, .right-sidebar, .bottom-nav, .header
     var(--cos-glass) !important;
   border: 1px solid var(--cos-line);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 50px -26px rgba(0, 0, 0, 0.95);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
   transition: background-color 0.5s var(--cos-ease, ease), border-color 0.5s ease;
 }
 
@@ -815,9 +666,7 @@ body:has(.profile--cosmos) .bottom-nav:not(.bottom-nav--measured) .bottom-nav__i
 
 /* шторка нашивки */
 body:has(.profile--cosmos) .bd-sheet__scrim {
-  background: rgba(2, 2, 4, 0.72);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  background: rgba(2, 2, 4, 0.8);
 }
 
 body:has(.profile--cosmos) .bd-sheet__panel {
@@ -921,7 +770,7 @@ body:has(.profile--cosmos) .bd-sheet .bd-coins i {
 }
 
 /* окна профиля: настройка, наставник, дуэль, завершение шефства */
-body:has(.profile--cosmos) .modal-fixed { background: rgba(2, 2, 4, 0.6); }
+body:has(.profile--cosmos) .modal-fixed { background: rgba(2, 2, 4, 0.78); -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 body:has(.profile--cosmos) .modal-fixed__content {
   position: relative;
@@ -1026,4 +875,10 @@ body:has(.profile--cosmos) .header-user-menu {
     #0e0e14 !important;
   z-index: 120;
   box-shadow: 0 24px 50px -16px #000, 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* на узком экране подписи осей вынесены за холст впритык к краям —
+   широкий Unbounded их выталкивал за экран, здесь обычный шрифт */
+@media (max-width: 768px) {
+  .profile--cosmos .profile-radar__axis { font-family: var(--font-text); font-weight: 700; letter-spacing: 0; }
 }
