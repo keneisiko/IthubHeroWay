@@ -39,10 +39,16 @@ def recalculate_rating_for_date(date_iso: str, force: bool = False) -> str:
 
 
 @shared_task
-def recalculate_pillars_weekly() -> None:
-    """Еженедельный пересчёт характеристик (воскресенье 22:00)."""
+def recalculate_pillars_weekly() -> str:
+    """Еженедельный пересчёт характеристик (воскресенье 22:00).
+
+    До запуска не считаем: после обнуления пятиугольники у всех пустые, и
+    воскресный пересчёт заполнил бы их по данным LXP и Hik до старта сезона.
+    """
+    if not accruals_enabled():
+        return "accruals_disabled"
     update_all_characteristics()
-    return None
+    return "ok"
 
 
 @shared_task

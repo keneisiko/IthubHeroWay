@@ -663,3 +663,16 @@ class PolicyStateTests(APITestCase):
         response = self.client.get(reverse("policy-state"))
 
         self.assertEqual(response.json()["season_start"], timezone.localdate().isoformat())
+
+
+class PillarsTaskFrozenTests(TestCase):
+    def test_weekly_pillars_skip_before_launch(self):
+        from unittest.mock import patch as _patch
+
+        from apps.progress.tasks import recalculate_pillars_weekly
+
+        with _patch("apps.progress.tasks.accruals_enabled", return_value=False), _patch(
+            "apps.progress.tasks.update_all_characteristics"
+        ) as update:
+            self.assertEqual(recalculate_pillars_weekly(), "accruals_disabled")
+        update.assert_not_called()
