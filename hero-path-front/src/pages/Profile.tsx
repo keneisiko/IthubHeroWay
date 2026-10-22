@@ -388,6 +388,19 @@ export default function Profile() {
 
   // Карточка нашивки — та же шторка, что на странице нашивок: описание
   // берём из каталога, дату и закрепление — из своих нашивок.
+  // В теме космоса карточка профиля всплывает через секунду, когда камера
+  // отъехала от чёрной дыры, — проявление рамки запускаем к этому моменту,
+  // иначе его начало прошло бы под невидимой карточкой.
+  const cosmosOwner = profile?.avatar_frame === 'developer' ? profile.username : null
+  const [frameReadyFor, setFrameReadyFor] = useState<string | null>(null)
+  useEffect(() => {
+    if (!cosmosOwner) return
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timer = window.setTimeout(() => setFrameReadyFor(cosmosOwner), still ? 0 : 1050)
+    return () => window.clearTimeout(timer)
+  }, [cosmosOwner])
+  const frameReady = cosmosOwner !== null && frameReadyFor === cosmosOwner
+
   const [sheetCode, setSheetCode] = useState<string | null>(null)
   const [pinning, setPinning] = useState(false)
   const closeSheet = useCallback(() => setSheetCode(null), [setSheetCode])
@@ -552,7 +565,7 @@ export default function Profile() {
                 } : undefined}
               >
                 {/* диск чёрной дыры — под аватаром, аватар как горизонт событий */}
-                {profile.avatar_frame === 'developer' && (
+                {frameReady && (
                   <>
                     <span key={`nebula-${profile.username}`} className="dev-nebula" aria-hidden="true" />
                     <span key={`hole-${profile.username}`} className="dev-hole dev-hole--intro" aria-hidden="true" />
@@ -564,7 +577,7 @@ export default function Profile() {
                   className="profile-card__avatar-face"
                 />
                 {isOwnProfile && <span className="profile-card__avatar-edit" aria-hidden="true">Сменить</span>}
-                {profile.avatar_frame === 'developer' && <DevFrame key={profile.username} />}
+                {frameReady && <DevFrame key={profile.username} />}
               </div>
               <div className="profile-card__names">
                 <div className="profile-card__nickname">{profile?.callsign ?? '—'}</div>
