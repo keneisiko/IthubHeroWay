@@ -75,13 +75,35 @@ export interface CharacteristicItem {
   history: number[]
 }
 
+// Цвета графика: фирменные фиолетовые или чёрно-белые для темы космоса
+const TONES = {
+  brand: {
+    grid: 'rgba(154, 51, 244, 0.55)',
+    fill: 'rgba(154, 51, 244, 0.18)',
+    line: '#9A33F4',
+    point: '#f5f5f5',
+    peakFill: 'rgba(154, 51, 244, 0.08)',
+    peakLine: 'rgba(154, 51, 244, 0.65)',
+  },
+  cosmos: {
+    grid: 'rgba(255, 255, 255, 0.22)',
+    fill: 'rgba(255, 255, 255, 0.12)',
+    line: '#ffffff',
+    point: '#0b0b10',
+    peakFill: 'rgba(255, 255, 255, 0.04)',
+    peakLine: 'rgba(255, 255, 255, 0.5)',
+  },
+} as const
+
 interface Props {
   characteristics: CharacteristicItem[]
+  tone?: keyof typeof TONES
   className?: string
   style?: React.CSSProperties
 }
 
-export default function CharacteristicsRadar({ characteristics, className = '', style }: Props) {
+export default function CharacteristicsRadar({ characteristics, tone = 'brand', className = '', style }: Props) {
+  const colors = TONES[tone]
   const [activeAxis, setActiveAxis] = useState<string | null>(null)
   const [hoveredAxis, setHoveredAxis] = useState<string | null>(null)
   // сторона подсказки оси: наружу от графика, а если там край экрана — над подписью
@@ -102,11 +124,11 @@ export default function CharacteristicsRadar({ characteristics, className = '', 
       {
         label: 'Текущий',
         data: AXIS_KEYS.map(k => getSkill(k).current),
-        backgroundColor: 'rgba(154, 51, 244, 0.18)',
-        borderColor: '#9A33F4',
+        backgroundColor: colors.fill,
+        borderColor: colors.line,
         borderWidth: 5,
-        pointBackgroundColor: '#f5f5f5',
-        pointBorderColor: '#9A33F4',
+        pointBackgroundColor: colors.point,
+        pointBorderColor: colors.line,
         pointBorderWidth: 5,
         pointRadius: 9,
         pointHoverRadius: 12,
@@ -114,8 +136,8 @@ export default function CharacteristicsRadar({ characteristics, className = '', 
       {
         label: 'Пик',
         data: AXIS_KEYS.map(k => getSkill(k).peak),
-        backgroundColor: 'rgba(154, 51, 244, 0.08)',
-        borderColor: 'rgba(154, 51, 244, 0.65)',
+        backgroundColor: colors.peakFill,
+        borderColor: colors.peakLine,
         borderWidth: 3,
         borderDash: [8, 7],
         pointRadius: 0,
@@ -166,9 +188,16 @@ export default function CharacteristicsRadar({ characteristics, className = '', 
 
   const radarOptions = useMemo(() => ({
     ...radarBaseOptions,
+    scales: {
+      r: {
+        ...radarBaseOptions.scales.r,
+        grid: { ...radarBaseOptions.scales.r.grid, color: colors.grid },
+        angleLines: { ...radarBaseOptions.scales.r.angleLines, color: colors.grid },
+      },
+    },
     animation: { ...radarBaseOptions.animation, onComplete: syncVertices },
     onResize: syncVertices,
-  }), [syncVertices])
+  }), [syncVertices, colors])
 
   const selectedAxis = activeAxis ?? 'Мощность'
   const activeHistory = getSkill(selectedAxis).history

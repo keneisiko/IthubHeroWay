@@ -1,0 +1,523 @@
+/* =========================
+   ТЕМА «ГОРИЗОНТ СОБЫТИЙ» — профиль владельца нашивки «Разработчик»
+   Чёрно-белый космос: живое звёздное небо с чёрной дырой за страницей
+   (CosmosSky), карточки из тёмного стекла, серебряный текст, шрифты
+   Unbounded и JetBrains Mono. Видна всем, кто открыл такой профиль.
+   ========================= */
+
+.profile--cosmos {
+  --cos-void: #050507;
+  --cos-glass: rgba(14, 14, 20, 0.74);
+  --cos-glass-hi: rgba(28, 28, 38, 0.82);
+  --cos-line: rgba(255, 255, 255, 0.14);
+  --cos-line-hi: rgba(255, 255, 255, 0.32);
+  --cos-text: #f4f4f7;
+  --cos-dim: #9b9ba8;
+  --cos-display: 'Unbounded', var(--font-display);
+  --cos-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --cos-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color: var(--cos-text);
+}
+
+/* ---------- небо ---------- */
+
+.cosmos-sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 50% 115%, #17171f 0%, transparent 60%),
+    radial-gradient(80% 60% at 0% 0%, #101016 0%, transparent 70%),
+    #050507;
+  animation: cosSkyIn 0.7s var(--cos-ease, ease-out) both;
+}
+
+.cosmos-sky__stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* чёрная дыра: наклонённый диск аккреции крутится, вокруг тени —
+   кольцо света, искривлённое гравитацией */
+.cosmos-sky__hole {
+  position: absolute;
+  right: -9vmax;
+  top: 14vh;
+  width: 46vmax;
+  height: 46vmax;
+  opacity: 0.6;
+  animation: cosHoleIn 2.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+.cosmos-sky__disk {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transform: rotate(-16deg) scaleY(0.26);
+}
+
+.cosmos-sky__disk::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.85) 8%,
+    rgba(255, 255, 255, 0.15) 22%,
+    rgba(255, 255, 255, 0.6) 41%,
+    rgba(255, 255, 255, 0.05) 55%,
+    rgba(255, 255, 255, 0.75) 72%,
+    rgba(255, 255, 255, 0.1) 88%,
+    rgba(255, 255, 255, 0.05)
+  );
+  -webkit-mask-image: radial-gradient(closest-side, transparent 34%, #000 40%, #000 62%, transparent 100%);
+  mask-image: radial-gradient(closest-side, transparent 34%, #000 40%, #000 62%, transparent 100%);
+  filter: blur(3px);
+  animation: cosSpin 26s linear infinite;
+}
+
+.cosmos-sky__disk--front {
+  z-index: 1;
+  clip-path: inset(50% 0 0 0);
+}
+
+.cosmos-sky__core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #000;
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.75),
+    0 0 18px 4px rgba(255, 255, 255, 0.35),
+    0 0 90px 26px rgba(255, 255, 255, 0.1);
+}
+
+/* дуга линзы над тенью — свет диска за дырой */
+.cosmos-sky__core::after {
+  content: '';
+  position: absolute;
+  inset: -34%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-bottom-color: transparent;
+  border-left-color: rgba(255, 255, 255, 0.12);
+  filter: blur(2px);
+  transform: rotate(-16deg) scaleX(1.25);
+}
+
+.cosmos-sky__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+@keyframes cosSkyIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cosSpin { to { transform: rotate(360deg); } }
+@keyframes cosHoleIn {
+  from { opacity: 0; transform: scale(0.4) rotate(-40deg); }
+  to { opacity: 0.6; transform: none; }
+}
+
+@media (max-width: 768px) {
+  .cosmos-sky__hole {
+    right: -26vmax;
+    top: auto;
+    bottom: 6vh;
+    width: 62vmax;
+    height: 62vmax;
+    opacity: 0.45;
+  }
+}
+
+/* ---------- карточки: тёмное стекло ---------- */
+
+.profile--cosmos .profile-card,
+.profile--cosmos .profile-card--map,
+.profile--cosmos .profile-card--aside,
+.profile--cosmos .profile-path {
+  background:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.55) 50%, transparent 52%),
+    radial-gradient(1px 1px at 78% 64%, rgba(255, 255, 255, 0.4) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 46% 88%, rgba(255, 255, 255, 0.45) 50%, transparent 52%),
+    radial-gradient(120% 80% at 0% 0%, rgba(255, 255, 255, 0.07), transparent 60%),
+    var(--cos-glass);
+  border: 1px solid var(--cos-line);
+  color: var(--cos-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 30px 60px -30px rgba(0, 0, 0, 0.9);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.profile--cosmos .profile-card--primary,
+.profile--cosmos .profile-card--primary.profile-card--banner {
+  background:
+    radial-gradient(90% 120% at 0% 0%, rgba(255, 255, 255, 0.12), transparent 55%),
+    radial-gradient(70% 90% at 100% 100%, rgba(255, 255, 255, 0.05), transparent 60%),
+    var(--cos-glass-hi);
+  border-color: var(--cos-line-hi);
+  text-shadow: none;
+}
+
+.profile--cosmos .profile-card--banner::before,
+.profile--cosmos .profile-card--banner::after { display: none; }
+
+/* карточки проявляются из тумана */
+.profile--cosmos .card-entrance {
+  animation-name: cosEnter;
+  animation-duration: 0.9s;
+  animation-timing-function: var(--cos-ease);
+}
+
+@keyframes cosEnter {
+  from { opacity: 0; transform: translateY(22px) scale(0.98); filter: blur(10px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+/* ---------- шрифты и текст ---------- */
+
+.profile--cosmos :is(.profile-map__title, .profile-aside__title, .profile-achievements__title) {
+  font-family: var(--cos-display);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cos-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile--cosmos :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before {
+  content: '';
+  flex: none;
+  width: 9px;
+  height: 9px;
+  background: var(--cos-text);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  filter: drop-shadow(0 0 4px #fff);
+  animation: cosTwinkle 3.2s ease-in-out infinite;
+}
+
+@keyframes cosTwinkle {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  50% { opacity: 0.45; transform: scale(0.7) rotate(45deg); }
+}
+
+/* позывной — серебро, по которому пробегает блик */
+.profile--cosmos .profile-card__nickname {
+  font-family: var(--cos-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(105deg, #d4d4dc 0%, #d4d4dc 36%, #fff 46%, #8e8e9c 50%, #fff 54%, #d4d4dc 64%, #d4d4dc 100%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  box-shadow: none;
+  padding-left: 0;
+  animation: cosShimmer 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes cosShimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -60% 0; }
+}
+
+.profile--cosmos .profile-card__fio {
+  font-family: var(--cos-mono);
+  font-weight: 500;
+  background: transparent;
+  color: var(--cos-dim);
+  border: 1px solid var(--cos-line);
+}
+
+.profile--cosmos .profile-row__label {
+  font-family: var(--cos-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cos-dim);
+}
+
+.profile--cosmos .profile-row__chip--dark {
+  background: var(--cos-text);
+  color: var(--cos-void);
+}
+
+.profile--cosmos .profile-row__chip--light {
+  background: transparent;
+  color: var(--cos-text);
+  border: 1px solid var(--cos-line-hi);
+}
+
+/* ---------- боковая карточка ---------- */
+
+.profile--cosmos .profile-aside__divider { border-top: 1px solid var(--cos-line-hi); }
+
+.profile--cosmos .profile-aside__pill {
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--cos-dim);
+  border: 1px solid var(--cos-line);
+}
+
+.profile--cosmos .profile-aside__pill strong { color: var(--cos-text); font-family: var(--cos-mono); }
+
+.profile--cosmos :is(.profile-aside__btn, .profile-aside__mentor-btn) {
+  background: var(--cos-text);
+  color: var(--cos-void);
+  border: 1px solid #fff;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  transition: box-shadow 0.35s var(--cos-ease), transform 0.2s var(--cos-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--cosmos :is(.profile-aside__btn, .profile-aside__mentor-btn):hover:not(:disabled) {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12), 0 0 28px 2px rgba(255, 255, 255, 0.35);
+  }
+}
+
+.profile--cosmos .profile-aside__mentor-btn:disabled {
+  background: transparent;
+  color: var(--cos-dim);
+  border-color: var(--cos-line);
+}
+
+.profile--cosmos .profile-aside__mentee {
+  background: transparent;
+  color: var(--cos-text);
+  border: 1px solid var(--cos-line-hi);
+}
+
+.profile--cosmos :is(.profile-social__empty, .profile-social__label, .profile-social__status) { color: var(--cos-text); }
+.profile--cosmos .profile-social__hint { color: var(--cos-dim); }
+
+.profile--cosmos .profile-social__action {
+  background: var(--cos-text);
+  border-color: var(--cos-text);
+  color: var(--cos-void);
+}
+
+.profile--cosmos .profile-social__action--light {
+  background: transparent;
+  border-color: var(--cos-line-hi);
+  color: var(--cos-text);
+}
+
+/* ---------- карта пути: созвездие ---------- */
+
+.profile--cosmos .profile-map__line--done {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6));
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
+}
+
+.profile--cosmos .profile-map__line--idle {
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0 6px, transparent 6px 12px);
+}
+
+.profile--cosmos .profile-map__turn--done { border-color: rgba(255, 255, 255, 0.85); }
+.profile--cosmos .profile-map__turn--idle { border-color: rgba(255, 255, 255, 0.22); border-style: dashed; }
+
+.profile--cosmos .profile-map__node {
+  border-color: #0b0b10;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.profile--cosmos .profile-map__node--done {
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 14px 3px rgba(255, 255, 255, 0.45);
+}
+
+.profile--cosmos .profile-map__node--idle { background: #1a1a22; }
+
+.profile--cosmos .profile-map__node--current {
+  background: #fff;
+  border-color: #0b0b10;
+  animation: cosNode 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes cosNode {
+  0%, 100% { box-shadow: 0 0 0 1px #fff, 0 0 12px 3px rgba(255, 255, 255, 0.5), 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  50% { box-shadow: 0 0 0 1px #fff, 0 0 22px 6px rgba(255, 255, 255, 0.7), 0 0 0 12px rgba(255, 255, 255, 0); }
+}
+
+.profile--cosmos :is(.profile-map__labels--top, .profile-map__labels--bottom) { font-family: var(--cos-mono); }
+.profile--cosmos .profile-map__labels--top { color: var(--cos-text); }
+.profile--cosmos .profile-map__labels--bottom { color: var(--cos-dim); }
+
+/* ---------- пятиугольник ---------- */
+
+.profile--cosmos .radar-hud__aura-shape {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.5), rgba(200, 200, 215, 0.22) 55%, rgba(160, 160, 180, 0.08));
+}
+
+.profile--cosmos .profile-radar__axis {
+  font-family: var(--cos-display);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--cos-text);
+}
+
+.profile--cosmos .profile-radar__axis-icon { background-image: linear-gradient(#fff, #fff); }
+.profile--cosmos .profile-radar__axis-icon::before,
+.profile--cosmos .profile-radar__axis-icon::after { background: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--cosmos .profile-radar__axis:hover { background: rgba(255, 255, 255, 0.08); }
+}
+
+.profile--cosmos .profile-radar__axis--active {
+  background: #fff !important;
+  color: var(--cos-void) !important;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.45);
+}
+
+.profile--cosmos .profile-radar__axis--active .profile-radar__axis-icon { background-image: linear-gradient(var(--cos-void), var(--cos-void)); }
+.profile--cosmos .profile-radar__axis--active .profile-radar__axis-icon::before,
+.profile--cosmos .profile-radar__axis--active .profile-radar__axis-icon::after { background: var(--cos-void); }
+
+.profile--cosmos .profile-radar__value {
+  font-family: var(--cos-mono);
+  background: #fff;
+  color: var(--cos-void);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.35);
+}
+
+.profile--cosmos .profile-radar__value--inner {
+  background: #0b0b10;
+  color: var(--cos-text);
+  box-shadow: 0 0 0 1px var(--cos-line-hi);
+}
+
+.profile--cosmos .profile-radar__value--inner.profile-radar__value--focus {
+  background: #fff;
+  color: var(--cos-void);
+}
+
+.profile--cosmos .profile-radar__beam line { stroke: #fff; }
+
+.profile--cosmos .axis-tip {
+  background: rgba(14, 14, 20, 0.92);
+  color: var(--cos-text);
+  box-shadow: 0 0 0 1px var(--cos-line-hi), 0 18px 40px -16px rgba(0, 0, 0, 0.9);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.profile--cosmos :is(.axis-tip__num, .axis-tip__peak) { color: var(--cos-dim); font-family: var(--cos-mono); }
+.profile--cosmos .axis-tip__num b { color: #fff; }
+.profile--cosmos .axis-tip__bar { background: rgba(255, 255, 255, 0.12); }
+.profile--cosmos .axis-tip__bar i { background: linear-gradient(90deg, #8e8e9c, #fff); }
+.profile--cosmos .axis-tip__bar em { background: #fff; }
+
+.profile--cosmos .skill-sum__fact { color: var(--cos-dim); font-family: var(--cos-mono); }
+.profile--cosmos .skill-sum__fact b { color: var(--cos-text); }
+.profile--cosmos .skill-sum__tag { background: transparent; color: var(--cos-text); box-shadow: inset 0 0 0 1px var(--cos-line-hi); }
+.profile--cosmos .skill-sum__tag--best { background: #fff; color: var(--cos-void); box-shadow: none; }
+.profile--cosmos .skill-sum__name { color: var(--cos-text); font-family: var(--cos-mono); }
+.profile--cosmos .skill-sum__value { color: #fff; font-family: var(--cos-mono); }
+.profile--cosmos .skill-sum__bar i { background: rgba(255, 255, 255, 0.1); }
+.profile--cosmos .skill-sum__bar i.is-on { background: rgba(255, 255, 255, 0.78); }
+.profile--cosmos .skill-sum__bar i.is-peak { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.45); }
+.profile--cosmos .is-best .skill-sum__bar i.is-on { background: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
+.profile--cosmos button.skill-sum__row:focus-visible { outline-color: #fff; }
+
+.profile--cosmos .skill-history {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.1), transparent 60%),
+    rgba(14, 14, 20, 0.94);
+  color: var(--cos-text);
+  box-shadow: 0 0 0 1px var(--cos-line-hi), 0 30px 60px -30px rgba(0, 0, 0, 0.95);
+}
+
+.profile--cosmos .skill-history__close { background: rgba(255, 255, 255, 0.08); }
+.profile--cosmos .skill-history__dot { fill: #fff; stroke: #0b0b10; }
+.profile--cosmos .skill-history__delta.is-up { background: #fff; color: var(--cos-void); }
+
+/* ---------- достижения и нашивки ---------- */
+
+.profile--cosmos .profile-path { border-width: 1px; }
+
+.profile--cosmos :is(.ach__icon, .path-card__icon) {
+  background: radial-gradient(circle at 50% 35%, #23232d, #0b0b10 75%);
+  border: 1px solid var(--cos-line-hi);
+  box-shadow: 0 16px 30px -16px rgba(0, 0, 0, 0.9);
+}
+
+/* значки нашивок — в той же чёрно-белой гамме */
+.profile--cosmos :is(.ach__icon, .path-card__icon) > * { filter: grayscale(1) contrast(1.15) brightness(1.08); }
+
+.profile--cosmos :is(.ach__name, .path-card__name) { color: var(--cos-text); }
+
+.profile--cosmos :is(.ach__rarity, .path-card__chip) {
+  font-family: var(--cos-mono);
+  background: transparent;
+  color: var(--cos-text);
+  box-shadow: inset 0 0 0 1px var(--cos-line-hi);
+}
+
+.profile--cosmos .path-card__icon--locked {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+
+.profile--cosmos .path-card__icon--locked > * { opacity: 0.35; }
+.profile--cosmos .path-card__locked { color: rgba(255, 255, 255, 0.38); }
+
+.profile--cosmos .profile-path__tab { color: var(--cos-dim); font-family: var(--cos-display); font-weight: 500; letter-spacing: 0.04em; }
+.profile--cosmos .profile-path__tab--active { color: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--cosmos .profile-path__tab:not(.profile-path__tab--active):hover { color: #fff; }
+}
+
+.profile--cosmos .profile-path__underline::after { background: var(--cos-line); }
+.profile--cosmos .profile-path__indicator { background: #fff; box-shadow: 0 0 14px 2px rgba(255, 255, 255, 0.55); }
+
+.profile--cosmos .loading-text { color: var(--cos-dim); }
+
+/* свечение закреплённых нашивок: белая звезда, а не цвет из магазина */
+.profile--cosmos .ach--glow :is(.ach__icon, .path-card__icon) {
+  border-color: #fff;
+  animation: cosGlow 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes cosGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 0 14px 2px rgba(255, 255, 255, 0.25); }
+  50% { box-shadow: 0 0 0 1px #fff, 0 0 30px 6px rgba(255, 255, 255, 0.5); }
+}
+
+.profile--cosmos .ach--glow :is(.ach__icon, .path-card__icon) .emblem { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cosmos-sky,
+  .cosmos-sky__hole,
+  .cosmos-sky__disk::before,
+  .profile--cosmos .card-entrance,
+  .profile--cosmos .profile-card__nickname,
+  .profile--cosmos .profile-map__node--current,
+  .profile--cosmos .ach--glow :is(.ach__icon, .path-card__icon),
+  .profile--cosmos :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before { animation: none; }
+  .profile--cosmos .card-entrance { opacity: 1; transform: none; filter: none; }
+}
+
+/* кнопка «наверх» на этой странице — тоже серебро */
+body:has(.profile--cosmos) .scroll-top {
+  background: #f4f4f7;
+  color: #050507;
+  border-color: #fff;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.3);
+}
