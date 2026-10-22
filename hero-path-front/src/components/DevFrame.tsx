@@ -32,11 +32,12 @@ export default function DevFrame() {
         ))}
       </span>
       <DevFrameArt intro large />
-      {/* после проявления: две наклонённые орбиты со спутниками, ударная
-          волна от горизонта и блик по аватару — только transform и opacity */}
+      {/* после проявления: две наклонённые орбиты со спутниками, бегущий по
+          контуру свет, волна от горизонта и блик — только transform и opacity */}
       <span className="dev-fx">
         <span className="dev-fx__orbit dev-fx__orbit--a"><i /></span>
         <span className="dev-fx__orbit dev-fx__orbit--b"><i /></span>
+        <span className="dev-fx__edge" />
         <span className="dev-fx__shock" />
         <span className="dev-fx__glint" />
       </span>
