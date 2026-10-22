@@ -16,6 +16,7 @@ import Avatar from '../components/Avatar'
 import { bannerVariant, glowVariant, type ActiveBoost, type AppliedItems } from '../lib/cosmetics'
 import { BoostPlaque } from '../components/BoostPlaque'
 import DevFrame from '../components/DevFrame'
+import DevAura from '../components/DevAura'
 import CosmosSky from '../components/CosmosSky'
 import '../styles/cosmos.css'
 import RollNumber from '../components/RollNumber'
@@ -573,7 +574,7 @@ export default function Profile() {
                   <>
                     <span key={`nebula-${profile.username}`} className="dev-nebula" aria-hidden="true" />
                     <span key={`hole-${profile.username}`} className="dev-hole dev-hole--intro" aria-hidden="true" />
-                    <span key={`aura-${profile.username}`} className="dev-aura" aria-hidden="true" />
+                    <DevAura key={`aura-${profile.username}`} />
                   </>
                 )}
                 <Avatar

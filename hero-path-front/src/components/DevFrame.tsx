@@ -22,8 +22,8 @@ const MOTES = Array.from({ length: 11 }, (_, i) => ({
  * вокруг темнеет, в центре открывается сингулярность, пиксели падают в
  * неё, аватар выходит из горизонта, тушь собирается в рамку, выезжает
  * плашка «Разработчик». Дальше вокруг живёт аура: мягкое свечение
- * перетекает и дышит (styles/avatar-frames.css, .dev-aura), плавают
- * пылинки света, изредка расходится волна и по аватару пробегает блик.
+ * клубится туманностью (DevAura), плавают пылинки света и по аватару
+ * изредка пробегает блик.
  */
 export default function DevFrame() {
   return (
@@ -55,7 +55,6 @@ export default function DevFrame() {
             } as React.CSSProperties}
           />
         ))}
-        <span className="dev-fx__shock" />
         <span className="dev-fx__glint" />
       </span>
       <span className="dev-frame__tag">

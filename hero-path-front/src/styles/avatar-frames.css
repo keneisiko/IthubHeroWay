@@ -648,28 +648,43 @@
   33.33% { opacity: 0; }
 }
 
-/* Свечение вокруг рамки: ровный мягкий свет повторяет её скруглённый
-   квадрат и расходится наружу. Без пульсации и вращения — просто свет. */
+/* Аура — клубы космической туманности вокруг рамки (DevAura). Два слоя
+   дыма медленно дрейфуют навстречу друг другу; шум нарисован один раз,
+   слои только поворачиваются — композитор, без перерисовки. */
 .dev-aura {
   position: absolute;
-  inset: -16%;
+  left: 50%;
+  top: 50%;
   z-index: -1;
-  border-radius: 34%;
+  width: 280%;
+  height: 280%;
+  margin: -140% 0 0 -140%;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.55);
-  filter: blur(18px);
   opacity: 0;
-  animation: auraIn 1.4s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
+  animation: auraIn 1.6s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
 }
 
-/* второй, широкий слой — свет мягко тает в карточке */
-.dev-aura::before {
-  content: '';
+.dev-aura__layer {
   position: absolute;
-  inset: -22%;
-  border-radius: 40%;
-  background: rgba(255, 255, 255, 0.22);
-  filter: blur(26px);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  will-change: transform;
+  animation: orbitSpin 90s linear infinite;
+}
+
+.dev-aura__layer--0 { opacity: 0.95; }
+
+.dev-aura__layer--1 {
+  opacity: 0.7;
+  transform: scale(0.82);
+  animation: auraDrift 130s linear infinite reverse;
+}
+
+@keyframes auraDrift {
+  from { transform: scale(0.82) rotate(0deg); }
+  to { transform: scale(0.82) rotate(360deg); }
 }
 
 @keyframes auraIn { to { opacity: 1; } }
@@ -719,24 +734,6 @@
 
 @keyframes orbitSpin { to { transform: rotate(360deg); } }
 
-/* ударная волна от горизонта раз в несколько секунд */
-.dev-fx__shock {
-  position: absolute;
-  inset: 4px;
-  border-radius: 28%;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.6);
-  opacity: 0;
-  will-change: transform, opacity;
-  animation: devShock 4.8s cubic-bezier(0.22, 1, 0.36, 1) 2.6s infinite;
-}
-
-@keyframes devShock {
-  0% { opacity: 0.85; transform: scale(1); }
-  38% { opacity: 0; transform: scale(1.9); }
-  100% { opacity: 0; transform: scale(1.9); }
-}
-
 /* блик по аватару */
 .dev-fx__glint {
   position: absolute;
@@ -773,9 +770,9 @@
 @media (prefers-reduced-motion: reduce) {
   .dev-art__layer--boil,
   .dev-aura,
+  .dev-aura__layer,
   .dev-fx__mote,
   .dev-fx,
-  .dev-fx__shock,
   .dev-fx__glint::after { animation: none; }
   .dev-aura,
   .dev-fx { opacity: 1; }
