@@ -573,6 +573,7 @@ export default function Profile() {
                   <>
                     <span key={`nebula-${profile.username}`} className="dev-nebula" aria-hidden="true" />
                     <span key={`hole-${profile.username}`} className="dev-hole dev-hole--intro" aria-hidden="true" />
+                    <span key={`rays-${profile.username}`} className="dev-rays" aria-hidden="true" />
                   </>
                 )}
                 <Avatar

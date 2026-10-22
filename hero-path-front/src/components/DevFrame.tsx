@@ -12,7 +12,9 @@ const DEBRIS = Array.from({ length: 14 }, (_, i) => ({
  * вокруг темнеет, в центре открывается сингулярность, пиксели
  * закручиваются по спирали и падают в неё, расходится волна
  * искажения, аватар выходит из горизонта, тушь и диск собираются в
- * рамку, выезжает плашка «Разработчик». Стили — styles/avatar-frames.css.
+ * рамку, выезжает плашка «Разработчик». Потом вокруг ходят спутники по
+ * орбитам, от горизонта расходится волна, по аватару пробегает блик.
+ * Стили — styles/avatar-frames.css.
  */
 export default function DevFrame() {
   return (
@@ -30,6 +32,14 @@ export default function DevFrame() {
         ))}
       </span>
       <DevFrameArt intro large />
+      {/* после проявления: две наклонённые орбиты со спутниками, ударная
+          волна от горизонта и блик по аватару — только transform и opacity */}
+      <span className="dev-fx">
+        <span className="dev-fx__orbit dev-fx__orbit--a"><i /></span>
+        <span className="dev-fx__orbit dev-fx__orbit--b"><i /></span>
+        <span className="dev-fx__shock" />
+        <span className="dev-fx__glint" />
+      </span>
       <span className="dev-frame__tag">
         <span className="dev-frame__code">&lt;/&gt;</span>
         Разработчик
