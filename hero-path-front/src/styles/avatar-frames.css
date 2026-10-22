@@ -372,21 +372,20 @@
   z-index: -1;
   border-radius: 50%;
   pointer-events: none;
+  /* плавный градиент: резкие ступени давали «куски» света */
   background: conic-gradient(
     from 0deg,
-    transparent 0 8%,
-    rgba(150, 150, 150, 0.85) 18%,
-    #ffffff 27%,
-    rgba(120, 120, 120, 0.85) 34%,
-    rgba(200, 200, 200, 0.5) 46%,
-    transparent 58%,
-    rgba(200, 200, 200, 0.55) 74%,
-    #ffffff 80%,
-    transparent 92%
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.7) 20%,
+    rgba(255, 255, 255, 0.12) 38%,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(255, 255, 255, 0.45) 70%,
+    rgba(255, 255, 255, 0.06) 88%,
+    rgba(255, 255, 255, 0)
   );
-  -webkit-mask: radial-gradient(closest-side, transparent 50%, #000 58%, #000 70%, transparent 100%);
-  mask: radial-gradient(closest-side, transparent 50%, #000 58%, #000 70%, transparent 100%);
-  filter: blur(1.5px) saturate(1.2);
+  -webkit-mask: radial-gradient(closest-side, transparent 46%, #000 58%, rgba(0, 0, 0, 0.55) 74%, transparent 94%);
+  mask: radial-gradient(closest-side, transparent 46%, #000 58%, rgba(0, 0, 0, 0.55) 74%, transparent 94%);
+  filter: blur(3px);
   animation: holeSpin 4.5s linear infinite;
 }
 
@@ -415,21 +414,17 @@
   inset: -62%;
   background: conic-gradient(
     from 0deg,
-    transparent 0 6%,
-    rgba(28, 28, 28, 0.95) 14%,
-    rgba(150, 150, 150, 0.9) 22%,
-    #ffffff 28%,
-    rgba(120, 120, 120, 0.7) 34%,
-    rgba(20, 20, 20, 0.95) 46%,
-    transparent 58%,
-    rgba(44, 44, 44, 0.9) 70%,
-    #ffffff 77%,
-    rgba(14, 14, 14, 0.9) 84%,
-    transparent 94%
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.6) 22%,
+    rgba(255, 255, 255, 0.1) 40%,
+    rgba(255, 255, 255, 0) 52%,
+    rgba(255, 255, 255, 0.38) 72%,
+    rgba(255, 255, 255, 0.05) 90%,
+    rgba(255, 255, 255, 0)
   );
-  -webkit-mask: radial-gradient(closest-side, transparent 38%, #000 46%, #000 72%, transparent 100%);
-  mask: radial-gradient(closest-side, transparent 38%, #000 46%, #000 72%, transparent 100%);
-  filter: blur(2.5px) saturate(1.3);
+  -webkit-mask: radial-gradient(closest-side, transparent 34%, #000 46%, rgba(0, 0, 0, 0.5) 70%, transparent 96%);
+  mask: radial-gradient(closest-side, transparent 34%, #000 46%, rgba(0, 0, 0, 0.5) 70%, transparent 96%);
+  filter: blur(6px);
   opacity: 0;
   transform: scale(1.8) rotate(-120deg);
   animation:
@@ -633,3 +628,152 @@
 
 /* под аватаром висит плашка «Разработчик» — строки ниже отступают */
 .profile-card__header:has(.dev-frame) { margin-bottom: 18px; }
+
+/* =========================
+   РАМКА РАЗРАБОТЧИКА — ПАФОС
+   Всё ниже двигается только через transform и opacity: каждый слой
+   уходит на композитор, страница при этом не перерисовывается.
+   ========================= */
+
+/* «кипящая» тушь: три кадра шума сменяются рывком, как живая кисть */
+.dev-art__layer--boil { will-change: opacity; animation: inkBoil 0.66s step-end infinite; }
+.dev-art__layer--boil-1 { opacity: 0; animation-delay: -0.22s; }
+.dev-art__layer--boil-2 { opacity: 0; animation-delay: -0.44s; }
+.dev-art--intro .dev-art__layer--boil-0 { animation-delay: 2s; }
+.dev-art--intro .dev-art__layer--boil-1 { animation-delay: 2.22s; }
+.dev-art--intro .dev-art__layer--boil-2 { animation-delay: 2.44s; }
+
+@keyframes inkBoil {
+  0% { opacity: 1; }
+  33.33% { opacity: 0; }
+}
+
+/* Аура — клубы космической туманности вокруг рамки (DevAura). Два слоя
+   дыма медленно дрейфуют навстречу друг другу; шум нарисован один раз,
+   слои только поворачиваются — композитор, без перерисовки. */
+.dev-aura {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: 280%;
+  height: 280%;
+  margin: -140% 0 0 -140%;
+  pointer-events: none;
+  opacity: 0;
+  animation: auraIn 1.6s cubic-bezier(0.22, 1, 0.36, 1) 1.9s forwards;
+}
+
+.dev-aura__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  will-change: transform;
+  animation: orbitSpin 90s linear infinite;
+}
+
+.dev-aura__layer--0 { opacity: 0.95; }
+
+.dev-aura__layer--1 {
+  opacity: 0.7;
+  transform: scale(0.82);
+  animation: auraDrift 130s linear infinite reverse;
+}
+
+@keyframes auraDrift {
+  from { transform: scale(0.82) rotate(0deg); }
+  to { transform: scale(0.82) rotate(360deg); }
+}
+
+@keyframes auraIn { to { opacity: 1; } }
+
+/* сам аватар — тонкий светлый край, будто подсвечен аурой изнутри */
+.profile-card__avatar--developer .profile-card__avatar-face {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 18px 2px rgba(255, 255, 255, 0.35);
+}
+
+/* пылинки света плавают вокруг по своим орбитам и мерцают */
+.dev-fx__mote {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--z);
+  height: var(--z);
+  margin: calc(var(--z) / -2) 0 0 calc(var(--z) / -2);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.85);
+  will-change: transform, opacity;
+  animation:
+    moteOrbit var(--s) linear var(--d) infinite,
+    moteTwinkle calc(var(--s) / 3) cubic-bezier(0.45, 0, 0.55, 1) var(--d) infinite alternate;
+}
+
+.dev-fx__mote--rev { animation-direction: reverse, alternate; }
+
+@keyframes moteOrbit {
+  0% { transform: rotate(var(--a)) translateX(var(--r)) scale(1); }
+  50% { transform: rotate(calc(var(--a) + 180deg)) translateX(calc(var(--r) * 1.14)) scale(0.7); }
+  100% { transform: rotate(calc(var(--a) + 360deg)) translateX(var(--r)) scale(1); }
+}
+
+@keyframes moteTwinkle {
+  from { opacity: 0.15; }
+  to { opacity: 1; }
+}
+
+.dev-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: introFadeIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 2.15s forwards;
+}
+
+@keyframes orbitSpin { to { transform: rotate(360deg); } }
+
+/* блик по аватару */
+.dev-fx__glint {
+  position: absolute;
+  inset: 4px;
+  overflow: hidden;
+  border-radius: 28%;
+}
+
+.dev-fx__glint::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55) 50%, transparent);
+  transform: translateX(-160%) skewX(-12deg);
+  will-change: transform;
+  animation: devGlint 6.5s cubic-bezier(0.45, 0, 0.55, 1) 3.2s infinite;
+}
+
+@keyframes devGlint {
+  0% { transform: translateX(-160%) skewX(-12deg); }
+  18%, 100% { transform: translateX(330%) skewX(-12deg); }
+}
+
+/* аватару с рамкой разработчика — место, чтобы край карточки её не срезал */
+.profile-card--primary:has(.dev-frame) .profile-card__header {
+  height: auto;
+  padding: 20px 0 4px 20px;
+  gap: 30px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev-art__layer--boil,
+  .dev-aura,
+  .dev-aura__layer,
+  .dev-fx__mote,
+  .dev-fx,
+  .dev-fx__glint::after { animation: none; }
+  .dev-aura,
+  .dev-fx { opacity: 1; }
+}

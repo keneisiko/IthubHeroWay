@@ -29,6 +29,9 @@ const STARS: [number, number, number][] = [
   [8, 30, 4],
 ]
 
+// шум «кипящей» туши: три кадра
+const BOIL_SEEDS = [7, 13, 21]
+
 // кометы: голова-пиксель и хвост из трёх гаснущих пикселей
 const COMETS = [
   { dur: 7, begin: 0 },
@@ -73,18 +76,26 @@ export default function DevFrameArt({ intro = false, large = false }: DevFrameAr
         <path className="dev-art__energy" d={RING} filter={`url(#${glow})`} />
       </svg>
 
-      <svg className="dev-art__layer" viewBox="0 0 140 140">
-        <defs>
-          {/* рваный край кисти */}
-          <filter id={rough} x="-25%" y="-25%" width="150%" height="150%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" />
-          </filter>
-        </defs>
-        <g filter={`url(#${rough})`}>
-          <path className="dev-art__ink" d={RING} pathLength={100} />
-        </g>
-      </svg>
+      {/* Кольцо туши. В крупной рамке оно «кипит»: три варианта с разным
+          шумом нарисованы один раз и сменяют друг друга прозрачностью —
+          фильтр не пересчитывается, работает только композитор. */}
+      {(large && !still ? BOIL_SEEDS : BOIL_SEEDS.slice(0, 1)).map((seed, i) => (
+        <svg
+          key={seed}
+          className={`dev-art__layer${large && !still ? ` dev-art__layer--boil dev-art__layer--boil-${i}` : ''}`}
+          viewBox="0 0 140 140"
+        >
+          <defs>
+            <filter id={`${rough}-${seed}`} x="-25%" y="-25%" width="150%" height="150%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed={seed} result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale={large ? 6 : 5} />
+            </filter>
+          </defs>
+          <g filter={`url(#${rough}-${seed})`}>
+            <path className="dev-art__ink" d={RING} pathLength={100} />
+          </g>
+        </svg>
+      ))}
 
       <svg className="dev-art__layer" viewBox="0 0 140 140">
         <g className="dev-art__flames">

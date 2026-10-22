@@ -1055,3 +1055,185 @@
 }
 
 .profile--cosmos .ach__owners { color: var(--cos-dim); }
+
+/* =========================
+   «У КОГО ЕСТЬ» В КАРТОЧКЕ НАШИВКИ
+   Кнопка с лицами первых владельцев раскрывает список: кто и когда
+   получил. Высота раскрывается через grid-template-rows 0fr → 1fr.
+   ========================= */
+
+.bd-holders {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(18, 18, 18, 0.08);
+}
+
+.bd-holders__toggle {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-16);
+  background: rgba(18, 18, 18, 0.05);
+  color: var(--ithub-black);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.25s var(--bd-ease, ease);
+}
+
+.bd-holders__toggle:disabled { cursor: default; color: #848484; }
+.bd-holders__toggle:focus-visible { outline: 3px solid var(--purple-500); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .bd-holders__toggle:hover:not(:disabled) { background: rgba(154, 51, 244, 0.1); }
+}
+
+.bd-holders__faces { display: inline-flex; flex: none; }
+.bd-holders__faces:empty { display: none; }
+
+.bd-holders__face.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 28%;
+  font-size: 12px;
+  box-shadow: 0 0 0 2px var(--ithub-white);
+}
+
+.bd-holders__face + .bd-holders__face { margin-left: -9px; }
+
+.bd-holders__label { flex: 1; min-width: 0; }
+
+.bd-holders__chevron {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bd-holders--open .bd-holders__chevron { transform: rotate(180deg); }
+.bd-holders__toggle:disabled .bd-holders__chevron { opacity: 0; }
+
+.bd-holders__drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bd-holders--open .bd-holders__drawer { grid-template-rows: 1fr; }
+
+.bd-holders__inner { min-height: 0; overflow: hidden; }
+
+.bd-holders__list {
+  list-style: none;
+  margin: 0;
+  /* рамки аватаров выходят за край — запас, чтобы список их не срезал */
+  padding: 10px 8px 4px;
+  max-height: 268px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.bd-holders__row {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bd-holders--open .bd-holders__row {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(min(var(--i), 8) * 35ms + 80ms);
+}
+
+.bd-holders__link {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border-radius: var(--radius-12);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bd-holders__link:hover { background: rgba(154, 51, 244, 0.08); }
+}
+
+.bd-holders__link:focus-visible { outline: 3px solid var(--purple-500); outline-offset: -3px; }
+
+.bd-holders__avatar.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 28%;
+  font-size: 15px;
+}
+
+.bd-holders__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.bd-holders__name {
+  overflow: hidden;
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ithub-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-holders__squad {
+  overflow: hidden;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  color: #848484;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-holders__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  color: #848484;
+  white-space: nowrap;
+}
+
+.bd-holders__first {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--purple-500);
+  color: var(--ithub-white);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bd-holders__more {
+  margin: 4px 0 2px;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  color: #848484;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-holders__drawer,
+  .bd-holders__row,
+  .bd-holders__chevron { transition: none; }
+}
