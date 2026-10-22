@@ -1,28 +1,30 @@
+"""Еженедельный пересчёт пяти опор пятиугольника.
+
+«Мощность» и «Ритм» — из снимка LXP (lxp_characteristics), «Фокус», «Связь»
+и «Отдача» — из активности на платформе (activity_pillars). Считаются только
+студенты: сотрудникам пятиугольник не показывается, а раньше на них уходили
+строки и история каждую неделю.
+"""
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
-from apps.progress.models import Characteristic, CharacteristicHistory
-from apps.progress.services.lxp_characteristics import update_lxp_pillars_from_snapshot
+from apps.accounts.models import Role
+from apps.progress.services.activity_pillars import activity_pillars
+from apps.progress.services.lxp_characteristics import save_pillar, update_lxp_pillars_from_snapshot
 
-DEFAULT_PILLARS = ("discipline", "leadership", "teamwork", "initiative", "growth")
+FORMULA_VERSION = "activity_v1"
 
 
-def update_all_characteristics(formula_weights: dict | None = None) -> int:
-    weights = formula_weights or {
-        "discipline": 1.0,
-        "leadership": 1.0,
-        "teamwork": 1.0,
-        "initiative": 1.0,
-        "growth": 1.0,
-    }
+def update_all_characteristics() -> int:
+    today = timezone.localdate()
     updated = 0
-    for user in get_user_model().objects.all().only("id", "rating_current"):
-        for pillar in DEFAULT_PILLARS:
-            metric_value = float(user.rating_current) * float(weights.get(pillar, 1.0)) / 100.0
-            char_obj, _ = Characteristic.objects.get_or_create(user=user, pillar=pillar)
-            char_obj.current = metric_value
-            char_obj.peak = max(char_obj.peak, metric_value)
-            char_obj.save(update_fields=["current", "peak", "last_updated"])
-            CharacteristicHistory.objects.create(characteristic=char_obj, value=metric_value, formula_version="v1")
+    students = get_user_model().objects.filter(role=Role.AGENT).only("id")
+    for user in students.iterator(chunk_size=200):
+        for pillar, value in activity_pillars(user.pk, today).items():
+            if value is None:
+                continue
+            save_pillar(user, pillar, value, FORMULA_VERSION)
             updated += 1
 
     updated += update_lxp_pillars_from_snapshot()

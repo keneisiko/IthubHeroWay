@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from apps.integrations.models import LXPSnapshot
 from apps.integrations.services.lxp_snapshot_format import unwrap_category
 from apps.progress.models import Characteristic, CharacteristicHistory
+from apps.progress.services.polozhenie_period import season_start_date
 
 PILLAR_POWER = "power"
 PILLAR_RHYTHM = "rhythm"
@@ -83,10 +85,19 @@ def compute_rhythm_from_attendance(lxp_uid: str, snapshot_data: dict) -> float |
     return max(1.0, min(20.0, round(avg_percent / 100.0 * 20.0, 2)))
 
 
-def _save_pillar(user, pillar: str, value: float, formula_version: str) -> None:
-    char_obj, _ = Characteristic.objects.get_or_create(user=user, pillar=pillar)
+def save_pillar(user, pillar: str, value: float, formula_version: str) -> None:
+    """Записать значение опоры; пик — лучшее за текущий сезон.
+
+    Сезон по Положению начинается с нуля, а пик копился с самого пилота:
+    «лучшее значение» на пятиугольнике оставалось прошлогодним. Первое
+    обновление в новом сезоне начинает пик заново.
+    """
+    char_obj, created = Characteristic.objects.get_or_create(user=user, pillar=pillar)
+    stale_peak = created or char_obj.last_updated is None or (
+        timezone.localdate(char_obj.last_updated) < season_start_date()
+    )
     char_obj.current = value
-    char_obj.peak = max(char_obj.peak, value)
+    char_obj.peak = value if stale_peak else max(char_obj.peak, value)
     char_obj.save(update_fields=["current", "peak", "last_updated"])
     CharacteristicHistory.objects.create(
         characteristic=char_obj,
@@ -104,7 +115,7 @@ def update_lxp_pillars_from_snapshot(snapshot: LXPSnapshot | None = None) -> int
     data = snap.data or {}
     User = get_user_model()
     updated = 0
-    qs = User.objects.exclude(lxp_user_id__isnull=True).exclude(lxp_user_id="").only("id", "lxp_user_id")
+    qs = User.objects.filter(role="agent").exclude(lxp_user_id__isnull=True).exclude(lxp_user_id="").only("id", "lxp_user_id")
 
     for user in qs.iterator(chunk_size=200):
         lxp_uid = (user.lxp_user_id or "").strip()
@@ -113,10 +124,10 @@ def update_lxp_pillars_from_snapshot(snapshot: LXPSnapshot | None = None) -> int
         power = compute_power_from_grades(lxp_uid, data)
         rhythm = compute_rhythm_from_attendance(lxp_uid, data)
         if power is not None:
-            _save_pillar(user, PILLAR_POWER, power, "lxp_v2")
+            save_pillar(user, PILLAR_POWER, power, "lxp_v2")
             updated += 1
         if rhythm is not None:
-            _save_pillar(user, PILLAR_RHYTHM, rhythm, "lxp_v2")
+            save_pillar(user, PILLAR_RHYTHM, rhythm, "lxp_v2")
             updated += 1
 
     return updated
