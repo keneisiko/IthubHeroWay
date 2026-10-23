@@ -18,7 +18,11 @@ import { BoostPlaque } from '../components/BoostPlaque'
 import DevFrame from '../components/DevFrame'
 import DevAura from '../components/DevAura'
 import CosmosSky from '../components/CosmosSky'
+import FilmSky from '../components/FilmSky'
+import FilmFrame from '../components/FilmFrame'
+import { personalTheme } from '../lib/profileThemes'
 import '../styles/cosmos.css'
+import '../styles/film.css'
 import RollNumber from '../components/RollNumber'
 import DialogClose from '../components/DialogClose'
 import { useModal } from '../useModal'
@@ -397,7 +401,7 @@ export default function Profile() {
   // В теме космоса карточка профиля всплывает, когда кольцо горизонта
   // открыло экран, — проявление рамки запускаем к этому моменту,
   // иначе его начало прошло бы под невидимой карточкой.
-  const cosmosOwner = profile?.avatar_frame === 'developer' ? profile.username : null
+  const cosmosOwner = profile?.avatar_frame === 'developer' && !personalTheme(profile.username) ? profile.username : null
   const [frameReadyFor, setFrameReadyFor] = useState<string | null>(null)
   useEffect(() => {
     if (!cosmosOwner) return
@@ -551,12 +555,15 @@ export default function Profile() {
   // профиль целиком, а applied_items приходит в каждом ответе.
   const banner = bannerVariant(profile.applied_items)
   const glow = glowVariant(profile.applied_items)
-  // владелец нашивки «Разработчик» получает весь профиль в теме космоса
-  const cosmos = profile.avatar_frame === 'developer'
+  // личная тема аккаунта сильнее темы нашивки; владелец нашивки
+  // «Разработчик» получает весь профиль в теме космоса
+  const film = personalTheme(profile.username) === 'film'
+  const cosmos = !film && profile.avatar_frame === 'developer'
 
   return (
-    <div className={`profile page-enter${cosmos ? ' profile--cosmos' : ''}`}>
+    <div className={`profile page-enter${cosmos ? ' profile--cosmos' : ''}${film ? ' profile--film' : ''}`}>
       {cosmos && <CosmosSky key={profile.username} />}
+      {film && <FilmSky key={profile.username} />}
       <div className="profile__top">
         <div className="profile__left">
           <section className={`profile-card profile-card--primary card-entrance${banner ? ` profile-card--banner banner--${banner}` : ''}`}>
@@ -585,6 +592,7 @@ export default function Profile() {
                   className="profile-card__avatar-face"
                 />
                 {isOwnProfile && <span className="profile-card__avatar-edit" aria-hidden="true">Сменить</span>}
+                {film && <FilmFrame />}
                 {frameReady && <DevFrame key={profile.username} />}
               </div>
               <div className="profile-card__names">
@@ -823,7 +831,7 @@ export default function Profile() {
 
       <CharacteristicsRadar
         characteristics={characteristics}
-        tone={cosmos ? 'cosmos' : 'brand'}
+        tone={film ? 'film' : cosmos ? 'cosmos' : 'brand'}
         className="card-entrance"
         style={{ animationDelay: '0.3s' }}
       />

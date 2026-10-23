@@ -75,7 +75,7 @@ export interface CharacteristicItem {
   history: number[]
 }
 
-// Цвета графика: фирменные фиолетовые или чёрно-белые для темы космоса
+// Цвета графика: фирменные фиолетовые или чёрно-белые для тем космоса и плёнки
 const TONES = {
   brand: {
     grid: 'rgba(154, 51, 244, 0.55)',
@@ -92,6 +92,14 @@ const TONES = {
     point: '#0b0b10',
     peakFill: 'rgba(255, 255, 255, 0.04)',
     peakLine: 'rgba(255, 255, 255, 0.5)',
+  },
+  film: {
+    grid: 'rgba(255, 255, 255, 0.16)',
+    fill: 'rgba(192, 192, 192, 0.16)',
+    line: '#e6e6e6',
+    point: '#000000',
+    peakFill: 'rgba(255, 255, 255, 0.03)',
+    peakLine: 'rgba(192, 192, 192, 0.45)',
   },
 } as const
 

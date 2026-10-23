@@ -1,0 +1,782 @@
+/* =========================
+   ЛИЧНАЯ ТЕМА «ПЛЁНКА»
+   Чёрно-белый кадр: зерно, пыль и волоски, пиксельные звёзды (FilmSky).
+   Палитра из пяти ступеней — белый, серебро, графит, уголь, чёрный.
+   Поля — белые плашки с чёрным текстом, углы карточек отмечены как в
+   видоискателе. Карточки проявляются, как снимок в проявителе.
+   Закреплена за аккаунтом (lib/profileThemes.ts), видна всем.
+   ========================= */
+
+.profile--film {
+  --film-0: #000;
+  --film-1: #404040;
+  --film-2: #808080;
+  --film-3: #c0c0c0;
+  --film-4: #fff;
+  --film-card: rgba(8, 8, 8, 0.87);
+  --film-line: rgba(255, 255, 255, 0.12);
+  --film-line-hi: rgba(255, 255, 255, 0.3);
+  --film-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --film-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color: var(--film-4);
+}
+
+/* ---------- фон ---------- */
+
+.film-sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #000;
+  animation: filmFade 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.film-sky__stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* засветки по краям кадра, как на скане плёнки, — дышат очень медленно */
+.film-sky__leak {
+  position: absolute;
+  width: 95vmax;
+  height: 95vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.035) 45%, transparent 100%);
+  will-change: transform;
+}
+
+.film-sky__leak--a {
+  left: -42vmax;
+  top: -48vmax;
+  animation: filmLeakA 26s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+.film-sky__leak--b {
+  right: -46vmax;
+  bottom: -52vmax;
+  animation: filmLeakB 34s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes filmLeakA {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(7vmax, 5vmax) scale(1.12); }
+}
+
+@keyframes filmLeakB {
+  from { transform: translate(0, 0) scale(1.08); }
+  to { transform: translate(-6vmax, -4vmax) scale(0.96); }
+}
+
+/* зерно: плитка шума перескакивает по кадрам, 12 раз в секунду */
+.film-sky__grain {
+  position: absolute;
+  inset: -140px;
+  background: var(--film-noise, none) 0 0 / 140px 140px;
+  will-change: transform;
+  animation: filmGrain 0.66s steps(1, end) infinite;
+}
+
+@keyframes filmGrain {
+  0% { transform: translate(0, 0); }
+  12.5% { transform: translate(-37px, 23px); }
+  25% { transform: translate(51px, -61px); }
+  37.5% { transform: translate(-83px, -17px); }
+  50% { transform: translate(19px, 77px); }
+  62.5% { transform: translate(-11px, -97px); }
+  75% { transform: translate(89px, 41px); }
+  87.5% { transform: translate(-59px, 67px); }
+  100% { transform: translate(0, 0); }
+}
+
+.film-sky__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(130% 95% at 50% 45%, transparent 50%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+@keyframes filmFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- карточки ---------- */
+
+/* уголки видоискателя: восемь тонких штрихов по углам карточки */
+.profile--film :is(.profile-card, .profile-card--map, .profile-card--aside, .profile-path, .profile-radar) {
+  --film-corner: rgba(255, 255, 255, 0.42);
+  background:
+    linear-gradient(var(--film-corner), var(--film-corner)) left 8px top 8px / 14px 1.5px no-repeat,
+    linear-gradient(var(--film-corner), var(--film-corner)) left 8px top 8px / 1.5px 14px no-repeat,
+    linear-gradient(var(--film-corner), var(--film-corner)) right 8px top 8px / 14px 1.5px no-repeat,
+    linear-gradient(var(--film-corner), var(--film-corner)) right 8px top 8px / 1.5px 14px no-repeat,
+    linear-gradient(var(--film-corner), var(--film-corner)) left 8px bottom 8px / 14px 1.5px no-repeat,
+    linear-gradient(var(--film-corner), var(--film-corner)) left 8px bottom 8px / 1.5px 14px no-repeat,
+    linear-gradient(var(--film-corner), var(--film-corner)) right 8px bottom 8px / 14px 1.5px no-repeat,
+    linear-gradient(var(--film-corner), var(--film-corner)) right 8px bottom 8px / 1.5px 14px no-repeat,
+    var(--film-noise, none) 0 0 / 140px 140px,
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
+    var(--film-card);
+  border: 1px solid var(--film-line);
+  border-radius: 10px;
+  color: var(--film-4);
+  box-shadow: 0 28px 60px -32px #000;
+}
+
+
+.profile--film .profile-card--primary,
+.profile--film .profile-card--primary.profile-card--banner {
+  border-color: var(--film-line-hi);
+  text-shadow: none;
+}
+
+.profile--film .profile-card--banner::before,
+.profile--film .profile-card--banner::after { display: none; }
+
+/* вход: кадр проявляется — из пересвеченного белого пятна в чёткий снимок */
+.profile--film .card-entrance {
+  animation: filmDevelop 1.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.profile--film .profile-card--primary { animation-delay: 0.25s !important; }
+.profile--film .profile-card--map { animation-delay: 0.4s !important; }
+.profile--film .profile-card--aside { animation-delay: 0.5s !important; }
+.profile--film .profile-radar { animation-delay: 0.62s !important; }
+.profile--film .profile-path { animation-delay: 0.74s !important; }
+
+@keyframes filmDevelop {
+  0% { opacity: 0; transform: translateY(16px) scale(0.985); filter: brightness(2.6) contrast(0.45); }
+  45% { opacity: 1; filter: brightness(1.45) contrast(0.8); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+/* ---------- заголовки ---------- */
+
+.profile--film :is(.profile-map__title, .profile-aside__title, .profile-achievements__title) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--film-4);
+  letter-spacing: 0.01em;
+}
+
+/* перед заголовком — пиксельная звёздочка, мерцает ступенями */
+.profile--film :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before {
+  content: '';
+  flex: none;
+  width: 12px;
+  height: 12px;
+  background: var(--film-4);
+  clip-path: polygon(33.3% 0, 66.6% 0, 66.6% 33.3%, 100% 33.3%, 100% 66.6%, 66.6% 66.6%, 66.6% 100%, 33.3% 100%, 33.3% 66.6%, 0 66.6%, 0 33.3%, 33.3% 33.3%);
+  animation: filmTwinkle 2.8s steps(1, end) infinite;
+}
+
+.profile--film .profile-aside__title::before { animation-delay: -0.9s; }
+.profile--film .profile-achievements__title::before { animation-delay: -1.8s; }
+
+@keyframes filmTwinkle {
+  0% { background: var(--film-4); transform: scale(1); }
+  30% { background: var(--film-3); transform: scale(0.67); }
+  55% { background: var(--film-2); transform: scale(0.34); }
+  75% { background: var(--film-3); transform: scale(0.67); }
+}
+
+/* ---------- главная карточка: белые плашки, как в макете ---------- */
+
+.profile--film .profile-card__nickname {
+  background: var(--film-4);
+  color: var(--film-0);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #fff, 0 0 26px -8px rgba(255, 255, 255, 0.55);
+}
+
+.profile--film .profile-card__fio {
+  background: var(--film-4);
+  color: var(--film-0);
+  border-radius: 8px;
+}
+
+.profile--film .profile-row__label { color: var(--film-4); }
+
+.profile--film :is(.profile-row__chip--dark, .profile-row__chip--light) {
+  background: var(--film-4);
+  color: var(--film-0);
+  border-radius: 8px;
+  border: 0;
+}
+
+/* аватар в пиксельной рамке (FilmFrame): контур, свечение и звёзды
+   рисуются на холсте вокруг фото, поэтому обрезку оставляем снимку */
+.profile--film .profile-card__avatar {
+  z-index: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: #111;
+  color: var(--film-4);
+}
+
+/* углы фото срезаны на одну клетку — продолжают ступеньку контура */
+.profile--film :is(.profile-card__avatar-face, .profile-card__avatar-face .avatar__clip) {
+  --p: var(--film-px, 3px);
+  border-radius: 0;
+  clip-path: polygon(var(--p) 0, calc(100% - var(--p)) 0, calc(100% - var(--p)) var(--p), 100% var(--p), 100% calc(100% - var(--p)), calc(100% - var(--p)) calc(100% - var(--p)), calc(100% - var(--p)) 100%, var(--p) 100%, var(--p) calc(100% - var(--p)), 0 calc(100% - var(--p)), 0 var(--p), var(--p) var(--p));
+}
+
+.profile--film .profile-card__avatar-face { filter: grayscale(1) contrast(1.05); }
+
+/* свечение рамки уходит под плашки ника и строки профиля; вокруг фото
+   больше воздуха, чтобы звёздной пыли было где мерцать */
+.profile--film :is(.profile-card__names, .profile-card__rows) { position: relative; z-index: 1; }
+.profile--film .profile-card__header { gap: 30px; padding: 8px 0 8px 8px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--film .profile-card__avatar:hover { box-shadow: none; }
+}
+
+/* подсказка «Сменить» проявляется, а не выезжает из-под фото */
+.profile--film .profile-card__avatar-edit {
+  z-index: 3;
+  transform: none;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile--film .profile-card__avatar--editable:focus-visible .profile-card__avatar-edit { opacity: 1; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--film .profile-card__avatar--editable:hover .profile-card__avatar-edit { opacity: 1; }
+}
+
+@media (hover: none) {
+  .profile--film .profile-card__avatar-edit { opacity: 1; }
+}
+
+.film-frame {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+/* точка, крестик, большой крест и обратно — как вспышки на фоне */
+@keyframes filmSpark {
+  0%, 62%, 100% {
+    clip-path: polygon(40% 40%, 60% 40%, 60% 60%, 40% 60%);
+  }
+  68%, 92% {
+    clip-path: polygon(40% 20%, 60% 20%, 60% 40%, 80% 40%, 80% 60%, 60% 60%, 60% 80%, 40% 80%, 40% 60%, 20% 60%, 20% 40%, 40% 40%);
+  }
+  74%, 86% {
+    clip-path: polygon(40% 0, 60% 0, 60% 40%, 100% 40%, 100% 60%, 60% 60%, 60% 100%, 40% 100%, 40% 60%, 0 60%, 0 40%, 40% 40%);
+  }
+  80% {
+    clip-path: polygon(30% 0, 70% 0, 70% 30%, 100% 30%, 100% 70%, 70% 70%, 70% 100%, 30% 100%, 30% 70%, 0 70%, 0 30%, 30% 30%);
+  }
+}
+
+/* ---------- боковая карточка ---------- */
+
+.profile--film .profile-aside__divider { border-top: 1px dashed var(--film-line-hi); }
+
+.profile--film .profile-aside__pill {
+  background: transparent;
+  color: var(--film-3);
+  border: 1px solid var(--film-line-hi);
+  border-radius: 8px;
+}
+
+.profile--film .profile-aside__pill strong { color: var(--film-4); font-family: var(--film-mono); }
+
+.profile--film :is(.profile-aside__btn, .profile-aside__mentor-btn) {
+  background: var(--film-4);
+  color: var(--film-0);
+  border: 1px solid var(--film-4);
+  border-radius: 8px;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  transition: box-shadow 0.35s var(--film-ease), transform 0.2s var(--film-ease), background-color 0.25s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--film :is(.profile-aside__btn, .profile-aside__mentor-btn):hover:not(:disabled) {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1), 0 0 26px rgba(255, 255, 255, 0.28);
+  }
+}
+
+.profile--film .profile-aside__mentor-btn:disabled {
+  background: transparent;
+  color: var(--film-2);
+  border-color: var(--film-line);
+}
+
+.profile--film .profile-aside__mentee {
+  background: transparent;
+  color: var(--film-4);
+  border: 1px solid var(--film-line-hi);
+  border-radius: 8px;
+}
+
+.profile--film :is(.profile-social__empty, .profile-social__label, .profile-social__status) { color: var(--film-3); }
+.profile--film .profile-social__hint { color: var(--film-2); }
+
+.profile--film .profile-social__action {
+  background: var(--film-4);
+  border-color: var(--film-4);
+  color: var(--film-0);
+}
+
+.profile--film .profile-social__action--light {
+  background: transparent;
+  border-color: var(--film-line-hi);
+  color: var(--film-4);
+}
+
+/* ---------- карта пути: созвездие из пиксельных звёзд ----------
+   Пройденные точки — яркие кресты, текущая — звезда, которая раз за разом
+   раскрывается, впереди — тусклые точки. Линии — пунктир из пикселей. */
+
+.profile--film .profile-map__line { height: 2px; border-radius: 0; }
+
+.profile--film .profile-map__line--done {
+  background: repeating-linear-gradient(90deg, var(--film-4) 0 4px, transparent 4px 8px);
+  animation: filmMarch 1.4s steps(4, end) infinite;
+}
+
+@keyframes filmMarch {
+  from { background-position: 0 0; }
+  to { background-position: 8px 0; }
+}
+
+.profile--film .profile-map__line--idle {
+  background: repeating-linear-gradient(90deg, var(--film-1) 0 2px, transparent 2px 10px);
+}
+
+.profile--film .profile-map__turn { border-width: 2px; }
+.profile--film .profile-map__turn--done { border-color: var(--film-3); border-style: dashed; }
+.profile--film .profile-map__turn--idle { border-color: var(--film-1); border-style: dashed; }
+
+.profile--film .profile-map__node {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.profile--film .profile-map__node::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* пройдено: белый пиксельный крест */
+.profile--film .profile-map__node--done::after {
+  inset: 3px;
+  background: var(--film-4);
+  clip-path: polygon(33.3% 0, 66.6% 0, 66.6% 33.3%, 100% 33.3%, 100% 66.6%, 66.6% 66.6%, 66.6% 100%, 33.3% 100%, 33.3% 66.6%, 0 66.6%, 0 33.3%, 33.3% 33.3%);
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.55));
+}
+
+/* у каждой третьей пройденной — ромб из четырёх пикселей, как на референсе */
+.profile--film .profile-map__node--done:is(.profile-map__node--n1, .profile-map__node--n4, .profile-map__node--n7)::after {
+  clip-path: none;
+  background:
+    linear-gradient(var(--film-3), var(--film-3)) 50% 0 / 33.4% 33.4% no-repeat,
+    linear-gradient(var(--film-3), var(--film-3)) 0 50% / 33.4% 33.4% no-repeat,
+    linear-gradient(var(--film-3), var(--film-3)) 100% 50% / 33.4% 33.4% no-repeat,
+    linear-gradient(var(--film-3), var(--film-3)) 50% 100% / 33.4% 33.4% no-repeat;
+}
+
+/* текущая точка: звезда раскрывается и гаснет, вокруг мягкое свечение */
+.profile--film .profile-map__node--current { animation: none; }
+
+.profile--film .profile-map__node--current::before {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.28), transparent);
+  animation: filmHalo 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.profile--film .profile-map__node--current::after {
+  inset: -4px;
+  background: var(--film-4);
+  animation: filmSpark 3.2s steps(1, end) infinite;
+  animation-delay: -1.6s;
+}
+
+@keyframes filmHalo {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.profile--film :is(.profile-map__node--idle, .profile-map__node--pending)::after {
+  inset: 9px;
+  background: var(--film-2);
+  clip-path: polygon(33.3% 0, 66.6% 0, 66.6% 33.3%, 100% 33.3%, 100% 66.6%, 66.6% 66.6%, 66.6% 100%, 33.3% 100%, 33.3% 66.6%, 0 66.6%, 0 33.3%, 33.3% 33.3%);
+}
+
+.profile--film .profile-map__node--pending {
+  outline: 1.5px dashed var(--film-1);
+  outline-offset: -4px;
+}
+
+.profile--film .profile-map__hint { color: var(--film-2); }
+.profile--film .profile-map__labels--top { color: var(--film-4); }
+.profile--film .profile-map__labels--bottom { color: var(--film-2); }
+
+/* ---------- пятиугольник ---------- */
+
+.profile--film .radar-hud__aura-shape {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.38), rgba(192, 192, 192, 0.16) 55%, rgba(128, 128, 128, 0.06));
+}
+
+.profile--film .profile-radar__axis { color: var(--film-4); }
+.profile--film .profile-radar__axis-icon { background-image: linear-gradient(#fff, #fff); }
+.profile--film .profile-radar__axis-icon::before,
+.profile--film .profile-radar__axis-icon::after { background: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--film .profile-radar__axis:hover { background: rgba(255, 255, 255, 0.08); }
+}
+
+.profile--film .profile-radar__axis--active {
+  background: #fff !important;
+  color: #000 !important;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.35);
+}
+
+.profile--film .profile-radar__axis--active .profile-radar__axis-icon { background-image: linear-gradient(#000, #000); }
+.profile--film .profile-radar__axis--active .profile-radar__axis-icon::before,
+.profile--film .profile-radar__axis--active .profile-radar__axis-icon::after { background: #000; }
+
+.profile--film .profile-radar__value {
+  font-family: var(--film-mono);
+  background: #fff;
+  color: #000;
+  border-radius: 6px;
+}
+
+.profile--film .profile-radar__value--inner {
+  background: #0a0a0a;
+  color: var(--film-4);
+  box-shadow: 0 0 0 1px var(--film-line-hi);
+}
+
+.profile--film .profile-radar__value--inner.profile-radar__value--focus { background: #fff; color: #000; }
+.profile--film .profile-radar__beam line { stroke: #fff; }
+
+.profile--film .axis-tip {
+  background: rgba(10, 10, 10, 0.94);
+  color: var(--film-4);
+  box-shadow: 0 0 0 1px var(--film-line-hi), 0 18px 40px -16px #000;
+}
+
+.profile--film :is(.axis-tip__num, .axis-tip__peak) { color: var(--film-2); font-family: var(--film-mono); }
+.profile--film .axis-tip__num b { color: #fff; }
+.profile--film .axis-tip__bar { background: rgba(255, 255, 255, 0.12); }
+.profile--film .axis-tip__bar i { background: linear-gradient(90deg, var(--film-2), #fff); }
+.profile--film .axis-tip__bar em { background: #fff; }
+
+.profile--film .skill-sum__fact { color: var(--film-2); font-family: var(--film-mono); }
+.profile--film .skill-sum__fact b { color: var(--film-4); }
+.profile--film .skill-sum__tag { background: transparent; color: var(--film-4); box-shadow: inset 0 0 0 1px var(--film-line-hi); }
+.profile--film .skill-sum__tag--best { background: #fff; color: #000; box-shadow: none; }
+.profile--film .skill-sum__name { color: var(--film-3); }
+.profile--film .skill-sum__value { color: #fff; font-family: var(--film-mono); }
+.profile--film .skill-sum__bar i { background: rgba(255, 255, 255, 0.1); }
+.profile--film .skill-sum__bar i.is-on { background: var(--film-3); }
+.profile--film .skill-sum__bar i.is-peak { background: transparent; box-shadow: inset 0 0 0 1.5px var(--film-2); }
+.profile--film .is-best .skill-sum__bar i.is-on { background: #fff; }
+.profile--film button.skill-sum__row:focus-visible { outline-color: #fff; }
+
+.profile--film .skill-history {
+  background: var(--film-noise, none) 0 0 / 140px 140px, #0a0a0a;
+  color: var(--film-4);
+  box-shadow: 0 0 0 1px var(--film-line-hi), 0 30px 60px -30px #000;
+}
+
+.profile--film .skill-history__close { background: rgba(255, 255, 255, 0.08); }
+.profile--film .skill-history__dot { fill: #fff; stroke: #0a0a0a; }
+.profile--film .skill-history__delta.is-up { background: #fff; color: #000; }
+
+/* ---------- достижения и нашивки ---------- */
+
+.profile--film :is(.ach__icon, .path-card__icon) {
+  background: #0d0d0d;
+  border: 1px solid var(--film-line-hi);
+  box-shadow: 0 16px 30px -16px #000;
+}
+
+.profile--film :is(.ach__icon, .path-card__icon) > * { filter: grayscale(1) contrast(1.15) brightness(1.08); }
+.profile--film :is(.ach__name, .path-card__name) { color: var(--film-4); }
+
+.profile--film :is(.ach__rarity, .path-card__chip) {
+  font-family: var(--film-mono);
+  background: transparent;
+  color: var(--film-3);
+  box-shadow: inset 0 0 0 1px var(--film-line-hi);
+}
+
+.profile--film .path-card__icon--locked {
+  background: transparent;
+  border: 1px dashed var(--film-1);
+  box-shadow: none;
+}
+
+.profile--film .path-card__icon--locked > * { opacity: 0.35; }
+.profile--film .path-card__locked { color: var(--film-2); }
+
+.profile--film .profile-path__tab { color: var(--film-2); }
+.profile--film .profile-path__tab--active { color: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--film .profile-path__tab:not(.profile-path__tab--active):hover { color: var(--film-3); }
+}
+
+.profile--film .profile-path__underline::after { background: var(--film-line); }
+.profile--film .profile-path__indicator { background: #fff; box-shadow: none; }
+.profile--film .loading-text { color: var(--film-2); }
+
+.profile--film .ach--glow :is(.ach__icon, .path-card__icon) {
+  border-color: #fff;
+  animation: filmGlow 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.profile--film .ach--glow :is(.ach__icon, .path-card__icon) .emblem { animation: none; }
+
+@keyframes filmGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 12px rgba(255, 255, 255, 0.18); }
+  50% { box-shadow: 0 0 0 1px #fff, 0 0 26px 4px rgba(255, 255, 255, 0.4); }
+}
+
+/* =========================
+   ОБОЛОЧКА НА ПРОФИЛЕ «ПЛЁНКА»
+   ========================= */
+
+body:has(.profile--film) {
+  --film-line: rgba(255, 255, 255, 0.12);
+  --film-line-hi: rgba(255, 255, 255, 0.3);
+  --film-mono: 'JetBrains Mono', ui-monospace, monospace;
+  background-color: #000;
+}
+
+body:has(.profile--film) .atmo { display: none; }
+
+body:has(.profile--film) :is(.top-header, .right-sidebar, .bottom-nav) {
+  background: var(--film-noise, none) 0 0 / 140px 140px, rgba(8, 8, 8, 0.9) !important;
+  border: 1px solid var(--film-line);
+  box-shadow: 0 24px 50px -26px #000;
+}
+
+body:has(.profile--film) .top-header { position: relative; }
+body:has(.profile--film) :is(.top-header__title, .top-header__username) { color: #fff; }
+body:has(.profile--film) .top-header__divider { border-color: var(--film-line-hi); }
+body:has(.profile--film) .top-header__money { color: #fff; font-family: var(--film-mono); }
+body:has(.profile--film) .top-header__coin { background: radial-gradient(circle at 35% 30%, #fff, #c0c0c0 60%, #808080); }
+
+body:has(.profile--film) .header-user-menu {
+  background: #0c0c0c !important;
+  border: 1px solid var(--film-line-hi);
+  z-index: 120;
+  box-shadow: 0 24px 50px -16px #000;
+}
+
+body:has(.profile--film) .header-user-menu__item { color: #fff; }
+body:has(.profile--film) .header-user-menu__item svg [fill]:not([fill='none']) { fill: #fff; }
+body:has(.profile--film) .header-user-menu__item svg [stroke] { stroke: #fff; }
+body:has(.profile--film) .header-user-menu__divider { background: var(--film-line); border-color: var(--film-line); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .header-user-menu__item:hover { background: rgba(255, 255, 255, 0.08); }
+}
+
+body:has(.profile--film) .right-sidebar__item { color: #808080; }
+body:has(.profile--film) .right-sidebar__item svg :is([fill]:not([fill='none'])) { fill: #808080; transition: fill 0.3s ease, stroke 0.3s ease; }
+body:has(.profile--film) .right-sidebar__item svg [stroke] { stroke: #808080; }
+body:has(.profile--film) .right-sidebar__item--active {
+  color: #fff;
+  background: linear-gradient(270deg, transparent 0%, rgba(255, 255, 255, 0.12) 50%, transparent 100%) top center / 100% 52px no-repeat;
+}
+body:has(.profile--film) .right-sidebar__item--active svg :is([fill]:not([fill='none'])) { fill: #fff; }
+body:has(.profile--film) .right-sidebar__item--active svg [stroke] { stroke: #fff; }
+body:has(.profile--film) .right-sidebar__item--active span { color: #fff; }
+body:has(.profile--film) .right-sidebar__item--active .right-sidebar__icon { filter: none !important; }
+body:has(.profile--film) .right-sidebar__pulse { background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.08) 0%, transparent 70%) !important; }
+body:has(.profile--film) .right-sidebar__marker { background: #fff !important; box-shadow: none !important; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .right-sidebar__item:hover { color: #c0c0c0; }
+  body:has(.profile--film) .right-sidebar__item:hover svg :is([fill]:not([fill='none'])) { fill: #c0c0c0; }
+  body:has(.profile--film) .right-sidebar__item:hover svg [stroke] { stroke: #c0c0c0; }
+}
+
+body:has(.profile--film) .bottom-nav { border-bottom: 0; }
+body:has(.profile--film) .bottom-nav__item svg :is([fill]:not([fill='none'])) { fill: #808080; }
+body:has(.profile--film) .bottom-nav__item svg [stroke] { stroke: #808080; }
+body:has(.profile--film) .bottom-nav__item--active svg :is([fill]:not([fill='none'])) { fill: #000; }
+body:has(.profile--film) .bottom-nav__item--active svg [stroke] { stroke: #000; }
+body:has(.profile--film) .bottom-nav__pill,
+body:has(.profile--film) .bottom-nav:not(.bottom-nav--measured) .bottom-nav__item--active { background: #fff; box-shadow: none; }
+
+body:has(.profile--film) .scroll-top { background: #fff; color: #000; border-color: #fff; box-shadow: none; }
+
+/* шторка нашивки */
+body:has(.profile--film) .bd-sheet__scrim { background: rgba(0, 0, 0, 0.8); }
+
+body:has(.profile--film) .bd-sheet__panel {
+  background: #0a0a0a;
+  border: 1px solid var(--film-line-hi);
+  box-shadow: 0 40px 80px -30px #000;
+}
+
+body:has(.profile--film) .bd-sheet__stage {
+  background:
+    var(--film-noise, none) 0 0 / 140px 140px,
+    radial-gradient(60% 80% at 50% 55%, rgba(255, 255, 255, 0.1), transparent 70%),
+    #000;
+  border-bottom: 1px solid var(--film-line);
+}
+
+body:has(.profile--film) .bd-sheet__halo,
+body:has(.profile--film) .bd-sheet__panel:is(.bd-sheet__panel--rare, .bd-sheet__panel--epic, .bd-sheet__panel--legendary) .bd-sheet__halo {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 65%);
+}
+
+body:has(.profile--film) .bd-sheet__emblem { filter: grayscale(1) contrast(1.15); }
+body:has(.profile--film) .bd-sheet__close { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .bd-sheet__close:hover { background: rgba(255, 255, 255, 0.2); }
+}
+
+body:has(.profile--film) .bd-sheet__title { color: #fff; }
+body:has(.profile--film) .bd-sheet__desc { color: #c0c0c0; }
+body:has(.profile--film) .bd-sheet__status { color: #fff; font-family: var(--film-mono); font-weight: 500; }
+body:has(.profile--film) .bd-sheet__status--locked { color: #808080; }
+
+body:has(.profile--film) .bd-sheet .bd-chip {
+  background: transparent;
+  color: #fff;
+  border-color: var(--film-line-hi);
+  box-shadow: inset 0 0 0 1px var(--film-line-hi);
+  font-family: var(--film-mono);
+}
+
+body:has(.profile--film) .bd-sheet .bd-chip:first-child { background: #fff; color: #000; box-shadow: none; }
+
+body:has(.profile--film) .bd-sheet__action {
+  background: #fff;
+  color: #000;
+  border: 1px solid #fff;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body:has(.profile--film) .bd-sheet__action--ghost { background: transparent; color: #fff; border-color: var(--film-line-hi); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .bd-sheet__action:hover:not(:disabled) { box-shadow: 0 0 24px rgba(255, 255, 255, 0.25); }
+}
+
+body:has(.profile--film) .bd-sheet .bd-coins { color: #fff; background: transparent; box-shadow: inset 0 0 0 1px var(--film-line-hi); font-family: var(--film-mono); }
+body:has(.profile--film) .bd-sheet .bd-coins i { background: radial-gradient(circle at 35% 30%, #fff, #c0c0c0 60%, #808080); }
+
+body:has(.profile--film) .bd-holders { border-top-color: var(--film-line); }
+body:has(.profile--film) .bd-holders__toggle { background: rgba(255, 255, 255, 0.06); color: #fff; }
+body:has(.profile--film) .bd-holders__toggle:disabled { color: #808080; }
+body:has(.profile--film) .bd-holders__face.avatar { box-shadow: 0 0 0 2px #0a0a0a; filter: grayscale(1); }
+body:has(.profile--film) .bd-holders__avatar.avatar { filter: grayscale(1); }
+body:has(.profile--film) .bd-holders__name { color: #fff; }
+body:has(.profile--film) :is(.bd-holders__squad, .bd-holders__when, .bd-holders__more) { color: #808080; font-family: var(--film-mono); }
+body:has(.profile--film) .bd-holders__first { background: #fff; color: #000; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .bd-holders__toggle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+  body:has(.profile--film) .bd-holders__link:hover { background: rgba(255, 255, 255, 0.07); }
+}
+
+/* окна профиля: настройка, наставник, дуэль */
+body:has(.profile--film) .modal-fixed { background: rgba(0, 0, 0, 0.78); -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+body:has(.profile--film) .modal-fixed__content {
+  position: relative;
+  background: var(--film-noise, none) 0 0 / 140px 140px, #0a0a0a;
+  border: 1px solid var(--film-line-hi);
+  box-shadow: 0 40px 80px -30px #000;
+  color: #fff;
+}
+
+body:has(.profile--film) .modal-fixed__content .popup__title { color: #fff; padding-right: 48px; }
+body:has(.profile--film) .modal-fixed__content .popup__label { color: #c0c0c0; }
+
+body:has(.profile--film) .modal-fixed__content .popup__input {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  border: 1px solid var(--film-line-hi);
+  caret-color: #fff;
+}
+
+body:has(.profile--film) .modal-fixed__content .popup__input::placeholder { color: #808080; }
+body:has(.profile--film) .modal-fixed__content .popup__input:focus { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1); }
+body:has(.profile--film) .modal-fixed__content .popup__input:focus-visible { outline: none; }
+body:has(.profile--film) .modal-fixed__content .popup__close { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .modal-fixed__content .popup__close:hover { background: rgba(255, 255, 255, 0.18); }
+}
+
+body:has(.profile--film) .modal-fixed__content .shop-modal__btn--primary { background: #fff; color: #000; border: 1px solid #fff; box-shadow: none; }
+body:has(.profile--film) .modal-fixed__content .shop-modal__btn--secondary { background: transparent; color: #fff; border: 1px solid var(--film-line-hi); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .modal-fixed__content .shop-modal__btn--primary:hover:not(:disabled) { background: #fff; box-shadow: 0 0 26px -4px rgba(255, 255, 255, 0.45); }
+  body:has(.profile--film) .modal-fixed__content .shop-modal__btn--secondary:hover { background: rgba(255, 255, 255, 0.1); }
+}
+
+body:has(.profile--film) .modal-fixed__content .shop-modal__btn:disabled { opacity: 0.45; }
+body:has(.profile--film) .modal-fixed__content :is(p, .profile-social__hint) { color: #808080; }
+
+body:has(.profile--film) .agent-picker__row { background: rgba(255, 255, 255, 0.04); border: 1px solid transparent; }
+body:has(.profile--film) .agent-picker__name { color: #fff; }
+body:has(.profile--film) :is(.agent-picker__meta, .agent-picker__hint) { color: #808080; }
+body:has(.profile--film) .agent-picker__avatar { filter: grayscale(1); }
+body:has(.profile--film) .agent-picker__row--picked { background: rgba(255, 255, 255, 0.1); border-color: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--film) .agent-picker__row:hover { background: rgba(255, 255, 255, 0.08); }
+  body:has(.profile--film) .agent-picker__row--disabled:hover { background: rgba(255, 255, 255, 0.04); }
+}
+
+/* скроллбар — квадратный пиксельный ползунок */
+html:has(.profile--film) {
+  scrollbar-color: #808080 #000;
+  scrollbar-width: thin;
+}
+
+html:has(.profile--film)::-webkit-scrollbar { width: 10px; background: #000; }
+html:has(.profile--film)::-webkit-scrollbar-thumb { border: 2px solid #000; border-radius: 0; background: #808080; }
+html:has(.profile--film)::-webkit-scrollbar-thumb:hover { background: #c0c0c0; }
+
+body:has(.profile--film) :is(.agent-picker, .bd-sheet__panel, .bd-holders__list, .profile-path__tabs-scroll, .modal-fixed__content) {
+  scrollbar-color: #404040 transparent;
+  scrollbar-width: thin;
+}
+
+body:has(.profile--film) ::selection { background: #fff; color: #000; }
+
+body:has(.profile--film) :is(.profile--film, .top-header, .right-sidebar, .bottom-nav, .bd-sheet, .modal-fixed) :focus-visible { outline-color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .film-sky,
+  .film-sky__leak,
+  .film-sky__grain,
+  .profile--film .card-entrance,
+  .profile--film .profile-map__line--done,
+  .profile--film .profile-map__node::before,
+  .profile--film .profile-map__node::after,
+  .profile--film .ach--glow :is(.ach__icon, .path-card__icon),
+  .profile--film :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before { animation: none; }
+}
