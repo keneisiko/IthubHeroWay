@@ -6,7 +6,7 @@
 export type PersonalTheme = 'film'
 
 const PERSONAL_THEMES: Record<string, PersonalTheme> = {
-  'haupadk26-866be4f': 'film',
+  'haupadk26-866ebe4f': 'film',
 }
 
 export function personalTheme(username?: string | null): PersonalTheme | null {
