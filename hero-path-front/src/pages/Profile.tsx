@@ -27,6 +27,7 @@ import RollNumber from '../components/RollNumber'
 import DialogClose from '../components/DialogClose'
 import { useModal } from '../useModal'
 import { notifyBalanceChanged } from '../lib/balance'
+import { prepareAvatar } from '../lib/prepareAvatar'
 
 
 const BADGE_TAB_CATEGORIES: Record<string, string | null> = {
@@ -331,23 +332,31 @@ export default function Profile() {
       .catch(() => addToast('Ошибка сохранения', 'error'))
   }
 
-  const handleAvatarUpload = () => {
+  // Фото с телефона перед отправкой ужимается до лёгкого JPEG (prepareAvatar):
+  // снимки с айфона весят мегабайты и бывают в HEIC, который сервер не читает.
+  const handleAvatarUpload = async () => {
     if (!avatarFile) return
-    const formData = new FormData()
-    formData.append('avatar', avatarFile)
     setAvatarUploading(true)
-    api.patch('/api/v1/profile/me/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-      .then(res => {
-        setProfile(prev => prev ? { ...prev, avatar: res.data.avatar } : null)
-        notifyBalanceChanged()
-        avatarModal.hide()
-        setAvatarFile(null)
-        addToast('Аватар обновлён!', 'success')
+    try {
+      const formData = new FormData()
+      formData.append('avatar', await prepareAvatar(avatarFile))
+      const res = await api.patch('/api/v1/profile/me/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       })
-      .catch(() => addToast('Ошибка загрузки аватара', 'error'))
-      .finally(() => setAvatarUploading(false))
+      setProfile(prev => prev ? { ...prev, avatar: res.data.avatar } : null)
+      notifyBalanceChanged()
+      avatarModal.hide()
+      setAvatarFile(null)
+      addToast('Аватар обновлён!', 'success')
+    } catch (err) {
+      const res = (err as { response?: { status?: number; data?: { avatar?: unknown } } }).response
+      const reason = Array.isArray(res?.data?.avatar) ? String(res.data.avatar[0]) : ''
+      if (res?.status === 413) addToast('Фото слишком большое — выберите другое', 'error')
+      else if (reason) addToast(`Не удалось загрузить фото: ${reason}`, 'error')
+      else addToast(apiErrorMessage(err, 'Ошибка загрузки аватара'), 'error')
+    } finally {
+      setAvatarUploading(false)
+    }
   }
 
   const rarityClass = (rarity: string) => {
@@ -1078,7 +1087,9 @@ export default function Profile() {
             <DialogClose onClose={avatarModal.hide} />
             <h3 className="popup__title">Сменить аватар</h3>
             <p className="popup__label">Загрузите изображение профиля</p>
-            <div className="avatar-upload-zone" onClick={() => document.getElementById('avatar-file-input')?.click()}>
+            {/* поле выбора файла само накрывает зону — второй клик из кода
+                на айфоне сбивал окно выбора фото */}
+            <div className="avatar-upload-zone">
               <span className="avatar-upload-text">
                 {avatarFile ? avatarFile.name : 'Перетащите фото сюда или нажмите для выбора'}
               </span>
