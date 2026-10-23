@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+Подтверждение полного обнуления студентов. Число студентов уходит в форму:
+если за время между открытием и отправкой оно изменилось, команда откажет.
+{% endcomment %}
+
+{% block title %}{{ title }} | {{ site_title|default:"Администрирование" }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="mb-3">{{ title }}</h3>
+    <p>
+      <b>У всех {{ students }} студентов будут удалены</b> рейтинг, монеты, журнал начислений,
+      прогресс квестов, самоотчёты, нашивки, покупки, характеристики, респекты, дуэли,
+      шефство и активация аккаунта.
+    </p>
+    <p class="text-muted">
+      Останутся: учётные записи, отряды, треки, позывные, каталоги нашивок, квестов и магазина,
+      расписание и настройки. Сотрудников обнуление не касается.
+      {% if keep %}Нашивки разработчика ({{ keep|join:", " }}) сохраняются.{% endif %}
+    </p>
+    <p class="text-danger"><b>Отменить нельзя.</b> Перед обнулением попросите разработчика снять дамп базы.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="students" value="{{ students }}">
+      <label for="confirm">Чтобы подтвердить, впишите <b>{{ confirm_word }}</b>:</label>
+      <input id="confirm" name="confirm" class="form-control mb-3" style="max-width:240px" autocomplete="off" required>
+      <button type="submit" onclick="var b=this; setTimeout(function(){ b.disabled = true }, 0)" class="btn btn-danger">Обнулить</button>
+      <a href="{{ cancel_url }}" class="btn btn-outline-secondary ml-2">Отмена</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

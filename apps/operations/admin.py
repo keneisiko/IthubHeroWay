@@ -3,21 +3,29 @@
 from __future__ import annotations
 
 import logging
+from io import StringIO
 
 from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
+from apps.accounts.models import Role, User
+from apps.badges.models import AvatarFrame, Badge
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_admin, is_superadmin
 from apps.operations.models import PlatformSettings
 from apps.operations.services.platform_settings import default_values, switch_accruals
 
 logger = logging.getLogger(__name__)
+
+# Слово, которое надо вписать руками: случайный клик не обнулит всех студентов.
+RESET_CONFIRM_WORD = "ОБНУЛИТЬ"
 
 
 @admin.register(PlatformSettings)
@@ -33,7 +41,7 @@ class PlatformSettingsAdmin(ManagedRoleAdminMixin):
         (
             "Начисления",
             {
-                "fields": ("accruals_panel",),
+                "fields": ("accruals_panel", "reset_panel"),
                 "description": (
                     "До запуска платформа заморожена: рейтинг, монеты, квесты, нашивки, "
                     "дуэли и респекты ничего не начисляют."
@@ -79,7 +87,7 @@ class PlatformSettingsAdmin(ManagedRoleAdminMixin):
         ),
         ("Служебное", {"fields": ("updated_at",)}),
     )
-    readonly_fields = ("accruals_panel", "polozhenie_reference", "updated_at")
+    readonly_fields = ("accruals_panel", "reset_panel", "polozhenie_reference", "updated_at")
 
     # --- выключатель начислений ----------------------------------------------
 
@@ -89,7 +97,12 @@ class PlatformSettingsAdmin(ManagedRoleAdminMixin):
                 "accruals/",
                 self.admin_site.admin_view(self.accruals_view),
                 name="operations_platformsettings_accruals",
-            )
+            ),
+            path(
+                "reset/",
+                self.admin_site.admin_view(self.reset_view),
+                name="operations_platformsettings_reset",
+            ),
         ]
         return custom + super().get_urls()
 
@@ -174,6 +187,79 @@ class PlatformSettingsAdmin(ManagedRoleAdminMixin):
             "cancel_url": change_url,
         }
         return TemplateResponse(request, "admin/operations/accruals_switch.html", context)
+
+    # --- обнуление студентов ------------------------------------------------
+
+    @admin.display(description="Обнуление")
+    def reset_panel(self, obj):
+        """Кнопка видна всем, но работает только у суперадмина и при выключенных начислениях."""
+        if obj.accruals_enabled:
+            return "Обнулить данные студентов можно только при выключенных начислениях."
+        url = reverse("admin:operations_platformsettings_reset")
+        return format_html(
+            '<a class="btn btn-outline-danger" href="{}">Обнулить данные студентов</a>', url
+        )
+
+    def reset_view(self, request):
+        """Тот же reset_all_progress, что и с сервера, но кнопкой.
+
+        Только суперадмин, только при выключенных начислениях и только после
+        ввода слова-подтверждения. Нашивки с рамкой разработчика сохраняются.
+        """
+        if not is_superadmin(request.user):
+            raise PermissionDenied
+        obj = self._get_or_create()
+        change_url = reverse(
+            f"admin:{obj._meta.app_label}_{obj._meta.model_name}_change", args=[obj.pk]
+        )
+        if obj.accruals_enabled:
+            self.message_user(
+                request, "Сначала остановите начисления.", level=messages.ERROR
+            )
+            return HttpResponseRedirect(change_url)
+
+        students = User.objects.filter(role=Role.AGENT).count()
+        keep = list(
+            Badge.objects.filter(avatar_frame=AvatarFrame.DEVELOPER).values_list("code", flat=True)
+        )
+        if request.method == "POST":
+            if request.POST.get("confirm", "").strip().upper() != RESET_CONFIRM_WORD:
+                self.message_user(
+                    request,
+                    f"Не обнулено: нужно вписать слово {RESET_CONFIRM_WORD}.",
+                    level=messages.ERROR,
+                )
+                return HttpResponseRedirect(request.path)
+            out = StringIO()
+            try:
+                call_command(
+                    "reset_all_progress",
+                    apply=True,
+                    confirm="RESET",
+                    expect_students=int(request.POST.get("students", -1)),
+                    keep_badge=keep,
+                    stdout=out,
+                )
+            except (CommandError, ValueError) as exc:
+                self.message_user(request, f"Не обнулено: {exc}", level=messages.ERROR)
+                return HttpResponseRedirect(change_url)
+            logger.warning("Обнуление студентов из админки: %s\n%s",request.user, out.getvalue())
+            self.log_change(request, obj, f"Обнулены данные студентов ({students})")
+            self.message_user(
+                request, f"Данные {students} студентов обнулены.", level=messages.SUCCESS
+            )
+            return HttpResponseRedirect(change_url)
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Обнулить данные студентов",
+            "opts": obj._meta,
+            "students": students,
+            "keep": keep,
+            "confirm_word": RESET_CONFIRM_WORD,
+            "cancel_url": change_url,
+        }
+        return TemplateResponse(request, "admin/operations/reset_students.html", context)
 
     @staticmethod
     def _spawn_period_quests() -> None:
