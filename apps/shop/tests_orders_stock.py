@@ -73,6 +73,8 @@ class StockTests(APITestCase):
             shop_pickup_info="Каб. 101, пн–пт 14:00"
         )
         invalidate()
+        # Настройки кешируются: без сброса после теста их видят соседние тесты.
+        self.addCleanup(invalidate)
         merch()
         self.assertEqual(self.buy("merch-cap").json()["pickup_info"], "Каб. 101, пн–пт 14:00")
 

@@ -549,6 +549,15 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.quests.tasks.verify_auto_quests",
         "schedule": crontab(hour=6, minute=15),
     },
+    # Вчерашние квесты — после того как пришли данные: проходы Hik за день D
+    # приходят в 21:00–22:30 дня D+1, отметки пар LXP — в 02:30. Вечерняя и
+    # утренняя проверки смотрят только на сегодня, и без этой задачи
+    # «Утренний чек-ин», «День без опозданий» и «Все пары сегодня» не
+    # засчитывались никогда.
+    "verify-auto-quests-previous-day": {
+        "task": "apps.quests.tasks.verify_previous_day_quests",
+        "schedule": crontab(hour=23, minute=0),
+    },
     "check_strikes_daily": {
         "task": "apps.progress.tasks.apply_strike_bonuses_daily",
         "schedule": crontab(hour=23, minute=30),

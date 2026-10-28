@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from celery import shared_task
 from django.core.management import call_command
@@ -44,3 +44,13 @@ def verify_auto_quests(target_date_iso: str | None = None) -> dict:
     daily = verify_all_auto_quests(target, quest_types=[QuestType.DAILY])
     weekly = verify_all_auto_quests(target, quest_types=[QuestType.WEEKLY])
     return {"daily": daily, "weekly": weekly}
+
+
+@shared_task
+def verify_previous_day_quests() -> dict:
+    """Перепроверить вчерашние ежедневные и недельные квесты (23:00).
+
+    Данные за день приходят на следующий: Hik — вечером, LXP — ночью.
+    Недельные тоже: воскресенье иначе не попадало ни в одну проверку своей недели.
+    """
+    return verify_auto_quests((timezone.localdate() - timedelta(days=1)).isoformat())

@@ -44,6 +44,8 @@ class ReportFromCardTests(APITestCase):
     def test_daily_self_report_limit_applies(self):
         PlatformSettings.objects.filter(pk=PlatformSettings.SINGLETON_PK).update(max_daily_self_reports=1)
         invalidate()
+        # Настройки кешируются: без сброса после теста их видят соседние тесты.
+        self.addCleanup(invalidate)
         other = Quest.objects.create(code="self-report-lab", title="Лаба", quest_type=QuestType.SELF_REPORT)
         self.assertEqual(self.send(self.quest).status_code, 201)
         self.assertEqual(self.send(other).status_code, 429)
