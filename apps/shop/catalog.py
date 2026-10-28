@@ -17,6 +17,10 @@
 предела. Прежние «Буст опыта» и «Двойные монеты» продавались за 120 и 150 монет
 и не делали ничего — они сняты с продажи (RETIRED_ITEM_CODES), а не возвращены.
 
+Услуги и мерч с ценами — по документу «Магазин и мерч IThub» (октябрь 2026):
+активный студент копит около 80 монет в неделю, мелочь выкупается за
+неделю-две, футболка — за полтора месяца, худи — за семестр.
+
 Косметика разложена по слотам (ShopItem.slot): рамка, свечение и баннер
 профиля надеваются независимо друг от друга.
 """
@@ -61,21 +65,77 @@ SHOP_ITEMS: tuple[dict, ...] = (
         "title": "Разбор резюме",
         "description": "Разбор резюме с наставником колледжа.",
         "item_type": ShopItemType.SERVICE,
-        "price_coins": 60,
+        "price_coins": 75,
     },
     {
         "code": "service-mentor",
-        "title": "Сессия с ментором",
-        "description": "Полчаса с наставником по теме на выбор.",
+        "title": "Консультация преподавателя",
+        "description": "Дополнительные 30 минут с преподавателем по теме на выбор.",
         "item_type": ShopItemType.SERVICE,
-        "price_coins": 80,
+        "price_coins": 100,
+    },
+    {
+        "code": "service-lunch",
+        "title": "Бесплатный обед",
+        "description": "Обед в столовой колледжа на 300 ₽.",
+        "item_type": ShopItemType.SERVICE,
+        "price_coins": 400,
     },
     {
         "code": "merch-sticker",
         "title": "Стикерпак IThub",
-        "description": "Набор наклеек колледжа. Выдаётся в учебной части.",
+        "description": "Набор стикеров с символикой колледжа. Выдаётся в учебной части.",
         "item_type": ShopItemType.OTHER,
-        "price_coins": 120,
+        "price_coins": 80,
+    },
+    {
+        "code": "merch-laptop-stickers",
+        "title": "Наклейки на ноутбук",
+        "description": "Пак из 5–6 наклеек. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 60,
+    },
+    {
+        "code": "merch-notebook",
+        "title": "Блокнот A5",
+        "description": "Блокнот с символикой IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 150,
+    },
+    {
+        "code": "merch-mousepad",
+        "title": "Коврик для мыши",
+        "description": "Коврик с символикой IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 150,
+    },
+    {
+        "code": "merch-pin",
+        "title": "Эмалевый значок",
+        "description": "Металлический значок IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 150,
+    },
+    {
+        "code": "merch-shopper",
+        "title": "Шоппер",
+        "description": "Сумка-шоппер IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 250,
+    },
+    {
+        "code": "merch-cap",
+        "title": "Кепка",
+        "description": "Кепка с логотипом IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 250,
+    },
+    {
+        "code": "merch-socks",
+        "title": "Носки",
+        "description": "Носки с символикой IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 250,
     },
     {
         "code": "merch-mug",
@@ -83,6 +143,41 @@ SHOP_ITEMS: tuple[dict, ...] = (
         "description": "Кружка с символикой. Выдаётся в учебной части.",
         "item_type": ShopItemType.OTHER,
         "price_coins": 250,
+    },
+    {
+        "code": "merch-powerbank",
+        "title": "Power Bank",
+        "description": "Внешний аккумулятор с логотипом IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 350,
+    },
+    {
+        "code": "merch-bottle",
+        "title": "Бутылка или термокружка",
+        "description": "Бутылка или термокружка IThub на выбор. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 350,
+    },
+    {
+        "code": "merch-tshirt",
+        "title": "Футболка",
+        "description": "Футболка IThub. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 500,
+    },
+    {
+        "code": "merch-hoodie",
+        "title": "Худи (лимитка с номером)",
+        "description": "Худи ограниченного тиража с личным номером. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 1000,
+    },
+    {
+        "code": "merch-gaming-set",
+        "title": "Игровая мышь и клавиатура",
+        "description": "Игровой комплект: мышь и клавиатура. Выдаётся в учебной части.",
+        "item_type": ShopItemType.OTHER,
+        "price_coins": 2000,
     },
     {
         "code": "cosmetic-frame-gold",
