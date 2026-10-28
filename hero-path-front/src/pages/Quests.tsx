@@ -486,18 +486,22 @@ export default function Quests() {
               <p className="popup__label">Квест: <b>{confirmQuestTitle}</b></p>
             ) : (
               <>
-                <label className="popup__label" htmlFor="report-quest">По какому квесту</label>
-                <select
-                  id="report-quest"
-                  className="popup__input"
-                  value={confirmQuestCode ?? ''}
-                  onChange={(e) => setConfirmQuestCode(e.target.value || null)}
-                >
-                  <option value="">Выберите квест</option>
+                <p className="popup__label" id="report-quest">По какому квесту</p>
+                <div className="report-quests" role="radiogroup" aria-labelledby="report-quest">
                   {reportableQuests.map((q) => (
-                    <option key={q.code} value={q.code}>{q.title}</option>
+                    <button
+                      key={q.code}
+                      type="button"
+                      role="radio"
+                      aria-checked={confirmQuestCode === q.code}
+                      className={`report-quests__item btn-press${confirmQuestCode === q.code ? ' report-quests__item--on' : ''}`}
+                      onClick={() => setConfirmQuestCode(q.code)}
+                    >
+                      <span className="report-quests__title">{q.title}</span>
+                      <span className="report-quests__meta">{q.kind} · {q.reward}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </>
             )}
             <label className="popup__label" htmlFor="report-comment">Что сделали</label>

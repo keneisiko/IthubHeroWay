@@ -17,6 +17,19 @@ def is_auto_verified(quest: Quest) -> bool:
     return bool(verifier and verifier != QuestVerifierKind.MANUAL)
 
 
+def is_report_allowed(quest: Quest) -> bool:
+    """Можно ли отправить по квесту отчёт куратору (POST /complete/).
+
+    Самоотчёты — это и есть отчёт куратору; раньше они отсюда исключались,
+    и в окне «Самоотчёт» не было ни одного квеста-самоотчёта.
+    """
+    if is_auto_verified(quest):
+        return False
+    if quest.quest_type in {QuestType.SELF_REPORT, QuestType.MIXED}:
+        return True
+    return is_manual_complete_allowed(quest)
+
+
 def is_manual_complete_allowed(quest: Quest) -> bool:
     """POST /complete/ — только для legacy-ручных квестов без автопроверки."""
     if is_auto_verified(quest):

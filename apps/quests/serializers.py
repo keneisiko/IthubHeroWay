@@ -31,9 +31,10 @@ class QuestSerializer(serializers.ModelSerializer):
         return is_auto_verified(obj)
 
     def get_manual_complete_allowed(self, obj: Quest) -> bool:
-        from .services.quest_conditions import is_manual_complete_allowed
+        # Для интерфейса это «можно отправить отчёт куратору», включая самоотчёты.
+        from .services.quest_conditions import is_report_allowed
 
-        return is_manual_complete_allowed(obj)
+        return is_report_allowed(obj)
 
 
 class UserQuestProgressSerializer(serializers.ModelSerializer):

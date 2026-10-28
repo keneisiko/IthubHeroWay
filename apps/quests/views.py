@@ -26,7 +26,7 @@ from .serializers import (
     UpdateQuestProgressSerializer,
     UserQuestProgressSerializer,
 )
-from .services.quest_conditions import is_manual_complete_allowed
+from .services.quest_conditions import is_manual_complete_allowed, is_report_allowed
 from .services.quest_periods import quests_for_date
 from .services.weekly_focus import FocusNotAllowed, current_period_key, get_focus, set_focus
 
@@ -116,7 +116,7 @@ class QuestCompleteView(views.APIView):
 
         now = timezone.now()
         quest = generics.get_object_or_404(Quest, code=code, is_active=True)
-        if not is_manual_complete_allowed(quest):
+        if not is_report_allowed(quest):
             return Response(
                 {
                     "detail": (
@@ -128,6 +128,16 @@ class QuestCompleteView(views.APIView):
             )
         if quest.end_at and quest.end_at < now:
             return Response({"detail": "Срок квеста уже истёк."}, status=status.HTTP_400_BAD_REQUEST)
+        if quest.quest_type in {QuestType.SELF_REPORT, QuestType.MIXED}:
+            max_daily = int(platform_setting("max_daily_self_reports"))
+            sent_today = SelfReportProof.objects.filter(
+                user=request.user, created_at__gte=local_day_start(now)
+            ).count()
+            if sent_today >= max_daily:
+                return Response(
+                    {"detail": f"Сегодня уже отправлено {max_daily} самоотчёта — это дневной предел."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
 
         payload = serializer.validated_data.get("proof_payload") or {}
         link = str(payload.get("link") or "").strip()
