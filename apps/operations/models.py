@@ -122,6 +122,13 @@ class PlatformSettings(models.Model):
         ),
     )
 
+    shop_pickup_info = models.TextField(
+        "Где и когда забрать заказ",
+        blank=True,
+        default="",
+        help_text="Кто выдаёт мерч и услуги, где и в какое время. Студент видит это в своих заказах.",
+    )
+
     updated_at = models.DateTimeField("Изменено", auto_now=True)
 
     class Meta:

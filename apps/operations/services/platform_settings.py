@@ -57,6 +57,7 @@ def default_values() -> dict[str, Any]:
         # заранее: сотни тестов проверяют начисления, а не выключатель.
         "accruals_enabled": bool(getattr(settings, "ACCRUALS_ENABLED_BY_DEFAULT", False)),
         "accruals_started_on": None,
+        "shop_pickup_info": "",
     }
 
 

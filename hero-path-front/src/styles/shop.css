@@ -354,3 +354,15 @@
   font-weight: 700;
   box-sizing: border-box;
 }
+
+/* Остаток товара: мелкая подпись под ценой */
+.shop-card__stock {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+/* Статусы заказа мерча и услуг */
+.shop-purchase__state--ordered { color: #b98900; }
+.shop-purchase__state--ready { color: #1a7f37; font-weight: 700; }
+.shop-purchase__state--issued { opacity: 0.6; }

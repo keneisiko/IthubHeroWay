@@ -10,7 +10,14 @@ from apps.operations.services.cache import invalidate_profile
 
 from .models import Purchase, ShopItem, ShopItemSlot
 from .serializers import PurchaseCreateSerializer, PurchaseSerializer, ShopItemSerializer
-from .services import PurchaseNotApplicable, PurchaseNotOwned, apply_purchase, unapply_purchase, unused_boosts
+from .services import (
+    PurchaseNotApplicable,
+    PurchaseNotOwned,
+    apply_purchase,
+    initial_status,
+    unapply_purchase,
+    unused_boosts,
+)
 
 
 class ShopItemListView(generics.ListAPIView):
@@ -32,7 +39,8 @@ class ShopItemListView(generics.ListAPIView):
         item_type = self.request.query_params.get("item_type")
         if item_type:
             queryset = queryset.filter(item_type=item_type)
-        return queryset.order_by("id")
+        # Закончившийся товар пропадает из магазина; пустой остаток — без ограничений.
+        return queryset.exclude(stock=0).order_by("id")
 
 
 class PurchaseCreateView(views.APIView):
@@ -55,6 +63,10 @@ class PurchaseCreateView(views.APIView):
 
         with transaction.atomic():
             user = User.objects.select_for_update().get(pk=request.user.pk)
+            # Блокировка товара: два студента не купят последнюю штуку одновременно.
+            item = ShopItem.objects.select_for_update().get(pk=item.pk)
+            if item.stock == 0:
+                return Response({"detail": "Товар закончился."}, status=status.HTTP_400_BAD_REQUEST)
             # Второй буст при неиспользованном первом не нужен: сработает только один.
             if item.slot == ShopItemSlot.BOOST and unused_boosts(user).exists():
                 return Response(
@@ -66,12 +78,17 @@ class PurchaseCreateView(views.APIView):
 
             user.coins_balance -= item.price_coins
             user.save(update_fields=["coins_balance"])
+            if item.stock is not None:
+                item.stock -= 1
+                item.save(update_fields=["stock"])
 
             purchase = Purchase.objects.create(
                 user=user,
                 item=item,
                 coins_spent=item.price_coins,
                 meta=serializer.validated_data.get("meta", {}),
+                status=initial_status(item),
+                status_changed_at=now,
             )
             invalidate_profile(user.username)
 

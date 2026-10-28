@@ -28,6 +28,17 @@ COSMETIC_SLOTS: tuple[str, ...] = (
 
 BOOST_QUEST_X2_CODE = "boost-quest-x2"
 
+# Услугу и мерч выдаёт сотрудник: у такой покупки есть путь
+# «оформлен → готов к выдаче → выдан». Косметика и буст срабатывают сами.
+FULFILLED_TYPES: tuple[str, ...] = (ShopItemType.SERVICE, ShopItemType.OTHER)
+
+
+class OrderStatus(models.TextChoices):
+    NONE = "", "—"
+    ORDERED = "ordered", "Оформлен"
+    READY = "ready", "Готов к выдаче"
+    ISSUED = "issued", "Выдан"
+
 
 class ShopItem(models.Model):
     code = models.CharField("Код", max_length=64, unique=True)
@@ -40,6 +51,12 @@ class ShopItem(models.Model):
     # молча снимало другое. Слот разводит их.
     slot = models.CharField("Слот", max_length=16, choices=ShopItemSlot.choices, blank=True)
     price_coins = models.PositiveIntegerField("Цена (монеты)")
+    stock = models.PositiveIntegerField(
+        "Остаток",
+        null=True,
+        blank=True,
+        help_text="Сколько штук осталось. Пусто — без ограничений; на нуле товар пропадает из магазина.",
+    )
     is_active = models.BooleanField("Активен", default=True)
     available_from = models.DateTimeField("Доступен с", null=True, blank=True)
     available_to = models.DateTimeField("Доступен до", null=True, blank=True)
@@ -87,6 +104,18 @@ class Purchase(models.Model):
         help_text="Для буста: когда он сработал на награде за квест.",
     )
     meta = models.JSONField("Метаданные", default=dict, blank=True)
+    status = models.CharField(
+        "Статус заказа", max_length=16, choices=OrderStatus.choices, default=OrderStatus.NONE, blank=True
+    )
+    status_changed_at = models.DateTimeField("Статус изменён", null=True, blank=True)
+    issued_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="Выдал",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="issued_purchases",
+    )
 
     class Meta:
         verbose_name = "Покупка"
@@ -94,6 +123,7 @@ class Purchase(models.Model):
         indexes = [
             models.Index(fields=["user", "-created_at"]),
             models.Index(fields=["user", "applied_at"]),
+            models.Index(fields=["status", "-created_at"]),
         ]
 
     def __str__(self) -> str:

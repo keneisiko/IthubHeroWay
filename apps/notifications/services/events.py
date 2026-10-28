@@ -118,3 +118,14 @@ def proof_reviewed(proof, *, approved: bool) -> int:
             "Можно приложить другую ссылку и отправить заново."
         )
     return _safe(notify_user, proof.user, text)
+
+
+def order_ready(purchase) -> int:
+    """Студенту: заказ из магазина можно забирать."""
+    from apps.operations.services.platform_settings import platform_setting
+
+    text = f"\U0001F381 «{purchase.item.title}» готов к выдаче."
+    where = platform_setting("shop_pickup_info")
+    if where:
+        text += f"\n{where}"
+    return _safe(notify_user, purchase.user, text)

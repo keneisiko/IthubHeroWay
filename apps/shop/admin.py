@@ -1,16 +1,18 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from apps.integrations.services.lxp_group_import import slug
+from apps.notifications.services.events import order_ready
 from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
 
-from .models import COSMETIC_SLOTS, Purchase, ShopItem, ShopItemSlot, ShopItemType
+from .models import COSMETIC_SLOTS, OrderStatus, Purchase, ShopItem, ShopItemSlot, ShopItemType
+from .services import advance_orders
 
 
 class ShopItemAdminForm(forms.ModelForm):
     class Meta:
         model = ShopItem
-        fields = ("title", "description", "item_type", "slot", "price_coins", "is_active", "available_from", "available_to", "code")
+        fields = ("title", "description", "item_type", "slot", "price_coins", "stock", "is_active", "available_from", "available_to", "code")
         help_texts = {
             "item_type": "Косметика применяется сама. «Услугу» и «Прочее» (мерч) выдаёт сотрудник: "
             "покупка появится в разделе «Покупки».",
@@ -43,7 +45,8 @@ class ShopItemAdminForm(forms.ModelForm):
 @admin.register(ShopItem)
 class ShopItemAdmin(ManagedRoleAdminMixin):
     form = ShopItemAdminForm
-    list_display = ("title", "item_type", "slot", "price_coins", "is_active")
+    list_display = ("title", "item_type", "slot", "price_coins", "stock", "is_active")
+    list_editable = ("stock",)
     list_filter = ("item_type", "slot", "is_active")
     search_fields = ("code", "title", "description")
 
@@ -53,8 +56,31 @@ class ShopItemAdmin(ManagedRoleAdminMixin):
 
 @admin.register(Purchase)
 class PurchaseAdmin(ManagedRoleAdminMixin):
-    list_display = ("user", "item", "coins_spent", "created_at")
-    list_filter = ("created_at", "item__item_type")
+    list_display = ("user", "item", "coins_spent", "status", "created_at", "issued_by")
+    list_filter = ("status", "created_at", "item__item_type")
+    readonly_fields = ("status", "status_changed_at", "issued_by")
+    actions = ("mark_ready", "mark_issued")
+
+    @admin.action(description="Готов к выдаче (студенту придёт уведомление)")
+    def mark_ready(self, request, queryset):
+        moved = advance_orders(queryset, OrderStatus.READY, request.user)
+        for purchase in moved:
+            order_ready(purchase)
+        self._report(request, moved, queryset.count())
+
+    @admin.action(description="Выдан")
+    def mark_issued(self, request, queryset):
+        moved = advance_orders(queryset, OrderStatus.ISSUED, request.user)
+        self._report(request, moved, queryset.count())
+
+    def _report(self, request, moved, selected: int) -> None:
+        self.message_user(request, f"Статус изменён у {len(moved)} из {selected}.", messages.SUCCESS)
+        if len(moved) < selected:
+            self.message_user(
+                request,
+                "Остальные пропущены: косметика без выдачи или заказ уже дальше по статусу.",
+                messages.WARNING,
+            )
     search_fields = ("user__callsign", "user__username", "item__code", "item__title")
     autocomplete_fields = ("user", "item",)
     list_select_related = ("user", "item",)

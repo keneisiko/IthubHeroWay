@@ -14,7 +14,14 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
-from apps.shop.models import BOOST_QUEST_X2_CODE, COSMETIC_SLOTS, Purchase, ShopItemSlot
+from apps.shop.models import (
+    BOOST_QUEST_X2_CODE,
+    COSMETIC_SLOTS,
+    FULFILLED_TYPES,
+    OrderStatus,
+    Purchase,
+    ShopItemSlot,
+)
 
 
 class PurchaseNotOwned(LookupError):
@@ -108,3 +115,35 @@ def active_boost(user) -> Purchase | None:
         .order_by("created_at", "id")
         .first()
     )
+
+
+# Заказ двигается только вперёд: «выдан» нельзя вернуть в «готов», иначе
+# сотрудник мог бы выдать одну вещь дважды.
+NEXT_STATUS: dict[str, tuple[str, ...]] = {
+    OrderStatus.ORDERED: (OrderStatus.READY, OrderStatus.ISSUED),
+    OrderStatus.READY: (OrderStatus.ISSUED,),
+    OrderStatus.ISSUED: (),
+}
+
+
+def initial_status(item) -> str:
+    return OrderStatus.ORDERED if item.item_type in FULFILLED_TYPES else OrderStatus.NONE
+
+
+@transaction.atomic
+def advance_orders(queryset, target: str, staff) -> list[Purchase]:
+    """Перевести заказы в статус target; возвращает те, что действительно сдвинулись."""
+    moved: list[Purchase] = []
+    now = timezone.now()
+    for purchase in queryset.select_for_update().select_related("item", "user"):
+        if target not in NEXT_STATUS.get(purchase.status, ()):
+            continue
+        purchase.status = target
+        purchase.status_changed_at = now
+        fields = ["status", "status_changed_at"]
+        if target == OrderStatus.ISSUED:
+            purchase.issued_by = staff
+            fields.append("issued_by")
+        purchase.save(update_fields=fields)
+        moved.append(purchase)
+    return moved

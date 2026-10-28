@@ -46,6 +46,8 @@ interface Product {
   desc: string
   slot: string
   itemType: string
+  /** Сколько штук осталось; null — без ограничений. */
+  stock: number | null
 }
 
 interface Purchase {
@@ -61,6 +63,11 @@ interface Purchase {
   slot: string
   /** Буст одноразовый: когда сработал, приходит дата. */
   consumed: boolean
+  /** Заказ мерча или услуги: ordered / ready / issued; '' — выдавать нечего. */
+  orderStatus: string
+  orderLabel: string
+  /** Где и когда забрать — пока заказ не выдан. */
+  pickup: string
 }
 
 interface HistoryItem {
@@ -121,17 +128,19 @@ function Modal({
 
 // Состояние покупки словами: косметика надевается, буст срабатывает сам.
 function purchaseStateLabel(p: Purchase): string {
+  if (p.orderStatus) return p.orderLabel
   if (p.slot === 'boost') return p.consumed ? 'Использован' : 'Сработает на следующем квесте'
   if (isCosmeticSlot(p.slot)) return p.isApplied ? 'Надета' : 'Куплена'
   return 'Куплена'
 }
 
 // ключ перезапускает анимацию статуса при смене состояния
-const purchaseStateKey = (p: Purchase) => `${p.slot}-${p.isApplied}-${p.consumed}`
+const purchaseStateKey = (p: Purchase) => `${p.slot}-${p.isApplied}-${p.consumed}-${p.orderStatus}`
 
 function purchaseHint(p: Purchase): string {
   if (p.slot === 'boost') return 'Одноразовый: сработает на ближайшем квесте и исчезнет'
   if (isCosmeticSlot(p.slot)) return SLOT_HINTS[p.slot as CosmeticSlot]
+  if (p.pickup) return `Где забрать: ${p.pickup}`
   return ''
 }
 
@@ -229,6 +238,7 @@ export default function Shop() {
         price_coins: number
         slot?: string
         item_type?: string
+        stock?: number | null
       }>(itemsRes.data)
 
       setProducts(items.map((item) => ({
@@ -239,6 +249,7 @@ export default function Shop() {
         desc: item.description || '',
         slot: slotOfItem(item.code, item.slot),
         itemType: item.item_type ?? itemType,
+        stock: item.stock ?? null,
       })))
 
       const purchaseRows = unwrapList<{
@@ -248,6 +259,9 @@ export default function Shop() {
         is_applied?: boolean
         slot?: string
         consumed_at?: string | null
+        status?: string
+        status_display?: string
+        pickup_info?: string
         item: { title: string; code?: string; item_type?: string; slot?: string }
       }>(purchasesRes.data)
 
@@ -262,6 +276,9 @@ export default function Shop() {
         isApplied: Boolean(p.is_applied),
         slot: slotOfItem(p.item?.code ?? '', p.slot ?? p.item?.slot),
         consumed: Boolean(p.consumed_at),
+        orderStatus: p.status ?? '',
+        orderLabel: p.status_display ?? '',
+        pickup: p.pickup_info ?? '',
       })))
 
       const rewardRows = unwrapList<{
@@ -347,7 +364,8 @@ export default function Shop() {
   const ownedByCode = useMemo(() => {
     const map = new Map<string, Purchase>()
     for (const p of purchases) {
-      if (!p.code || (p.slot === 'boost' && p.consumed)) continue
+      // Мерч и услуги можно заказывать снова: заказ — не вещь «в наличии».
+      if (!p.code || p.orderStatus || (p.slot === 'boost' && p.consumed)) continue
       if (!map.has(p.code) || p.isApplied) map.set(p.code, p)
     }
     return map
@@ -484,7 +502,7 @@ export default function Shop() {
                 </span>
                 <span className="shop-purchase__name">{p.title}</span>
                 {purchaseHint(p) && <span className="shop-purchase__hint">{purchaseHint(p)}</span>}
-                <span key={purchaseStateKey(p)} className="shop-purchase__state">
+                <span key={purchaseStateKey(p)} className={`shop-purchase__state${p.orderStatus ? ` shop-purchase__state--${p.orderStatus}` : ''}`}>
                   <i className="shop-purchase__tick" aria-hidden="true" />
                   {purchaseStateLabel(p)}
                 </span>
@@ -534,6 +552,9 @@ export default function Shop() {
                 <span className="shop-card__coin" aria-hidden="true" />
                 <span className="shop-card__price-value">{selectedDetail.price}</span>
               </div>
+            )}
+            {selectedDetail.stock !== null && (
+              <div className="shop-card__stock">Осталось {selectedDetail.stock} шт.</div>
             )}
             <div className="shop-detail__about">
               <h3 className="shop-detail__about-title">Описание</h3>
@@ -674,6 +695,7 @@ export default function Shop() {
                 <span className="shop-card__price-value">{item.price}</span>
               </div>
             )}
+            {item.stock !== null && <div className="shop-card__stock">Осталось {item.stock} шт.</div>}
             <div className="shop-card__actions">
               {owned ? renderOwned(owned, 'shop-card__buy') : (
               <button

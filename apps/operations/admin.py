@@ -49,6 +49,7 @@ class PlatformSettingsAdmin(ManagedRoleAdminMixin):
             },
         ),
         ("Монеты и квесты", {"fields": ("max_daily_coins", "max_daily_self_reports")}),
+        ("Магазин", {"fields": ("shop_pickup_info",)}),
         (
             "Отряды и соцмеханики",
             {

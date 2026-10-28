@@ -80,6 +80,29 @@ const GLYPHS: Record<ItemKind, string[]> = {
   ],
 }
 
+// Свой знак у каждой вещи мерча и услуги: на круглой наклейке мерча
+// иначе все 14 позиций выглядели бы одной и той же кружкой.
+const CODE_GLYPHS: Record<string, string[]> = {
+  'merch-sticker': ['###.###', '#o#.#o#', '###.###', '.......', '###.###', '#o#.#o#', '###.###'],
+  'merch-laptop-stickers': ['.......', '.#####.', '.#o.o#.', '.#.o.#.', '.#####.', '#######', '.......'],
+  'merch-notebook': ['.#.#.#.', '#######', '#.....#', '#.ooo.#', '#.....#', '#.ooo.#', '#######'],
+  'merch-mousepad': ['#######', '#..#..#', '#.###.#', '#.###.#', '#.###.#', '#.....#', '#######'],
+  'merch-pin': ['...#...', '..###..', '#######', '.##o##.', '..###..', '.##.##.', '##...##'],
+  'merch-shopper': ['..###..', '.#...#.', '#######', '#.....#', '#..o..#', '#.....#', '#######'],
+  'merch-cap': ['.......', '..###..', '.##o##.', '#######', '#######', '....###', '.......'],
+  'merch-socks': ['..###..', '..#o#..', '..###..', '..###..', '.####..', '#####..', '####...'],
+  'merch-powerbank': ['..###..', '.#####.', '.#ooo#.', '.#...#.', '.#ooo#.', '.#ooo#.', '.#####.'],
+  'merch-bottle': ['..###..', '..#.#..', '.#####.', '.#...#.', '.#ooo#.', '.#ooo#.', '.#####.'],
+  'merch-tshirt': ['##...##', '###.###', '#######', '.#####.', '.#o.o#.', '.#####.', '.#####.'],
+  'merch-hoodie': ['..###..', '.##o##.', '##...##', '#######', '#.ooo.#', '#.....#', '#######'],
+  'merch-gaming-set': ['.....#.', '....###', '....#o#', '....###', '#######', '#o#o#o#', '#######'],
+  'service-lunch': ['#.#.##.', '#.#.###', '###.###', '.#..###', '.#..##.', '.#..#..', '.#..#..'],
+  'service-cv': ['#####..', '#...##.', '#.o..##', '#.....#', '#.ooo.#', '#.....#', '#######'],
+  'service-mentor': ['.#####.', '#..#..#', '#..#..#', '#..##.#', '#.....#', '#.....#', '.#####.'],
+  'service-late-forgive': ['#######', '.#...#.', '..#o#..', '...#...', '..#.#..', '.#ooo#.', '#######'],
+  'service-deadline-extend': ['#.#.#.#', '#######', '#.....#', '#.oo..#', '#...o.#', '#..o..#', '#######'],
+}
+
 interface Palette {
   fill: string
   /** Два цвета и больше — диагональный градиент вместо плоской заливки. */
@@ -122,6 +145,25 @@ const CODE_PALETTE: Record<string, Partial<Palette>> = {
   'banner-pixels': { fill: '#ff00ee', ink: LIGHT_INK, accent: '#ffd900', stitch: STITCH_LIGHT },
   'banner-aurora': { fill: '#38dddd', gradient: ['#2bffb4', '#38dddd', '#9a33f4'], ink: DARK_INK, accent: LIGHT_INK, stitch: STITCH_DARK },
   'banner-gold': { fill: '#ffd900', ink: DARK_INK, accent: LIGHT_INK, stitch: STITCH_DARK },
+  'merch-sticker': { fill: '#ff00ee', ink: LIGHT_INK, accent: '#ffd900', stitch: STITCH_LIGHT },
+  'merch-laptop-stickers': { fill: '#38dddd', ink: DARK_INK, accent: '#ff00ee', stitch: STITCH_DARK },
+  'merch-notebook': { fill: '#ffd900', ink: DARK_INK, accent: '#9a33f4', stitch: STITCH_DARK },
+  'merch-mousepad': { fill: '#121212', ink: '#9a33f4', accent: LIGHT_INK, stitch: 'rgba(154, 51, 244, 0.7)' },
+  'merch-pin': { fill: '#9a33f4', ink: '#ffd900', accent: LIGHT_INK, stitch: STITCH_LIGHT },
+  'merch-shopper': { fill: '#f2e6d0', ink: DARK_INK, accent: '#9a33f4', stitch: STITCH_DARK },
+  'merch-cap': { fill: '#1d1b4b', ink: '#38dddd', accent: '#ffd900', stitch: 'rgba(56, 221, 221, 0.6)' },
+  'merch-socks': { fill: '#2bffb4', ink: DARK_INK, accent: '#ff00ee', stitch: STITCH_DARK },
+  'merch-mug': { fill: '#f5f5f5', ink: DARK_INK, accent: '#9a33f4', stitch: STITCH_DARK },
+  'merch-powerbank': { fill: '#0b1a1a', ink: '#2bffb4', accent: '#ffd900', stitch: 'rgba(43, 255, 180, 0.7)' },
+  'merch-bottle': { fill: '#38dddd', gradient: ['#2bffb4', '#38dddd'], ink: DARK_INK, accent: LIGHT_INK, stitch: STITCH_DARK },
+  'merch-tshirt': { fill: '#ff5a1f', ink: LIGHT_INK, accent: '#121212', stitch: STITCH_LIGHT },
+  'merch-hoodie': { fill: '#9a33f4', gradient: ['#ff00ee', '#9a33f4', '#1d1b4b'], ink: LIGHT_INK, accent: '#ffd900', stitch: STITCH_LIGHT },
+  'merch-gaming-set': { fill: '#121212', gradient: ['#121212', '#2b1550'], ink: '#ff00ee', accent: '#2bffb4', stitch: 'rgba(255, 0, 238, 0.7)' },
+  'service-lunch': { fill: '#ffd900', ink: DARK_INK, accent: LIGHT_INK, stitch: STITCH_DARK },
+  'service-cv': { fill: '#f5f5f5', ink: DARK_INK, accent: '#9a33f4', stitch: STITCH_DARK },
+  'service-mentor': { fill: '#9a33f4', ink: LIGHT_INK, accent: '#ffd900', stitch: STITCH_LIGHT },
+  'service-late-forgive': { fill: '#2bffb4', ink: DARK_INK, accent: LIGHT_INK, stitch: STITCH_DARK },
+  'service-deadline-extend': { fill: '#ff5a1f', ink: LIGHT_INK, accent: '#ffd900', stitch: STITCH_LIGHT },
 }
 
 // «×2» для буста: мелкий знак в правом нижнем углу
@@ -162,7 +204,7 @@ export default function ShopItemEmblem({ code, slot, itemType, size = 72, classN
   const kind = itemKind(code, slot, itemType)
   const palette = { ...KIND_PALETTE[kind], ...CODE_PALETTE[code] }
   const shape = SHAPES[kind]
-  const glyph = GLYPHS[kind]
+  const glyph = CODE_GLYPHS[code] ?? GLYPHS[kind]
   const gradId = `item-grad-${useId().replace(/:/g, '')}`
   const stops = palette.gradient ?? []
   const cell = 8
