@@ -13,7 +13,6 @@ import {
   mapRewardActivities,
   mapRecentRewardActivities,
   mergeActiveQuests,
-  pickSelfReportQuestCode,
   type UiQuest,
 } from '../lib/quests'
 import '../styles/quests.css'
@@ -38,7 +37,6 @@ export default function Quests() {
   const [completedQuests, setCompletedQuests] = useState<UiQuest[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
   const [recentActivity, setRecentActivity] = useState<Activity[]>([])
-  const [selfReportQuestCode, setSelfReportQuestCode] = useState<string | null>(null)
   // Цель недели хранится на сервере: раньше выбор жил только здесь,
   // сбрасывался при перезагрузке и ни на что не влиял.
   const [weeklyChoice, setWeeklyChoice] = useState<string | null>(null)
@@ -63,9 +61,8 @@ export default function Quests() {
   const [loadError, setLoadError] = useState(false)
   const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' }[]>([])
 
-  const { ref: reportModalRef, ...reportModal } = useModal()
   const { ref: confirmModalRef, ...confirmModal } = useModal()
-  const [reportText, setReportText] = useState('')
+  const [confirmComment, setConfirmComment] = useState('')
   const [confirmQuestCode, setConfirmQuestCode] = useState<string | null>(null)
   const [confirmQuestTitle, setConfirmQuestTitle] = useState('')
   const [confirmLink, setConfirmLink] = useState('')
@@ -95,7 +92,6 @@ export default function Quests() {
       setCompletedQuests(mapCompletedQuests(completedRes.data))
       setActivity(mapRewardActivities(historyRes.data))
       setRecentActivity(mapRecentRewardActivities(historyRes.data))
-      setSelfReportQuestCode(pickSelfReportQuestCode(activeRes.data))
       setStrike(dashRes.data?.strike ?? null)
       setWeeklyChoice(focusRes.data?.quest_code || null)
       setFocusBonus({
@@ -127,44 +123,37 @@ export default function Quests() {
     loadQuests()
   }
 
-  const handleReportSubmit = useCallback(() => {
-    if (!selfReportQuestCode) {
-      addToast('Нет квеста для самоотчёта', 'error')
-      return
-    }
-    const comment = reportText.trim()
-    if (comment.length < 10) {
-      addToast('Комментарий минимум 10 символов', 'error')
-      return
-    }
-    api.post(`/api/v1/quests/${selfReportQuestCode}/self-report/`, { comment })
-      .then(() => {
-        addToast('Самоотчёт отправлен!', 'success')
-        reportModal.hide()
-        setReportText('')
-        loadQuests({ quiet: true })
-      })
-      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить самоотчёт'), 'error'))
-  }, [reportText, selfReportQuestCode, loadQuests])
+  // Самоотчёт всегда привязан к квесту: его открывают с карточки квеста или
+  // выбирают квест в окне. Раньше кнопка «Самоотчёт» сама брала первый
+  // попавшийся квест-самоотчёт, и куратор получал отчёт не о том.
+  const reportableQuests = quests.filter((q) => q.confirm && q.reviewStatus !== 'pending')
 
   const handleConfirmSubmit = useCallback(() => {
-    if (!confirmQuestCode) return
-    const proof = confirmLink.trim()
-      ? { link: confirmLink.trim() }
-      : {}
-    api.post(`/api/v1/quests/${confirmQuestCode}/complete/`, { proof_payload: proof })
+    if (!confirmQuestCode) {
+      addToast('Выберите квест, по которому отчёт', 'error')
+      return
+    }
+    const link = confirmLink.trim()
+    const comment = confirmComment.trim()
+    if (!link && comment.length < 10) {
+      addToast('Приложите ссылку или опишите, что сделали (от 10 символов)', 'error')
+      return
+    }
+    api.post(`/api/v1/quests/${confirmQuestCode}/complete/`, { proof_payload: { link, comment } })
       .then(() => {
         addToast('Отправлено куратору на проверку', 'success')
         celebrate('small')
         confirmModal.hide()
         setConfirmQuestCode(null)
         setConfirmLink('')
+        setConfirmComment('')
         loadQuests({ quiet: true })
       })
-      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить подтверждение'), 'error'))
-  }, [confirmQuestCode, confirmLink, loadQuests])
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось отправить самоотчёт'), 'error'))
+  }, [confirmQuestCode, confirmLink, confirmComment, confirmModal, addToast, loadQuests])
 
-  const openConfirm = (code: string, title: string) => {
+  // code = null — окно открыто общей кнопкой «Самоотчёт», квест выбирают в нём
+  const openConfirm = (code: string | null, title: string) => {
     setConfirmQuestCode(code)
     setConfirmQuestTitle(title)
     confirmModal.show()
@@ -290,7 +279,12 @@ export default function Quests() {
               </h2>
               <div className={`q1__quests-slot-inner${showAllQuests ? ' q1__quests-slot-inner--all' : ''}`}>
                 {currentQuests.map((q, i) => (
-                  <article key={q.id} className={`q1__card hover-lift spot ${q.completed ? 'q1__card--completed' : ''}`} style={{ animationDelay: `${i * 80}ms` }}>
+                  <article
+                    key={q.id}
+                    className={`q1__card hover-lift spot ${q.completed ? 'q1__card--completed' : ''}${q.confirm && q.reviewStatus !== 'pending' ? ' q1__card--reportable' : ''}`}
+                    style={{ animationDelay: `${i * 80}ms` }}
+                    onClick={q.confirm && q.reviewStatus !== 'pending' ? () => openConfirm(q.code, q.title) : undefined}
+                  >
                     <div className="q1__card-body">
                       <div className="q1__card-top">
                         <span className="q1__card-kind">{q.kind}</span>
@@ -334,9 +328,9 @@ export default function Quests() {
                         <button
                           type="button"
                           className="q1__card-confirm btn-press"
-                          onClick={() => openConfirm(q.code, q.title)}
+                          onClick={(e) => { e.stopPropagation(); openConfirm(q.code, q.title) }}
                         >
-                          {q.reviewStatus === 'rejected' ? 'Отправить заново' : 'Подтвердить'}
+                          {q.reviewStatus === 'rejected' ? 'Отправить заново' : 'Отправить самоотчёт'}
                         </button>
                       )}
                       {q.reviewStatus === 'rejected' && (
@@ -415,7 +409,7 @@ export default function Quests() {
 
       <aside className="q1__right">
         <div className="q1__report">
-          <button type="button" className="q1__report-btn q1__report-btn--primary btn-press" onClick={reportModal.show} disabled={!selfReportQuestCode}>
+          <button type="button" className="q1__report-btn q1__report-btn--primary btn-press" onClick={() => openConfirm(null, '')} disabled={reportableQuests.length === 0}>
             Самоотчёт
           </button>
           <button
@@ -482,38 +476,45 @@ export default function Quests() {
         )}
       </aside>
 
-      {/* Модалка самоотчёта */}
-      {reportModal.open && (
-        <div className="modal-fixed">
-          <div className="modal-fixed__content popup--closable" ref={reportModalRef} role="dialog" aria-modal="true" aria-label="Самоотчёт" tabIndex={-1}>
-            <DialogClose onClose={reportModal.hide} />
-            <h3 className="popup__title">Самоотчёт</h3>
-            <label className="popup__label">Комментарий или ссылка на работу</label>
-            <textarea
-              value={reportText} onChange={e => setReportText(e.target.value)}
-              placeholder="Опишите выполненное задание (мин. 10 символов)"
-              className="popup__input"
-              rows={4}
-            />
-            <button type="button" className="popup__submit btn-press" onClick={handleReportSubmit}>
-              Отправить
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Модалка подтверждения квеста */}
+      {/* Самоотчёт по квесту: квест известен с карточки или выбирается здесь */}
       {confirmModal.open && (
         <div className="modal-fixed">
-          <div className="modal-fixed__content popup--closable" ref={confirmModalRef} role="dialog" aria-modal="true" aria-label={confirmQuestTitle || 'Подтверждение квеста'} tabIndex={-1}>
+          <div className="modal-fixed__content popup--closable" ref={confirmModalRef} role="dialog" aria-modal="true" aria-label="Самоотчёт" tabIndex={-1}>
             <DialogClose onClose={confirmModal.hide} />
-            <h3 className="popup__title">{confirmQuestTitle || 'Подтверждение квеста'}</h3>
-            <label className="popup__label">
-              Прикрепите ссылку на работу — её проверит куратор, награда придёт после одобрения
+            <h3 className="popup__title">Самоотчёт</h3>
+            {confirmQuestTitle ? (
+              <p className="popup__label">Квест: <b>{confirmQuestTitle}</b></p>
+            ) : (
+              <>
+                <label className="popup__label" htmlFor="report-quest">По какому квесту</label>
+                <select
+                  id="report-quest"
+                  className="popup__input"
+                  value={confirmQuestCode ?? ''}
+                  onChange={(e) => setConfirmQuestCode(e.target.value || null)}
+                >
+                  <option value="">Выберите квест</option>
+                  {reportableQuests.map((q) => (
+                    <option key={q.code} value={q.code}>{q.title}</option>
+                  ))}
+                </select>
+              </>
+            )}
+            <label className="popup__label" htmlFor="report-comment">Что сделали</label>
+            <textarea
+              id="report-comment"
+              value={confirmComment} onChange={e => setConfirmComment(e.target.value)}
+              placeholder="Коротко опишите выполненное"
+              className="popup__input"
+              rows={3}
+            />
+            <label className="popup__label" htmlFor="report-link">
+              Ссылка на работу — её проверит куратор, награда придёт после одобрения
             </label>
             <input
+              id="report-link"
               type="url" value={confirmLink} onChange={e => setConfirmLink(e.target.value)}
-              placeholder="Ссылка на доказательство"
+              placeholder="https://…"
               className="popup__input"
             />
             <button type="button" className="popup__submit btn-press" onClick={handleConfirmSubmit}>

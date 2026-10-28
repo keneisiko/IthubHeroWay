@@ -157,12 +157,6 @@ export function mapRecentRewardActivities(data: unknown, days = 30): UiRewardAct
     .map(mapRewardHistory)
 }
 
-export function pickSelfReportQuestCode(active: unknown): string | null {
-  const quests = unwrapList<ApiQuest>(active)
-  const candidate = quests.find((q) => q.quest_type === 'self_report' || q.quest_type === 'mixed')
-  return candidate?.code ?? quests[0]?.code ?? null
-}
-
 /** Активный квест каждого вида — для вкладок «Ежедневный» и «Еженедельный».
  *
  * Дашборд отдаёт один `current_quest`, поэтому вкладка «Еженедельный»

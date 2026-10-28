@@ -155,3 +155,6 @@
   .q1__option-pick--current,
   .q1__option-pick--busy { animation: none; }
 }
+
+/* Квест, по которому можно отправить самоотчёт: карточка кликабельна */
+.q1__card--reportable { cursor: pointer; }

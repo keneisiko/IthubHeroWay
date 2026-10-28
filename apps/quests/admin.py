@@ -384,9 +384,10 @@ class SelfReportProofAdmin(ManagedRoleAdminMixin):
     )
     list_filter = ("status", "created_at", "quest__quest_type")
     search_fields = ("user__username", "user__email", "comment", "attachment_link")
-    autocomplete_fields = ("quest", "user", "quest_progress", "reviewed_by",)
     list_select_related = ("user", "quest", "reviewed_by",)
-    readonly_fields = ("created_at", "reviewed_at", "reviewed_by", "proof_link")
+    # Заявку создаёт студент с карточки квеста: квест, студент и прогресс
+    # проставлены сами, куратору их не искать и не перепривязывать.
+    readonly_fields = ("quest", "user", "quest_progress", "created_at", "reviewed_at", "reviewed_by", "proof_link")
     actions = ("approve_proofs", "reject_proofs")
 
     @admin.display(description="Квест", ordering="quest__title")
