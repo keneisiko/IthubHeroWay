@@ -1237,3 +1237,17 @@
   .bd-holders__row,
   .bd-holders__chevron { transition: none; }
 }
+
+/* Ссылка к месту, где выполняется условие нашивки (бот Telegram) */
+.bd-sheet__link {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: #229ed9;
+  color: #fff;
+  font-family: var(--font-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+.bd-sheet__link:hover { background: #1b8bc0; }

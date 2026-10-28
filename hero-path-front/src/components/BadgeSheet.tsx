@@ -5,6 +5,11 @@ import { RARITY_LABELS, formatDateRu } from '../lib/apiData'
 import { CATEGORY_LABELS, ownersLabel, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
 import '../styles/badges.css'
 
+// Нашивки, условие которых выполняется где-то ещё: ведём туда сразу.
+const BADGE_LINKS: Record<string, { href: string; label: string }> = {
+  'telegram-linked': { href: 'https://t.me/ItHubHeroWaybot', label: 'Открыть бота в Telegram' },
+}
+
 interface SheetProps {
   stamp?: number
   badge: Badge | null
@@ -123,6 +128,16 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
           </div>
           <h2 id="bd-sheet-title" className="bd-sheet__title">{shown.title}</h2>
           <p className="bd-sheet__desc">{shown.description || 'Условие уточняется'}</p>
+          {BADGE_LINKS[shown.code] && !isEarned && (
+            <a
+              className="bd-sheet__link btn-press"
+              href={BADGE_LINKS[shown.code].href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {BADGE_LINKS[shown.code].label}
+            </a>
+          )}
           {ownersLabel(shown.owners_percent) && (
             <p className="bd-owners">{ownersLabel(shown.owners_percent)}</p>
           )}

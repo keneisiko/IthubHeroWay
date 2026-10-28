@@ -58,13 +58,20 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "verbose": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+        # Место в коде в каждой строке: по одному тексту ошибки не понять, откуда она.
+        "verbose": {
+            "format": "%(asctime)s %(levelname)s %(name)s %(module)s:%(lineno)d %(process)d %(message)s"
+        },
     },
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+        # Любая ошибка приложения — администратору в Telegram, с дедупликацией.
+        "telegram": {"class": "apps.integrations.logging_handlers.TelegramErrorHandler", "level": "ERROR"},
     },
     "root": {"handlers": ["console"], "level": os.getenv("LOG_LEVEL", "INFO")},
     "loggers": {
-        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "apps": {"handlers": ["telegram"], "level": os.getenv("LOG_LEVEL", "INFO"), "propagate": True},
+        # Необработанные 500 в API и админке.
+        "django.request": {"handlers": ["console", "telegram"], "level": "ERROR", "propagate": False},
     },
 }

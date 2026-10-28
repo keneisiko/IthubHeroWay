@@ -142,4 +142,11 @@ def verify_all_auto_quests(
                 logger.exception("quest_verify_failed quest=%s user=%s", quest.code, user.pk)
 
     logger.info("verify_all_auto_quests %s", stats)
+    if stats["errors"]:
+        # Отдельные сбои пойманы выше, задача целиком «успешна» — итог нужен,
+        # чтобы было видно масштаб, а не только первую ошибку.
+        logger.error(
+            "Проверка квестов за %s: ошибок %s из %s проверок",
+            stats["date"], stats["errors"], len(quests) * len(users),
+        )
     return stats

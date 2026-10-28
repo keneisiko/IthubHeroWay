@@ -24,7 +24,7 @@ BADGES: tuple[dict, ...] = (
     {
         "code": "telegram-linked",
         "title": "На связи",
-        "description": "Привяжи аккаунт к Telegram-боту — тогда платформа сможет писать тебе о квестах и наградах.",
+        "description": "Привяжи аккаунт к Telegram-боту @ItHubHeroWaybot (команда /activate) — тогда платформа сможет писать тебе о квестах и наградах.",
         "category": BadgeCategory.PROGRESS,
         "rarity": BadgeRarity.COMMON,
         "condition": {"telegram_linked": True},
