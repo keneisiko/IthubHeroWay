@@ -154,6 +154,7 @@ services:
       # их подключают server-блоки.
       - ./deploy/hero_path_locations.inc:/etc/nginx/conf.d/hero_path_locations.inc:ro
       - ./deploy/hero_path_proxy.inc:/etc/nginx/conf.d/hero_path_proxy.inc:ro
+      - ./deploy/hero_path_security_headers.inc:/etc/nginx/conf.d/hero_path_security_headers.inc:ro
       - static:/var/www/static:ro
       - media:/var/www/media:ro
       # Сертификаты: certbot certonly --webroot -w ./deploy/certbot

@@ -75,3 +75,10 @@ LOGGING = {
         "django.request": {"handlers": ["console", "telegram"], "level": "ERROR", "propagate": False},
     },
 }
+
+# На проде API отдаёт только JSON: HTML-страница Django REST framework
+# («Browsable API») показывала устройство API любому, кто откроет адрес в браузере.
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,  # noqa: F405
+    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
+}

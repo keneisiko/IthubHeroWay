@@ -10,6 +10,7 @@ location /static/ {
     # Файлы с хешем в имени (ManifestStaticFilesStorage) можно кешировать навсегда.
     expires 30d;
     add_header Cache-Control "public, immutable";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 }
 
 location /media/ {
@@ -47,6 +48,7 @@ location /assets/ {
     access_log off;
     expires 1y;
     add_header Cache-Control "public, immutable";
+    include /etc/nginx/conf.d/hero_path_security_headers.inc;
 }
 
 # Одностраничное приложение: любой неизвестный путь отдаём index.html, иначе
@@ -55,11 +57,13 @@ location /assets/ {
 location / {
     root /usr/share/nginx/html;
     try_files $uri $uri/ /index.html;
+    include /etc/nginx/conf.d/hero_path_security_headers.inc;
 
     # index.html кешировать нельзя: в нём адреса бандлов, и студенты
     # остались бы на старой сборке до очистки кеша вручную. Браузер обязан
     # спросить сервер, а ETag сделает ответ пустым, когда ничего не менялось.
     location = /index.html {
         add_header Cache-Control "no-cache";
+        include /etc/nginx/conf.d/hero_path_security_headers.inc;
     }
 }
