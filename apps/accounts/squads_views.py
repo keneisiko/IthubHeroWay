@@ -1,10 +1,12 @@
 from datetime import timedelta
+from decimal import Decimal
 from math import ceil
 
 from django.conf import settings
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Avg, Count, DecimalField, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
@@ -40,9 +42,16 @@ def _agents_in_squad_filter():
 
 
 def _squad_stats_queryset():
+    # Отряд без активированных студентов — рейтинг 0, а не NULL: PostgreSQL
+    # при сортировке по убыванию ставит NULL первыми, и пустые отряды
+    # оказывались в лидерах над отрядами с баллами.
     return Squad.objects.annotate(
         agents_count=Count("members", filter=_agents_in_squad_filter()),
-        avg_rating=Avg("members__rating_current", filter=_agents_in_squad_filter()),
+        avg_rating=Coalesce(
+            Avg("members__rating_current", filter=_agents_in_squad_filter()),
+            Value(Decimal("0")),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        ),
     )
 
 

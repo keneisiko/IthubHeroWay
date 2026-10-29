@@ -5,7 +5,8 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, override_settings
-from rest_framework.test import APIClient
+from django.urls import reverse
+from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.models import Role, Squad
 from apps.integrations.models import TelegramAccountLink
@@ -45,3 +46,27 @@ class SquadLeaderboardCourseTests(TestCase):
 
     def test_bad_course_is_ignored(self):
         self.assertEqual(self.codes(course="abc"), ["pi-11", "pi-31"])
+
+
+class SquadLeaderboardOrderTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_squad_with_points_ranks_above_squads_without_active_members(self):
+        empty = Squad.objects.create(code="empty", name="Пустой", course=4)
+        scored = Squad.objects.create(code="scored", name="С баллами", course=4)
+        User.objects.create_user(
+            username="sleeper", password="x", callsign="sleeper", role=Role.AGENT, squad=empty, is_active=False
+        )
+        User.objects.create_user(
+            username="doer", password="x", callsign="doer", role=Role.AGENT, squad=scored,
+            rating_current=8, is_active=True,
+        )
+        viewer = User.objects.create_user(username="v", password="x", callsign="v", role=Role.AGENT)
+        self.client.force_authenticate(viewer)
+
+        rows = self.client.get(reverse("squads-leaderboard")).json()
+
+        codes = [row["code"] for row in rows]
+        self.assertLess(codes.index("scored"), codes.index("empty"))
+        self.assertEqual(next(r for r in rows if r["code"] == "empty")["avg_rating"], 0)
