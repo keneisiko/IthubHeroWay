@@ -315,3 +315,20 @@
   .q1__goal-reward,
   .q1__goal-pick { flex: 1; }
 }
+
+/* Активные квесты на компьютере: все в блоке с прокруткой, без «Показать все» —
+   иначе раскрытый список вытягивал страницу на несколько экранов. На телефоне
+   прокрутка в прокрутке неудобна, там остаётся кнопка. */
+@media (min-width: 901px) {
+  .q1__quests-slot-inner {
+    max-height: 760px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding-bottom: 12px;
+  }
+  .q1__quests-slot-inner:not(.q1__quests-slot-inner--all) > .q1__card:nth-child(n + 4) {
+    display: block;
+  }
+  .q1__quests-more { display: none; }
+}

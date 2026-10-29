@@ -238,7 +238,7 @@ BADGES: tuple[dict, ...] = (
     {
         "code": "king-of-hill",
         "title": "Царь горы",
-        "description": "7 дней подряд на первом месте общего рейтинга. Выдаётся автоматически.",
+        "description": "7 дней подряд на первом месте общего рейтинга. Вместе с нашивкой — +15 монет за серию. Выдаётся автоматически.",
         "category": BadgeCategory.SPECIAL,
         "rarity": BadgeRarity.RARE,
         "condition": {"manual": True},

@@ -220,3 +220,18 @@ class WeeklyFocusOptionsTests(TestCase):
         with self.assertRaises(FocusNotAllowed):
             set_focus(self.user, other.code)
         self.assertEqual(set_focus(self.user, next(iter(offered))).quest.code in offered, True)
+
+    def test_monthly_quests_are_not_offered(self):
+        from apps.quests.services.weekly_focus import current_period_key, focus_options
+
+        period = current_period_key()
+        Quest.objects.filter(quest_type=QuestType.WEEKLY).delete()
+        Quest.objects.create(
+            code=f"monthly-hik-no-late:{period}", title="Месяц", quest_type=QuestType.WEEKLY,
+            is_active=True, period_key=period,
+        )
+        weekly = Quest.objects.create(
+            code=f"weekly-no-late:{period}", title="Неделя", quest_type=QuestType.WEEKLY,
+            is_active=True, period_key=period,
+        )
+        self.assertEqual(focus_options(self.user), [weekly])

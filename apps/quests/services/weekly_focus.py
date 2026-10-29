@@ -37,6 +37,7 @@ def get_focus(user, day: date | None = None) -> WeeklyFocus | None:
 # Из 12 еженедельных квестов выбор из всех разом был слишком большим:
 # студенту предлагаются три, случайные, но постоянные на всю неделю.
 OPTIONS_PER_WEEK = 3
+MONTHLY_PREFIX = "monthly-"
 
 
 def _shuffle_key(user_id: int, period_key: str, code: str) -> str:
@@ -51,13 +52,16 @@ def focus_options(user, day: date | None = None) -> list[Quest]:
     выбранная цель остаётся в списке, даже если в тройку не попала.
     """
     period_key = current_period_key(day)
+    # Месячные серии («Месяц без пропусков») хранятся как еженедельные
+    # экземпляры, но целью недели быть не могут: за неделю их не выполнить.
     quests = list(
         Quest.objects.filter(is_active=True, quest_type=QuestType.WEEKLY, period_key=period_key)
+        .exclude(code__startswith=MONTHLY_PREFIX)
     )
     quests.sort(key=lambda q: _shuffle_key(user.pk, period_key, q.code))
     picked = quests[:OPTIONS_PER_WEEK]
     focus = get_focus(user, day)
-    if focus and focus.quest not in picked:
+    if focus and focus.quest not in picked and not focus.quest.code.startswith(MONTHLY_PREFIX):
         picked = [focus.quest, *picked[: OPTIONS_PER_WEEK - 1]]
     return picked
 

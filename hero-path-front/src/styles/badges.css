@@ -1251,3 +1251,7 @@
   text-decoration: none;
 }
 .bd-sheet__link:hover { background: #1b8bc0; }
+
+/* Пока открыто окно нашивки, индикатор меню уходит под затемнение:
+   у него свой z-index, и он оставался ярко-фиолетовым поверх серого фона. */
+body:has(.bd-sheet) .right-sidebar__marker { z-index: 0 !important; filter: grayscale(1) brightness(0.6); }
