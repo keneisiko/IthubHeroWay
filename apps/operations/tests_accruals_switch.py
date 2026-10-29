@@ -327,23 +327,6 @@ class NothingBackdatedTests(AccrualsCase):
 
         self.assertEqual(result.get("skipped"), "before_launch")
 
-    def test_late_penalty_before_launch_is_skipped(self):
-        from datetime import datetime
-
-        from apps.integrations.services import hik_attendance_processor as proc
-
-        agent = make_agent("late", rating_current=100)
-        freeze_accruals()
-        switch_accruals(True)
-        yesterday = timezone.make_aware(
-            datetime.combine(timezone.localdate() - timedelta(days=1), datetime.min.time())
-        )
-
-        with override_settings(HIK_LATE_PENALTY_ENABLED=True):
-            proc._apply_late_penalty_if_needed(agent, event_dt=yesterday, late_minutes=20)
-
-        self.assertFalse(RatingLog.objects.filter(user=agent).exists())
-
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class AdminSwitchTests(AccrualsCase):

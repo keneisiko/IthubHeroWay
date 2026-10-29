@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
@@ -21,10 +20,6 @@ from django.utils.dateparse import parse_datetime
 
 from apps.integrations.models import ExternalEvent, HikEvent
 from apps.integrations.services.hik_web_client import DIRECTION_ENTRY
-from apps.operations.services.platform_settings import accruals_active_on
-from apps.progress.models import RatingChangeSource, RatingLog
-from apps.progress.services.late_penalties import late_penalty_delta
-from apps.progress.services.rewards import apply_rating_delta_with_cap
 from apps.schedule.services import classify_entrance_against_schedule
 
 logger = logging.getLogger(__name__)
@@ -135,55 +130,8 @@ def save_hik_row_as_event(row: dict) -> tuple[HikEvent | None, bool]:
     return obj, created
 
 
-def late_penalty_source_id(user_id: int, event_dt: datetime) -> str:
-    """Ключ штрафа за опоздание — один на пользователя в день.
-
-    Раньше ключ строился по event_id, то есть штрафовался каждый проход
-    турникета: вышел в перерыве и вернулся — ещё минус к рейтингу.
-    Опоздание — событие дня, а не события прохода.
-    """
-    local_date = timezone.localtime(event_dt).date()
-    return f"hik-late:{user_id}:{local_date.isoformat()}"
-
-
-def late_penalty_enabled() -> bool:
-    return bool(getattr(settings, "HIK_LATE_PENALTY_ENABLED", False))
-
-
-def _apply_late_penalty_if_needed(user, *, event_dt: datetime, late_minutes: int) -> None:
-    if late_minutes <= 0:
-        return
-    if not late_penalty_enabled():
-        # Положение не знает штрафа за опоздание: единственное списание —
-        # за подтверждённый пропуск пары. Сам факт опоздания сохраняется
-        # в событии и используется квестами, которые дают только монеты.
-        return
-
-    # Проход до запуска начислений штрафа не даёт: платформа его не видела.
-    if not accruals_active_on(timezone.localtime(event_dt).date()):
-        return
-
-    source_id = late_penalty_source_id(user.pk, event_dt)
-
-    # Блокировка строки пользователя закрывает гонку между воркерами: без неё
-    # два параллельных обработчика проходят проверку exists() одновременно
-    # и штрафуют дважды. Заодно рейтинг читается свежим, а не из кеша,
-    # собранного в начале прогона.
-    locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
-    if RatingLog.objects.filter(user_id=locked_user.pk, source_id=source_id).exists():
-        return
-
-    delta = late_penalty_delta(late_minutes)
-    apply_rating_delta_with_cap(
-        user=locked_user,
-        delta=delta,
-        source=RatingChangeSource.SYSTEM,
-        reason=f"Опоздание {late_minutes} мин (Hik)",
-        source_id=source_id,
-    )
-    # Кеш пользователей в вызывающем коде держит ту же запись — синхронизируем,
-    # чтобы последующие события в этом же прогоне считались от нового рейтинга.
-    user.rating_current = locked_user.rating_current
+# Штрафа за опоздание нет: Положение (раздел 9) списывает только за
+# пропущенную пару. Опоздание сохраняется в событии и используется квестами.
 
 
 def format_hik_error_message(errors: int, seen: int, quarantined: int, samples: list[str]) -> str:
@@ -354,11 +302,6 @@ def process_unprocessed_hik_events(*, limit: int = 5000) -> tuple[int, int, int]
                 )
                 if ext_c:
                     ext_created += 1
-                # Штрафуем только за вход: выход с занятий опозданием не является.
-                if is_entry and event_type == "late" and late_minutes is not None:
-                    _apply_late_penalty_if_needed(
-                        user, event_dt=he.event_time, late_minutes=int(late_minutes)
-                    )
                 HikEvent.objects.filter(pk=he.pk).update(processed=True)
         except Exception as exc:
             process_errors += 1

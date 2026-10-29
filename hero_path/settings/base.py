@@ -8,7 +8,7 @@ from pathlib import Path
 # держать второй список, который рассинхронизируется с первым.
 from .polozhenie import *  # noqa: F403
 from .polozhenie import POLOZHENIE_PERIOD  # noqa: F401
-from .rating_coefficients import QUESTS_REWARDS, RATING_DRIVE, RATING_KP, RATING_LIMITS, RATING_YEAR
+from .rating_coefficients import QUESTS_REWARDS, RATING_KP, RATING_LIMITS, RATING_YEAR
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -425,9 +425,6 @@ RATING_YEAR = {
 
 # Переопределение штрафов/бонусов (положительные числа в .env → отрицательные штрафы в RATING_KP)
 _rating_kp_overrides = {
-    "LATE_LIGHT": -_env_int("LATE_PENALTY_LIGHT", abs(RATING_KP.get("LATE_LIGHT", -3))),
-    "LATE_MODERATE": -_env_int("LATE_PENALTY_MODERATE", abs(RATING_KP.get("LATE_MODERATE", -5))),
-    "LATE_SEVERE": -_env_int("LATE_PENALTY_SEVERE", abs(RATING_KP.get("LATE_SEVERE", -8))),
     "LATE_STREAK_7D": _env_int("LATE_STRIKE_7D_BONUS", RATING_KP.get("LATE_STREAK_7D", 5)),
     "LATE_STREAK_14D": _env_int("LATE_STRIKE_14D_BONUS", RATING_KP.get("LATE_STREAK_14D", 10)),
     "LATE_STREAK_21D": _env_int("LATE_STRIKE_21D_BONUS", RATING_KP.get("LATE_STREAK_21D", 15)),
@@ -462,21 +459,6 @@ from celery.schedules import crontab
 # к аудитории, и проход минута в минуту опозданием считать нечестно.
 HIK_LATE_GRACE_MINUTES = int(os.getenv("HIK_LATE_GRACE_MINUTES", "10"))
 
-# Списывать ли рейтинг за опоздание по проходу турникета.
-#
-# Выключено. HikCentral в Положении не упоминается ни разу: единственный
-# источник учебных данных там — LXP, а единственное списание — за
-# подтверждённый пропуск пары (1 балл за пару, не больше 4 за день,
-# п. 9.1), причём только после того, как тьютор подтвердил причину
-# (п. 9.2). Штрафа за опоздание Положение не знает, поэтому списывать
-# рейтинг по нему — значит наказывать студента правилом, которого
-# колледж не утверждал.
-#
-# Сами проходы при этом собираются и используются: на них держатся квесты
-# про чек-ин и серии без опозданий, а они начисляют только монеты, чего
-# Положение не регулирует. Включать обратно — вместе с пунктом о
-# турникетах в самом Положении.
-HIK_LATE_PENALTY_ENABLED = _env_bool("HIK_LATE_PENALTY_ENABLED", False)
 
 # п. 2.1-2.2 Положения: начисления идут всем студентам с общей даты запуска,
 # а поздняя активация профиля не лишает студента начислений за прошедшие

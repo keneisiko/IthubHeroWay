@@ -9,7 +9,8 @@ class RatingChangeSource(models.TextChoices):
     BADGE = "badge", "Значок"
     SHOP = "shop", "Магазин"
     SOCIAL = "social", "Социальное"
-    # Мероприятия, олимпиады, волонтёрство, проекты — блок RATING_DRIVE.
+    # Старый блок «Движ» удалён (его заменили разделы 5–7 Положения); значение
+    # оставлено, чтобы в журнале читались прежние записи.
     DRIVE = "drive", "Движ"
     MANUAL = "manual", "Вручную"
     SYSTEM = "system", "Система"

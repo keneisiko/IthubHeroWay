@@ -82,7 +82,7 @@ class RespectRewardTests(APITestCase):
 
 
 @override_settings(
-    QUESTS_REWARDS=REWARDS, RATING_LIMITS=LIMITS, RATING_DRIVE={"MENTORING": 15}
+    QUESTS_REWARDS=REWARDS, RATING_LIMITS=LIMITS
 )
 class MentorshipRewardTests(APITestCase):
     def setUp(self):

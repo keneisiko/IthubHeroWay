@@ -1,19 +1,8 @@
-"""Штрафы и бонусы за опоздания / серии."""
+"""Бонусы за серии без опозданий и пропусков."""
 
 from __future__ import annotations
 
 from django.conf import settings
-
-
-def late_penalty_delta(late_minutes: int) -> int:
-    """Штраф по регламенту: до 10 мин −3, 10–15 −5, >15 −8."""
-    kp = getattr(settings, "RATING_KP", {})
-    if late_minutes <= 10:
-        return int(kp.get("LATE_LIGHT", -3))
-    if late_minutes <= 15:
-        return int(kp.get("LATE_MODERATE", -5))
-    return int(kp.get("LATE_SEVERE", -8))
-
 
 LATE_STREAK_MILESTONES = (21, 14, 7)
 ATTENDANCE_STREAK_MILESTONES = (7,)
