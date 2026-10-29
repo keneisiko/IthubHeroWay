@@ -56,6 +56,20 @@ const AXIS_LABEL_GAP = 12
 // ширина подсказки оси — совпадает с .axis-tip в profile-radar.css
 const TIP_WIDTH = 148
 
+/** Границы ближайшего предка, который обрезает содержимое; без такого — окно. */
+function clippingBox(el: HTMLElement): { left: number; right: number } {
+  let node = el.parentElement
+  while (node && node !== document.body) {
+    const { overflow, overflowX } = getComputedStyle(node)
+    if (/(hidden|clip|auto|scroll)/.test(`${overflow} ${overflowX}`)) {
+      const r = node.getBoundingClientRect()
+      return { left: Math.max(0, r.left), right: Math.min(window.innerWidth, r.right) }
+    }
+    node = node.parentElement
+  }
+  return { left: 0, right: window.innerWidth }
+}
+
 interface Point {
   x: number
   y: number
@@ -294,7 +308,9 @@ export default function CharacteristicsRadar({ characteristics, tone = 'brand', 
               onMouseEnter={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect()
                 const outward = anchor.ux < -0.05 ? 'left' : 'right'
-                const room = outward === 'left' ? rect.left : window.innerWidth - rect.right
+                // край — ближайший обрезающий контейнер (карточка на главной), а не окно
+                const clip = clippingBox(e.currentTarget)
+                const room = outward === 'left' ? rect.left - clip.left : clip.right - rect.right
                 setTipSide(room >= TIP_WIDTH + 24 ? outward : 'above')
                 setHoveredAxis(key)
               }}
