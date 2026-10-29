@@ -28,6 +28,7 @@ const pages = {
   shop: () => import('./pages/Shop'),
   squads: () => import('./pages/Squads'),
   badges: () => import('./pages/Badges'),
+  rules: () => import('./pages/Rules'),
 }
 
 const Login = lazy(() => import('./pages/Login'))
@@ -38,6 +39,7 @@ const Quests = lazy(pages.quests)
 const Shop = lazy(pages.shop)
 const Squads = lazy(pages.squads)
 const Badges = lazy(pages.badges)
+const Rules = lazy(pages.rules)
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 /**
@@ -69,7 +71,7 @@ function App() {
 
 function AppShell() {
   const location = useLocation()
-  const KNOWN_PATHS = ['/dashboard', '/profile', '/leaderboard', '/quests', '/shop', '/squads', '/badges']
+  const KNOWN_PATHS = ['/dashboard', '/profile', '/leaderboard', '/quests', '/shop', '/squads', '/badges', '/rules']
   const isKnownRoute = location.pathname === '/' || KNOWN_PATHS.some(p => location.pathname.startsWith(p))
   // заставку после входа играем один раз: флаг ставит страница входа
   const [entering, setEntering] = useState(hasEnterFlag)
@@ -104,6 +106,7 @@ function AppShell() {
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/squads" element={<Squads />} />
                 <Route path="/badges" element={<Badges />} />
+                <Route path="/rules" element={<Rules />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

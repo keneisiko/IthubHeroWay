@@ -1791,9 +1791,24 @@ body {
   overflow: visible;
 }
 
+/* Вкладки карты пути: при узком окне или длинном слове («Сообщество»)
+   лента не обрезается по краям, а прокручивается вбок. По центру —
+   только пока помещается (safe center). */
+.profile-path__tabs-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.profile-path__tabs-scroll::-webkit-scrollbar { display: none; }
+.profile-path__tabs-inner {
+  width: max-content;
+  min-width: 100%;
+}
+
 .profile-path__tabs {
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
   gap: clamp(12px, 2.2vw, 48px);
   margin-top: 40px;
   flex-wrap: nowrap;
@@ -1802,6 +1817,7 @@ body {
 }
 
 .profile-path__tab {
+  flex-shrink: 0;
   border: 0;
   background: transparent;
   font-family: 'Montserrat', sans-serif;
@@ -6440,3 +6456,6 @@ body {
 :where(button, [role="button"], summary):not(:disabled) {
   cursor: pointer;
 }
+
+/* Главная карточка профиля: строка «Статус и уровень» не прижимается к нижнему краю */
+.profile-card--primary { padding-bottom: 28px; }

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../api'
 import LoadError from '../components/LoadError'
@@ -16,6 +17,7 @@ import {
   type UiQuest,
 } from '../lib/quests'
 import '../styles/quests.css'
+import '../styles/rules.css'
 
 const TABS = ['Активные', 'Выполненные', 'История наград'] as const
 
@@ -277,6 +279,9 @@ export default function Quests() {
               <h2 className="q1__quests-title">
                 {activeTab === 0 ? 'Активный квест' : 'Выполненные квесты'}
               </h2>
+              <Link to="/rules" className="rules-link q1__rules-link">
+                Квесты дают монеты, рейтинг — учёба и активность →
+              </Link>
               <div className={`q1__quests-slot-inner${showAllQuests ? ' q1__quests-slot-inner--all' : ''}`}>
                 {currentQuests.map((q, i) => (
                   <article

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../api'
 import LoadError from '../components/LoadError'
 import { useCountUp } from '../useCountUp'
 import { unwrapList, formatRating } from '../lib/apiData'
 import Avatar from '../components/Avatar'
+import '../styles/rules.css'
 
 type LeaderTab = 'agents' | 'squads'
 
@@ -329,6 +330,7 @@ export default function Leaderboard() {
       <section className="leaderboard-card">
         <div className="leaderboard-card__header">
           <h2>{activeTab === 'agents' ? 'Топ 20 агентов' : 'Топ 10 отрядов'}</h2>
+          <Link to="/rules" className="leaderboard-card__help" aria-label="За что даются баллы" title="За что даются баллы">?</Link>
         </div>
 
         <form className="leaderboard-search" role="search" onSubmit={submitSearch}>

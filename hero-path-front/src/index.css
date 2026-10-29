@@ -46,6 +46,13 @@
   box-sizing: border-box;
 }
 
+/* Место под полосу прокрутки зарезервировано всегда: окна (нашивка, покупка)
+   блокируют прокрутку страницы, полоса исчезала, и весь сайт сдвигался
+   на её ширину. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background-color: #f5f5f5;
   font-family: 'Montserrat', sans-serif;

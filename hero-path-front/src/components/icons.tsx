@@ -48,6 +48,15 @@ export const IconSquads = ({ active }: { active?: boolean }) => (
   </svg>
 )
 
+export const IconRules = ({ active }: { active?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="11" y="7" width="26" height="34" rx="5" fill={active ? 'white' : '#9A33F4'} />
+    <rect x="17" y="15" width="14" height="4" rx="2" fill={active ? '#9A33F4' : 'white'} />
+    <rect x="17" y="23" width="14" height="4" rx="2" fill={active ? '#9A33F4' : 'white'} />
+    <rect x="17" y="31" width="9" height="4" rx="2" fill={active ? '#9A33F4' : 'white'} />
+  </svg>
+)
+
 export const IconBadges = ({ active }: { active?: boolean }) => (
   <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="24" cy="19" r="11" fill={active ? 'white' : '#9A33F4'} />

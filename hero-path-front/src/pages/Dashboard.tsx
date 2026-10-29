@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import seriesIcon from '../assets/other/Group 11.svg'
 import LoadError from '../components/LoadError'
@@ -9,6 +10,7 @@ import CharacteristicsRadar, { type CharacteristicItem } from '../components/Cha
 import PixelText from '../components/PixelText'
 import ActiveBoostNotice from '../components/BoostPlaque'
 import '../styles/dashboard.css'
+import '../styles/rules.css'
 
 interface DashboardData {
   // false до запуска платформы: ничего не начисляется
@@ -189,6 +191,7 @@ export default function Dashboard() {
           <section className="card card--purple dash-in" style={{ animationDelay: '90ms' }}>
             <h3 className="rating__title"><PixelText text="Текущий рейтинг:" /></h3>
             <div className="rating__value"><RollNumber value={formatRating(rating)} /></div>
+            <Link to="/rules" className="rules-link rules-link--light">За что даются баллы?</Link>
             <div className="rating__line">
               <span>Статус:</span>
               <span className="chip chip--light rating__chip">{ratingProgress?.zone_label ?? '—'}</span>

@@ -1,6 +1,6 @@
 import {
   IconHome, IconProfile, IconQuests,
-  IconShop, IconLeaders, IconSquads, IconBadges,
+  IconShop, IconLeaders, IconSquads, IconBadges, IconRules,
 } from './icons'
 
 /** Общий список пунктов навигации: им пользуются и боковая панель, и нижняя. */
@@ -12,4 +12,5 @@ export const navItems = [
   { path: '/leaderboard', Icon: IconLeaders, label: 'Лидеры'   },
   { path: '/squads',      Icon: IconSquads,  label: 'Отряды'   },
   { path: '/badges',      Icon: IconBadges,  label: 'Нашивки'  },
+  { path: '/rules',       Icon: IconRules,   label: 'Правила'  },
 ]

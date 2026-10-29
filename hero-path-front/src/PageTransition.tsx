@@ -14,6 +14,7 @@ const ROUTE_COLORS: Record<string, string> = {
   '/leaderboard': '#5b21b6',
   '/squads':      '#8b5cf6',
   '/badges':      '#9333ea',
+  '/rules':       '#7c3aed',
 }
 
 export default function PageTransition({ children }: { children: React.ReactNode }) {
