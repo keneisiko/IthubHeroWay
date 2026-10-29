@@ -11,6 +11,7 @@ import PixelText from '../components/PixelText'
 import ActiveBoostNotice from '../components/BoostPlaque'
 import '../styles/dashboard.css'
 import '../styles/rules.css'
+import NewsCard from '../components/NewsCard'
 
 interface DashboardData {
   // false до запуска платформы: ничего не начисляется
@@ -253,6 +254,7 @@ export default function Dashboard() {
           </div>
         </section>
 
+        <NewsCard />
       </div>
 
       {/* Тосты */}

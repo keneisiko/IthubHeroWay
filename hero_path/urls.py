@@ -31,6 +31,7 @@ urlpatterns = [
     path("api/v1/", include("apps.badges.urls")),
     path("api/v1/", include("apps.progress.urls")),
     path("api/v1/", include("apps.social.urls")),
+    path("api/v1/", include("apps.notifications.urls")),
     path("api/v1/", include("apps.integrations.urls")),
 ]
 

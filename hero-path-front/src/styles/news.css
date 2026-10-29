@@ -1,0 +1,75 @@
+/* Новости на главной — во второй колонке рядом с лентой активности */
+.news-card {
+  width: 100%;
+  max-width: 580px;
+  min-height: 385px;
+  max-height: 520px;
+  border-radius: 24px;
+  padding: 20px;
+  background: var(--ithub-white);
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+
+.news {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.news__item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 3px solid #e3d4f7;
+  background: #fff;
+}
+
+.news__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.news__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: #121212;
+}
+
+.news__date {
+  flex-shrink: 0;
+  font-family: var(--font-text);
+  font-size: 12px;
+  color: #848484;
+}
+
+.news__body {
+  margin: 6px 0 0;
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4a4a4a;
+  white-space: pre-line;
+}
+
+.news__more {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 700;
+  color: #9a33f4;
+  text-decoration: none;
+}
+
+.news__more:hover { color: #7b1fe0; }
+
+@media (max-width: 900px) {
+  .dashboard--home .news-card { order: 2; max-width: none; min-height: 0; }
+}
