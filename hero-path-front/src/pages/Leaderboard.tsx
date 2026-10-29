@@ -98,6 +98,8 @@ export default function Leaderboard() {
   const [appliedSearch, setAppliedSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [meOnScreen, setMeOnScreen] = useState(false)
+  // Место своего отряда — для вкладки «Отряды»
+  const [mySquad, setMySquad] = useState<{ rank: number; total: number; code: string; name: string }>({ rank: 0, total: 0, code: '', name: '' })
   const loadedOnce = useRef(false)
   const requestSequence = useRef(0)
 
@@ -134,6 +136,7 @@ export default function Leaderboard() {
 
   // Анимация чисел
   const animMyRank = useCountUp(myRank.rank, 1200)
+  const animSquadRank = useCountUp(mySquad.rank, 1200)
 
   const switchTab = (tab: LeaderTab) => {
     if (tab === activeTab) return
@@ -155,13 +158,13 @@ export default function Leaderboard() {
       io.disconnect()
       setMeOnScreen(false)
     }
-  }, [agents, activeTab, appliedSearch, loading])
+  }, [agents, squads, activeTab, appliedSearch, loading])
 
   // «Моё место»: если ты в списке — прокрутить к своей строке и мигнуть
   // ей, иначе открыть свой профиль
   const goToMyPlace = () => {
     const row = myRowRef.current
-    if (!row) { navigate('/profile'); return }
+    if (!row) { navigate(activeTab === 'squads' ? '/squads' : '/profile'); return }
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     row.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
     row.classList.remove('leaderboard-item--flash')
@@ -181,7 +184,8 @@ export default function Leaderboard() {
       api.get('/api/v1/leaderboard/agents/', { params: agentsParams }),
       api.get('/api/v1/squads/leaderboard/', { params: selectedCourse ? { limit: 10, course: selectedCourse } : { limit: 10 } }),
       api.get('/api/v1/rating/me/'),
-    ]).then(([agentsRes, squadsRes, meRes]) => {
+      api.get('/api/v1/squads/leaderboard/me/', { params: selectedCourse ? { course: selectedCourse } : {} }),
+    ]).then(([agentsRes, squadsRes, meRes, mySquadRes]) => {
       if (requestId !== requestSequence.current) return
       const page = 1
       const pageSize = 20
@@ -227,6 +231,12 @@ export default function Leaderboard() {
         rank: meRes.data?.rank ?? 0,
         delta: formatRating(meRes.data?.rating_current),
         username: meRes.data?.username ?? '',
+      })
+      setMySquad({
+        rank: mySquadRes.data?.rank ?? 0,
+        total: mySquadRes.data?.total ?? 0,
+        code: mySquadRes.data?.code ?? '',
+        name: mySquadRes.data?.name ?? '',
       })
       loadedOnce.current = true
     }).catch(() => {
@@ -358,7 +368,9 @@ export default function Leaderboard() {
         <div className={`leaderboard-panel${transitioning ? ' leaderboard-panel--transitioning' : ''}${refreshing ? ' leaderboard-panel--refreshing' : ''}`} aria-busy={refreshing}>
           <div className="leaderboard-list">
             {filteredItems.map((item, i) => {
-              const isMe = activeTab === 'agents' && item.username === myRank.username
+              const isMe = activeTab === 'agents'
+                ? item.username === myRank.username
+                : Boolean(mySquad.code) && item.username === mySquad.code
               return (
               <div
                 className={`leaderboard-item hover-lift${isMe ? ' leaderboard-item--me' : ''}${activeTab === 'agents' ? ' leaderboard-item--link' : ''}`}
@@ -420,8 +432,18 @@ export default function Leaderboard() {
             className={`leaderboard-myplace btn-press${meOnScreen ? ' leaderboard-myplace--away' : ''}`}
             onClick={goToMyPlace}
           >
-            Моё место: <strong>{animMyRank}</strong>
-            {totalAgents ? <> из {totalAgents}</> : null}
+            {activeTab === 'squads' ? (
+              mySquad.rank ? (
+                <>Ваш отряд «{mySquad.name}»: <strong>{animSquadRank}</strong> место из {mySquad.total}</>
+              ) : (
+                <>Вы пока не в отряде этого курса</>
+              )
+            ) : (
+              <>
+                Моё место: <strong>{animMyRank}</strong>
+                {totalAgents ? <> из {totalAgents}</> : null}
+              </>
+            )}
           </button>
         </div>
       </section>

@@ -6,6 +6,7 @@ from .characteristics_views import MeCharacteristicsView
 from .policy_views import PolicyStateView
 from .squads_views import (
     SquadJoinView,
+    SquadLeaderboardMeView,
     SquadLeaderboardView,
     SquadLeaveView,
     SquadListCreateView,
@@ -32,6 +33,7 @@ urlpatterns = [
     path("squads/leave/", SquadLeaveView.as_view(), name="squads-leave"),
     path("squads/me/", SquadMeView.as_view(), name="squads-me"),
     path("squads/leaderboard/", SquadLeaderboardView.as_view(), name="squads-leaderboard"),
+    path("squads/leaderboard/me/", SquadLeaderboardMeView.as_view(), name="squads-leaderboard-me"),
     path("squads/<str:code>/members/", SquadMembersView.as_view(), name="squads-members"),
 ]
 

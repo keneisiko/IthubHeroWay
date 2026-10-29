@@ -359,3 +359,32 @@ class SquadLeaderboardView(views.APIView):
         ttl = getattr(settings, "LEADERBOARD_CACHE_TTL", 300)
         cache.set(cache_key, data, ttl)
         return Response(data)
+
+
+class SquadLeaderboardMeView(views.APIView):
+    """Место своего отряда в рейтинге отрядов — для плашки «Ваш отряд».
+
+    Порядок тот же, что у рейтинга отрядов; фильтр по курсу — тот же.
+    """
+
+    permission_classes = [IsKnownRole]
+
+    def get(self, request, *args, **kwargs):
+        squad_id = request.user.squad_id
+        if not squad_id:
+            return Response({"rank": 0, "total": 0, "code": "", "name": ""})
+        try:
+            course = int(request.query_params.get("course", ""))
+        except ValueError:
+            course = None
+        squads = _squad_stats_queryset()
+        if course:
+            squads = squads.filter(course=course)
+        ordered = list(squads.order_by("-avg_rating", "id").values_list("id", "code", "name", "avg_rating"))
+        for rank, (pk, code, name, avg) in enumerate(ordered, start=1):
+            if pk == squad_id:
+                return Response(
+                    {"rank": rank, "total": len(ordered), "code": code, "name": name, "avg_rating": float(avg)}
+                )
+        # Отряд другого курса при включённом фильтре — в этом списке его нет.
+        return Response({"rank": 0, "total": len(ordered), "code": "", "name": ""})

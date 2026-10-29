@@ -3,6 +3,9 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
+# Кто может подтверждать начисления и роли: все, кроме студентов.
+STAFF_ONLY = ~models.Q(role="agent")
+
 
 class RatingChangeSource(models.TextChoices):
     QUEST = "quest", "Квест"
@@ -57,6 +60,8 @@ class RatingLog(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="confirmed_rating_logs",
+        # Подтверждает сотрудник: в поиске админки студентов быть не должно.
+        limit_choices_to=STAFF_ONLY,
     )
     period_key = models.CharField(
         "Расчётный период",
@@ -275,6 +280,8 @@ class StudentRoleAssignment(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="confirmed_student_roles",
+        # Подтверждает сотрудник: в поиске админки студентов быть не должно.
+        limit_choices_to=STAFF_ONLY,
     )
     note = models.CharField("Примечание", max_length=255, blank=True)
     created_at = models.DateTimeField("Создана", auto_now_add=True)
@@ -339,6 +346,8 @@ class PolozhenieAward(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="confirmed_polozhenie_awards",
+        # Подтверждает сотрудник: в поиске админки студентов быть не должно.
+        limit_choices_to=STAFF_ONLY,
     )
     note = models.CharField("Примечание", max_length=255, blank=True)
     created_at = models.DateTimeField("Создано", auto_now_add=True)

@@ -70,3 +70,24 @@ class SquadLeaderboardOrderTests(APITestCase):
         codes = [row["code"] for row in rows]
         self.assertLess(codes.index("scored"), codes.index("empty"))
         self.assertEqual(next(r for r in rows if r["code"] == "empty")["avg_rating"], 0)
+
+
+class SquadLeaderboardMeTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_my_squad_rank_among_all(self):
+        top = Squad.objects.create(code="top", name="Топ", course=1)
+        mine = Squad.objects.create(code="mine", name="Мой", course=1)
+        User.objects.create_user(username="t", password="x", callsign="t", role=Role.AGENT, squad=top,
+                                 rating_current=50, is_active=True)
+        me = User.objects.create_user(username="m", password="x", callsign="m", role=Role.AGENT, squad=mine,
+                                      rating_current=10, is_active=True)
+        self.client.force_authenticate(me)
+        body = self.client.get(reverse("squads-leaderboard-me")).json()
+        self.assertEqual((body["rank"], body["total"], body["code"]), (2, 2, "mine"))
+
+    def test_without_squad(self):
+        me = User.objects.create_user(username="solo", password="x", callsign="solo", role=Role.AGENT)
+        self.client.force_authenticate(me)
+        self.assertEqual(self.client.get(reverse("squads-leaderboard-me")).json()["rank"], 0)
