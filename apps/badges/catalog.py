@@ -236,6 +236,15 @@ BADGES: tuple[dict, ...] = (
         "reward_coins": 0,
     },
     {
+        "code": "king-of-hill",
+        "title": "Царь горы",
+        "description": "7 дней подряд на первом месте общего рейтинга. Выдаётся автоматически.",
+        "category": BadgeCategory.SPECIAL,
+        "rarity": BadgeRarity.RARE,
+        "condition": {"manual": True},
+        "reward_coins": 0,
+    },
+    {
         "code": "olympiad-winner",
         "title": "Победитель олимпиады",
         "description": "Победа в олимпиаде любого уровня. Отмечает ответственный за мероприятия.",

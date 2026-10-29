@@ -558,6 +558,15 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.quests.tasks.verify_previous_day_quests",
         "schedule": crontab(hour=23, minute=0),
     },
+    # «Царь горы»: места в топе за день — после всех дневных начислений.
+    "king-of-hill-daily": {
+        "task": "apps.progress.tasks.pay_king_of_hill_daily",
+        "schedule": crontab(hour=23, minute=40),
+    },
+    "king-of-hill-squad-weekly": {
+        "task": "apps.progress.tasks.pay_king_of_hill_squad_weekly",
+        "schedule": crontab(hour=6, minute=45, day_of_week="mon"),
+    },
     "check_strikes_daily": {
         "task": "apps.progress.tasks.apply_strike_bonuses_daily",
         "schedule": crontab(hour=23, minute=30),

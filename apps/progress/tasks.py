@@ -128,3 +128,19 @@ def accrue_polozhenie_week(self, day_iso: str | None = None) -> str:
         f":deferred_ct={academic.deferred_ct}:deferred_att={academic.deferred_attendance}"
         f":roles_paid={roles['paid']}"
     )
+
+
+@shared_task
+def pay_king_of_hill_daily() -> dict:
+    """23:30 — монеты за места в топе рейтинга за сегодня."""
+    from apps.progress.services.king_of_hill import pay_daily_top
+
+    return pay_daily_top()
+
+
+@shared_task
+def pay_king_of_hill_squad_weekly() -> dict:
+    """Понедельник — монеты студентам отряда-лидера."""
+    from apps.progress.services.king_of_hill import pay_weekly_squad_leader
+
+    return pay_weekly_squad_leader()

@@ -21,6 +21,8 @@ class RatingChangeSource(models.TextChoices):
     OLYMPIAD = "olympiad", "Олимпиада"
     PROJECT = "project", "Проект"
     PENALTY = "penalty", "Списание"
+    # Монеты за удержание топа рейтинга (apps.progress.services.king_of_hill).
+    KING = "king", "Царь горы"
     CORRECTION = "correction", "Исправление"
 
 
