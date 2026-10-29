@@ -104,6 +104,11 @@ function processQueue(error: unknown, token: string | null = null) {
   failedQueue = []
 }
 
+// Повторы чтения при кратком сбое сервера: ~1,5 + 3 + 4,5 с — дольше
+// длится только настоящий простой.
+const TRANSIENT_RETRIES = 3
+const TRANSIENT_DELAY_MS = 1500
+
 api.interceptors.response.use(
   (response) => {
     if ((response.config.method ?? 'get').toLowerCase() !== 'get') clearApiCache()
@@ -162,10 +167,28 @@ api.interceptors.response.use(
     }
 
     const status = error.response?.status
+
+    // Сервер перезапускается при выкатке несколько секунд и отвечает 502/503
+    // (или не отвечает вовсе). Чтение тихо повторяем с паузой — иначе
+    // открытая в эти секунды страница сдавалась с «Не удалось загрузить».
+    // Изменения (POST и т. п.) не повторяем: их нельзя отправить дважды.
+    const transient = !error.response || status === 502 || status === 503 || status === 504
+    const isRead = (originalRequest?.method ?? 'get').toLowerCase() === 'get'
+    if (originalRequest && transient && isRead) {
+      const attempt = (originalRequest._transientRetry ?? 0) + 1
+      if (attempt <= TRANSIENT_RETRIES) {
+        originalRequest._transientRetry = attempt
+        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_DELAY_MS * attempt))
+        return api(originalRequest)
+      }
+    }
+
+    // id у уведомления — одно на все упавшие запросы: страница шлёт их
+    // пачкой, и раньше на один сбой вылезал столбик одинаковых сообщений.
     if (status === 403) {
-      toast.error('Недостаточно прав')
-    } else if (status === 500 || status === 502 || status === 503) {
-      toast.error('Сервер временно недоступен')
+      toast.error('Недостаточно прав', { id: 'api-forbidden' })
+    } else if (status === 500 || status === 502 || status === 503 || status === 504) {
+      toast.error('Сервер временно недоступен', { id: 'api-server-down' })
     }
 
     return Promise.reject(error)
