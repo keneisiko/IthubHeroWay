@@ -26,7 +26,7 @@ def resolve_duels() -> dict:
 
 @shared_task
 def pay_mentorship_weekly() -> dict:
-    """Еженедельные монеты наставникам за активных подшефных."""
+    """Наставникам — доля от успехов подшефных за прошлую неделю."""
     result = pay_mentors_weekly()
     logger.info("pay_mentorship_weekly %s", result)
     return result

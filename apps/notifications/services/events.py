@@ -83,13 +83,29 @@ def respect_received(respect, coins: int) -> int:
     return _safe(notify_user, respect.to_user, text)
 
 
-def mentorship_started(mentorship) -> int:
-    """Подшефному: у него появился наставник."""
+def mentorship_requested(mentorship) -> int:
+    """Подшефному: ему предлагают шефство — нужно принять или отклонить."""
     text = (
-        f"🤝 {_name(mentorship.mentor)} стал вашим наставником.\n"
-        "Обращайтесь с вопросами по учёбе."
+        f"🤝 {_name(mentorship.mentor)} предлагает стать вашим наставником.\n"
+        "Принять или отклонить — в профиле на платформе."
     )
     return _safe(notify_user, mentorship.mentee, text)
+
+
+def mentor_rewarded(mentorship, points) -> int:
+    """Наставнику: подшефный хорошо поработал, и это засчиталось."""
+    text = (
+        f"🤝 {_name(mentorship.mentee)} хорошо поработал на прошлой неделе — "
+        f"вам как наставнику +{points} баллов."
+    )
+    return _safe(notify_user, mentorship.mentor, text)
+
+
+def mentorship_answered(mentorship, *, accepted: bool) -> int:
+    """Наставнику: на предложение ответили."""
+    who = _name(mentorship.mentee)
+    text = f"🤝 {who} принял ваше шефство." if accepted else f"🤝 {who} отклонил предложение шефства."
+    return _safe(notify_user, mentorship.mentor, text)
 
 
 def proof_submitted(proof) -> int:

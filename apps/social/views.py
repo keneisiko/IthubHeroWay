@@ -33,7 +33,15 @@ from .services.duels import (
     duels_for,
     reject_duel,
 )
-from .services.rewards import grant_mentorship_start_bonus, grant_respect_reward
+from .services.mentorship import (
+    MentorshipNotAllowed,
+    accept_mentorship,
+    decline_mentorship,
+    end_mentorship,
+    next_request_at,
+    request_mentorship,
+)
+from .services.rewards import MENTOR_CAP_PER_MENTEE, MENTOR_SHARE, grant_respect_reward
 
 
 class RespectCreateView(views.APIView):
@@ -186,45 +194,42 @@ class DuelCancelView(views.APIView):
 
 
 class MentorshipCreateView(views.APIView):
+    """Предложить шефство. Действует только после согласия подшефного."""
+
     permission_classes = [IsKnownRole]
 
     def post(self, request, *args, **kwargs):
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
         serializer = MentorshipCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         mentee = generics.get_object_or_404(User, username=serializer.validated_data["mentee_username"])
-        # Самонаставничество не отсекалось, а за него начисляются монеты
-        # (MENTEE_WEEKLY_COINS) — можно было фармить их на себе.
-        if mentee.pk == request.user.pk:
-            return Response(
-                {"detail": "Cannot mentor yourself."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        limits = getattr(settings, "RATING_LIMITS", {})
-        mentee_limit = int(limits.get("MENTORSHIP_ACTIVE_LIMIT", 5))
-
-        # Лимит проверяется и подопечный заводится в одной транзакции с блокировкой
-        # наставника: иначе параллельные запросы одинаково видят «место есть»
-        # и набирают подопечных сверх лимита.
-        with transaction.atomic():
-            User.objects.select_for_update().filter(pk=request.user.pk).first()
-            existing = Mentorship.objects.filter(mentor=request.user, mentee=mentee).first()
-            if existing is not None:
-                # Повторный запрос ничего не создаёт, поэтому и 201 здесь врал.
-                return Response(MentorshipSerializer(existing).data, status=status.HTTP_200_OK)
-            active_count = Mentorship.objects.filter(
-                mentor=request.user, ended_at__isnull=True
-            ).count()
-            if mentee_limit > 0 and active_count >= mentee_limit:
-                return Response(
-                    {"detail": f"Mentee limit reached ({mentee_limit})."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            mentorship = Mentorship.objects.create(mentor=request.user, mentee=mentee)
-            # Разовый рейтинг за взятого подшефного: коэффициент MENTORING
-            # из блока «Движ» не начислялся нигде.
-            grant_mentorship_start_bonus(mentorship)
-        events.mentorship_started(mentorship)
+        try:
+            mentorship = request_mentorship(request.user, mentee)
+        except MentorshipNotAllowed as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        events.mentorship_requested(mentorship)
         return Response(MentorshipSerializer(mentorship).data, status=status.HTTP_201_CREATED)
+
+
+class MentorshipAnswerView(views.APIView):
+    """Подшефный принимает или отклоняет предложение."""
+
+    permission_classes = [IsKnownRole]
+    accept = True
+
+    def post(self, request, mentorship_id: int, *args, **kwargs):
+        blocked = accruals_off_response()
+        if blocked is not None:
+            return blocked
+        action = accept_mentorship if self.accept else decline_mentorship
+        try:
+            mentorship = action(request.user, mentorship_id)
+        except MentorshipNotAllowed as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        events.mentorship_answered(mentorship, accepted=self.accept)
+        return Response(MentorshipSerializer(mentorship).data, status=status.HTTP_200_OK)
 
 
 class MentorshipListView(views.APIView):
@@ -237,27 +242,28 @@ class MentorshipListView(views.APIView):
     permission_classes = [IsKnownRole]
 
     def get(self, request, *args, **kwargs):
-        rewards = getattr(settings, "QUESTS_REWARDS", {})
         mentees = Mentorship.objects.filter(mentor=request.user).select_related("mentee")
         mentors = Mentorship.objects.filter(mentee=request.user).select_related("mentor")
         return Response(
             {
                 "mentees": MentorshipSerializer(mentees, many=True).data,
                 "mentors": MentorshipSerializer(mentors, many=True).data,
-                "weekly_coins_per_mentee": int(rewards.get("MENTEE_WEEKLY_COINS", 2)),
+                # Как наставник зарабатывает: доля от недельных успехов подшефного.
+                "mentor_share_percent": int(MENTOR_SHARE * 100),
+                "mentor_cap_per_mentee": int(MENTOR_CAP_PER_MENTEE),
+                "next_request_at": next_request_at(request.user),
             }
         )
 
 
 class MentorshipEndView(views.APIView):
-    """Завершить наставничество: подшефный перестаёт числиться активным."""
+    """Завершить шефство (любая сторона) или отозвать своё предложение."""
 
     permission_classes = [IsKnownRole]
 
     def post(self, request, mentorship_id: int, *args, **kwargs):
-        mentorship = generics.get_object_or_404(
-            Mentorship, pk=mentorship_id, mentor=request.user, ended_at__isnull=True
-        )
-        mentorship.ended_at = timezone.now()
-        mentorship.save(update_fields=["ended_at"])
+        try:
+            mentorship = end_mentorship(request.user, mentorship_id)
+        except MentorshipNotAllowed as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         return Response(MentorshipSerializer(mentorship).data, status=status.HTTP_200_OK)

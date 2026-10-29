@@ -89,6 +89,7 @@ def teamwork(user_id: int, start: date, end: date) -> float:
     mentoring = Mentorship.objects.filter(
         Q(mentor_id=user_id) | Q(mentee_id=user_id),
         Q(ended_at__isnull=True) | Q(ended_at__date__gte=start),
+        accepted_at__isnull=False,  # непринятое предложение — ещё не шефство
     ).exists()
     duels = Duel.objects.filter(
         Q(challenger_id=user_id) | Q(opponent_id=user_id),

@@ -63,7 +63,9 @@ class ActivityPillarsTests(TestCase):
         self.assertIsNone(activity_pillars(self.user.pk, TODAY)[PILLAR_FOCUS])
 
     def test_mentorship_counts_for_both_sides(self, _season):
-        Mentorship.objects.create(mentor=self.other, mentee=self.user)
+        Mentorship.objects.create(
+            mentor=self.other, mentee=self.user, status="active", accepted_at=timezone.now()
+        )
         self.assertEqual(activity_pillars(self.user.pk, TODAY)[PILLAR_TEAMWORK], 6.0)
         self.assertEqual(activity_pillars(self.other.pk, TODAY)[PILLAR_TEAMWORK], 6.0)
 

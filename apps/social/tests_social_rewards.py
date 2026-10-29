@@ -19,7 +19,6 @@ from apps.accounts.models import Role
 from apps.progress.models import RatingLog
 from apps.social.models import Mentorship, Respect
 from apps.social.services.rewards import (
-    grant_mentorship_start_bonus,
     grant_respect_reward,
     pay_mentors_weekly,
     respects_received_count,
@@ -91,50 +90,68 @@ class MentorshipRewardTests(APITestCase):
         self.mentee = make_agent("mentee_user")
         self.client.force_authenticate(self.mentor)
 
-    def test_taking_a_mentee_grants_rating_once(self):
-        response = self.client.post(
-            reverse("social-mentorships-create"),
-            {"mentee_username": self.mentee.username},
-            format="json",
+    def active(self, mentee, days_ago: int = 30) -> Mentorship:
+        return Mentorship.objects.create(
+            mentor=self.mentor,
+            mentee=mentee,
+            status="active",
+            accepted_at=timezone.now() - timedelta(days=days_ago),
         )
 
-        self.assertEqual(response.status_code, 201)
+    def mentee_earned(self, mentee, amount: int, source: str = "academic", days_ago: int = 7) -> None:
+        log = RatingLog.objects.create(
+            user=mentee, value_before=0, value_after=amount, delta=amount, source=source
+        )
+        RatingLog.objects.filter(pk=log.pk).update(created_at=timezone.now() - timedelta(days=days_ago))
+
+    def test_accepting_a_mentee_gives_no_points_by_itself(self):
+        before = self.mentor.rating_current
+        offer = self.client.post(
+            reverse("social-mentorships-create"), {"mentee_username": self.mentee.username}, format="json"
+        ).data["id"]
+        self.client.force_authenticate(self.mentee)
+        self.client.post(reverse("social-mentorships-accept", args=[offer]))
         self.mentor.refresh_from_db()
-        self.assertEqual(self.mentor.rating_current, 315)
+        self.assertEqual(self.mentor.rating_current, before)
 
-        mentorship = Mentorship.objects.get(mentor=self.mentor, mentee=self.mentee)
-        self.assertEqual(grant_mentorship_start_bonus(mentorship), 0, "повтор ничего не добавляет")
-
-    def test_weekly_payout_gives_coins_per_active_mentee(self):
-        Mentorship.objects.create(mentor=self.mentor, mentee=self.mentee)
-        second = make_agent("mentee_two")
-        Mentorship.objects.create(mentor=self.mentor, mentee=second)
+    def test_mentor_gets_share_of_mentee_success(self):
+        self.active(self.mentee)
+        self.mentee_earned(self.mentee, 30)
+        before = self.mentor.rating_current
 
         result = pay_mentors_weekly()
 
         self.mentor.refresh_from_db()
-        self.assertEqual(result["mentors_paid"], 2)
-        self.assertEqual(self.mentor.coins_balance, 4)
+        self.assertEqual(result["mentors_paid"], 1)
+        self.assertEqual(self.mentor.rating_current - before, 3, "10% от 30")
 
-    def test_weekly_payout_is_not_doubled_on_rerun(self):
-        Mentorship.objects.create(mentor=self.mentor, mentee=self.mentee)
-
+    def test_share_is_capped_per_mentee(self):
+        self.active(self.mentee)
+        self.mentee_earned(self.mentee, 500)
+        before = self.mentor.rating_current
         pay_mentors_weekly()
+        self.mentor.refresh_from_db()
+        self.assertEqual(self.mentor.rating_current - before, 5)
+
+    def test_idle_mentee_brings_nothing(self):
+        self.active(self.mentee)
+        self.assertEqual(pay_mentors_weekly()["mentors_paid"], 0)
+
+    def test_social_points_of_mentee_do_not_count(self):
+        self.active(self.mentee)
+        self.mentee_earned(self.mentee, 50, source="social")
+        self.assertEqual(pay_mentors_weekly()["mentors_paid"], 0)
+
+    def test_fresh_mentorship_is_not_paid(self):
+        self.active(self.mentee, days_ago=2)
+        self.mentee_earned(self.mentee, 30)
+        self.assertEqual(pay_mentors_weekly()["mentors_paid"], 0)
+
+    def test_payout_is_not_doubled_on_rerun(self):
+        self.active(self.mentee)
+        self.mentee_earned(self.mentee, 30)
         pay_mentors_weekly()
-
-        self.mentor.refresh_from_db()
-        self.assertEqual(self.mentor.coins_balance, 2)
-
-    def test_finished_mentorship_is_not_paid(self):
-        Mentorship.objects.create(
-            mentor=self.mentor, mentee=self.mentee, ended_at=timezone.now()
-        )
-
-        result = pay_mentors_weekly()
-
-        self.mentor.refresh_from_db()
-        self.assertEqual(result["mentors_paid"], 0)
-        self.assertEqual(self.mentor.coins_balance, 0)
+        self.assertEqual(pay_mentors_weekly()["mentors_paid"], 0)
 
     def test_mentor_can_end_mentorship(self):
         mentorship = Mentorship.objects.create(mentor=self.mentor, mentee=self.mentee)
@@ -152,15 +169,5 @@ class MentorshipRewardTests(APITestCase):
 
         body = response.json()
         self.assertEqual(len(body["mentees"]), 1)
-        self.assertEqual(body["weekly_coins_per_mentee"], 2)
+        self.assertEqual(body["mentor_share_percent"], 10)
 
-    def test_payout_leaves_a_trace_in_the_log(self):
-        Mentorship.objects.create(mentor=self.mentor, mentee=self.mentee)
-
-        pay_mentors_weekly()
-
-        self.assertTrue(
-            RatingLog.objects.filter(
-                user=self.mentor, source_id__startswith="mentorship_weekly:"
-            ).exists()
-        )

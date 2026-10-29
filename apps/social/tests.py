@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.urls import reverse
@@ -135,29 +134,13 @@ class MentorshipTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(Mentorship.objects.exists())
 
-    def test_repeated_mentorship_returns_200_and_does_not_duplicate(self):
+    def test_repeated_request_does_not_duplicate(self):
         url = reverse("social-mentorships-create")
         first = self.client.post(url, {"mentee_username": self.mentee.username}, format="json")
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
         second = self.client.post(url, {"mentee_username": self.mentee.username}, format="json")
-        self.assertEqual(second.status_code, status.HTTP_200_OK)
-        self.assertEqual(second.data["id"], first.data["id"])
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Mentorship.objects.filter(mentor=self.mentor).count(), 1)
-
-    def test_mentee_limit(self):
-        url = reverse("social-mentorships-create")
-        limit = int(settings.RATING_LIMITS.get("MENTORSHIP_ACTIVE_LIMIT", 5))
-        for i in range(limit):
-            mentee = get_user_model().objects.create_user(
-                username=f"mm{i}", password="x", callsign=f"mm{i}"
-            )
-            self.assertEqual(
-                self.client.post(url, {"mentee_username": mentee.username}, format="json").status_code,
-                status.HTTP_201_CREATED,
-            )
-        extra = self.client.post(url, {"mentee_username": self.mentee.username}, format="json")
-        self.assertEqual(extra.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Mentorship.objects.filter(mentor=self.mentor).count(), limit)
 
     def test_self_mentorship_blocked_by_db_constraint(self):
         """Вьюха — не единственная точка входа: записи заводят и из админки."""

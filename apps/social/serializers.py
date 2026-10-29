@@ -67,5 +67,5 @@ class MentorshipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Mentorship
-        fields = ["id", "mentor", "mentee", "started_at", "ended_at"]
+        fields = ["id", "mentor", "mentee", "started_at", "ended_at", "status", "accepted_at"]
 

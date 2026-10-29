@@ -146,7 +146,7 @@ class EventTextTests(TestCase):
     def test_mentee_learns_about_the_mentor(self, send):
         mentorship = Mentorship.objects.create(mentor=self.rival, mentee=self.student)
 
-        events.mentorship_started(mentorship)
+        events.mentorship_requested(mentorship)
 
         chat_id, text = send.call_args.args
         self.assertEqual(chat_id, 900_000 + self.student.pk)

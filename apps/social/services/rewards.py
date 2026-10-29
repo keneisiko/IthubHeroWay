@@ -7,13 +7,16 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
+from decimal import ROUND_DOWN, Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q, Sum
 from django.utils import timezone
 
+from apps.notifications.services import events
 from apps.operations.services.platform_settings import accruals_enabled
 from apps.progress.models import RatingChangeSource, RatingLog
 from apps.progress.services.rewards import apply_rating_delta_with_cap, grant_coins_with_daily_cap
@@ -36,93 +39,103 @@ def grant_respect_reward(respect) -> int:
     return grant_coins_with_daily_cap(respect.to_user, amount)
 
 
-@transaction.atomic
-def grant_mentorship_start_bonus(mentorship: Mentorship) -> int:
-    """Разовый рейтинг наставнику за взятого подшефного.
+# Награда наставника — за успехи подшефного, а не за сам факт шефства.
+# Прежние 15 баллов за взятого подшефного и 2 монеты в неделю за каждого
+# платились «просто так»: на запуске их фармили, беря и отпуская подшефных.
+MENTOR_SHARE = Decimal("0.10")  # доля от недельного прироста подшефного
+MENTOR_CAP_PER_MENTEE = Decimal("5")  # потолок за одного подшефного в неделю
+MENTOR_MIN_DAYS = 7  # шефство должно длиться неделю, прежде чем приносить баллы
 
-    Ключ включает подшефного: за каждого нового — один раз, повторное
-    оформление той же пары ничего не добавляет.
-    """
-    drive = getattr(settings, "RATING_DRIVE", {})
-    amount = int(drive.get("MENTORING", 15))
-    if amount <= 0:
-        return 0
+# Что считается успехом подшефного: учёба, квесты, мероприятия, олимпиады,
+# проекты, роли и нашивки. Социальные начисления и ручные правки — нет:
+# иначе двое наставников-подшефных разгоняли бы друг друга по кругу.
+MERIT_SOURCES = (
+    RatingChangeSource.ACADEMIC,
+    RatingChangeSource.QUEST,
+    RatingChangeSource.EVENT,
+    RatingChangeSource.OLYMPIAD,
+    RatingChangeSource.PROJECT,
+    RatingChangeSource.ROLE,
+    RatingChangeSource.BADGE,
+    RatingChangeSource.DRIVE,
+)
 
-    source_id = f"mentorship:{mentorship.mentee_id}"
-    if RatingLog.objects.filter(user=mentorship.mentor, source_id=source_id).exists():
-        return 0
 
-    return apply_rating_delta_with_cap(
-        user=mentorship.mentor,
-        delta=amount,
-        source=RatingChangeSource.SOCIAL,
-        reason=f"Наставничество: {mentorship.mentee.callsign or mentorship.mentee.username}",
-        source_id=source_id,
-    )
+def _previous_week(now) -> tuple[datetime, datetime, str]:
+    """Прошлая ISO-неделя: [понедельник 00:00, следующий понедельник 00:00)."""
+    today = timezone.localtime(now).date()
+    this_monday = today - timedelta(days=today.weekday())
+    start_day = this_monday - timedelta(days=7)
+    tz = timezone.get_current_timezone()
+    start = timezone.make_aware(datetime.combine(start_day, time.min), tz)
+    end = timezone.make_aware(datetime.combine(this_monday, time.min), tz)
+    iso_year, iso_week, _ = start_day.isocalendar()
+    return start, end, f"{iso_year}-W{iso_week:02d}"
+
+
+def mentee_week_gain(mentee_id: int, start, end) -> Decimal:
+    """Сколько баллов подшефный заработал сам за неделю."""
+    total = RatingLog.objects.filter(
+        user_id=mentee_id,
+        source__in=MERIT_SOURCES,
+        delta__gt=0,
+        created_at__gte=start,
+        created_at__lt=end,
+    ).aggregate(total=Sum("delta"))["total"]
+    return Decimal(total or 0)
+
+
+def mentor_reward_for(gain: Decimal) -> Decimal:
+    return min(MENTOR_CAP_PER_MENTEE, (gain * MENTOR_SHARE).quantize(Decimal("0.01"), rounding=ROUND_DOWN))
 
 
 def pay_mentors_weekly(now=None) -> dict:
-    """Еженедельные монеты наставникам за активных подшефных.
+    """Наставникам — доля от успехов подшефных за прошлую неделю (понедельник).
 
-    Начисления группируются по наставнику: если платить в цикле по записям
-    наставничества, каждая из них несёт собственную копию пользователя,
-    и вторая выплата перезаписывает баланс, посчитанный первой.
-
-    Ключ начисления — наставник, подшефный и неделя: повторный запуск задачи
-    (ретрай Celery, ручной прогон) ничего не удваивает.
+    Платится за шефство, которое было принято не меньше чем за неделю до конца
+    недели и не закончилось до её начала. Ключ — наставник, подшефный и
+    неделя: повторный запуск ничего не удваивает. Подшефный, который ничего
+    не заработал, ничего не приносит и наставнику.
     """
     now = now or timezone.now()
-    iso_year, iso_week, _ = now.date().isocalendar()
-    week_key = f"{iso_year}-W{iso_week:02d}"
-    per_mentee = int(_rewards().get("MENTEE_WEEKLY_COINS", 2))
-    if per_mentee <= 0:
-        return {"week": week_key, "mentors_paid": 0, "coins_granted": 0}
+    start, end, week_key = _previous_week(now)
     if not accruals_enabled():
-        # Без этого выхода ниже писались бы нулевые записи-маркеры выплаты,
-        # и после включения за эту неделю наставнику уже не заплатили бы.
-        return {
-            "week": week_key,
-            "mentors_paid": 0,
-            "coins_granted": 0,
-            "skipped": "accruals_disabled",
-        }
+        return {"week": week_key, "mentors_paid": 0, "points": 0, "skipped": "accruals_disabled"}
 
-    pending: dict[int, list] = {}
-    active = (
-        Mentorship.objects.filter(ended_at__isnull=True)
+    rows = (
+        Mentorship.objects.filter(
+            accepted_at__isnull=False,
+            accepted_at__lte=end - timedelta(days=MENTOR_MIN_DAYS),
+        )
+        .filter(Q(ended_at__isnull=True) | Q(ended_at__gte=start))
         .select_related("mentor", "mentee")
         .order_by("mentor_id")
     )
-    for mentorship in active:
-        source_id = f"mentorship_weekly:{mentorship.mentee_id}:{week_key}"
+    paid = 0
+    points = Decimal(0)
+    User = get_user_model()
+    for mentorship in rows:
+        source_id = f"mentor_merit:{mentorship.mentee_id}:{week_key}"
         if RatingLog.objects.filter(user_id=mentorship.mentor_id, source_id=source_id).exists():
             continue
-        pending.setdefault(mentorship.mentor_id, []).append(mentorship)
-
-    mentors_paid = 0
-    coins_granted = 0
-    User = get_user_model()
-    for mentor_id, rows in pending.items():
+        reward = mentor_reward_for(mentee_week_gain(mentorship.mentee_id, start, end))
+        if reward <= 0:
+            continue
         with transaction.atomic():
-            mentor = User.objects.select_for_update().get(pk=mentor_id)
-            granted = grant_coins_with_daily_cap(mentor, per_mentee * len(rows))
-            for mentorship in rows:
-                # Запись в журнал с нулевой дельтой — маркер выплаты: отдельной
-                # таблицы под монеты в проекте нет, а без следа задача заплатила
-                # бы второй раз при любом повторном запуске.
-                RatingLog.objects.create(
-                    user=mentor,
-                    value_before=mentor.rating_current,
-                    value_after=mentor.rating_current,
-                    delta=0,
-                    source=RatingChangeSource.SOCIAL,
-                    source_id=f"mentorship_weekly:{mentorship.mentee_id}:{week_key}",
-                    reason=f"Монеты наставнику за {mentorship.mentee.username}",
-                )
-            mentors_paid += len(rows)
-            coins_granted += granted
-
-    return {"week": week_key, "mentors_paid": mentors_paid, "coins_granted": coins_granted}
+            mentor = User.objects.select_for_update().get(pk=mentorship.mentor_id)
+            applied = apply_rating_delta_with_cap(
+                user=mentor,
+                delta=reward,
+                source=RatingChangeSource.SOCIAL,
+                reason=f"Успехи подшефного {mentorship.mentee.callsign or mentorship.mentee.username} за неделю",
+                source_id=source_id,
+            )
+            grant_coins_with_daily_cap(mentor, int(reward))
+        if applied:
+            paid += 1
+            points += Decimal(applied)
+            events.mentor_rewarded(mentorship, applied)
+    return {"week": week_key, "mentors_paid": paid, "points": float(points)}
 
 
 def respects_received_count(user, days: int = 30) -> int:

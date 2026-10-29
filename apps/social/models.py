@@ -82,6 +82,13 @@ class Duel(models.Model):
         return f"{self.challenger_id} vs {self.opponent_id} ({self.status})"
 
 
+class MentorshipStatus(models.TextChoices):
+    PENDING = "pending", "Ждёт ответа"
+    ACTIVE = "active", "Действует"
+    DECLINED = "declined", "Отклонено"
+    ENDED = "ended", "Завершено"
+
+
 class Mentorship(models.Model):
     mentor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -97,6 +104,10 @@ class Mentorship(models.Model):
     )
     started_at = models.DateTimeField("Начало", auto_now_add=True)
     ended_at = models.DateTimeField("Окончание", null=True, blank=True)
+    status = models.CharField(
+        "Статус", max_length=16, choices=MentorshipStatus.choices, default=MentorshipStatus.PENDING
+    )
+    accepted_at = models.DateTimeField("Принято подшефным", null=True, blank=True)
 
     class Meta:
         verbose_name = "Наставничество"

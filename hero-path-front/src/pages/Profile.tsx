@@ -105,6 +105,8 @@ interface MentorshipRow {
   mentor: { username: string; callsign: string }
   mentee: { username: string; callsign: string }
   ended_at: string | null
+  /** pending — ждёт ответа подшефного, active — действует. */
+  status?: string
 }
 
 // Позывной, а если его нет — логин с @, как в чипах макета.
@@ -469,9 +471,21 @@ export default function Profile() {
       .catch((err) => addToast(apiErrorMessage(err, 'Не удалось вызвать на дуэль'), 'error'))
   }
 
-  // Завершённое шефство — уже история, в карточке только действующее.
-  const activeMentees = mentees.filter((row) => !row.ended_at)
-  const activeMentors = mentors.filter((row) => !row.ended_at)
+  // Завершённое шефство — уже история, в карточке только действующее и ждущее ответа.
+  const isActive = (row: MentorshipRow) => (row.status ? row.status === 'active' : !row.ended_at)
+  const activeMentees = mentees.filter(isActive)
+  const activeMentors = mentors.filter(isActive)
+  const sentOffers = mentees.filter((row) => row.status === 'pending')
+  const incomingOffers = mentors.filter((row) => row.status === 'pending')
+
+  const answerMentorship = (row: MentorshipRow, action: 'accept' | 'decline') => {
+    api.post(`/api/v1/social/mentorships/${row.id}/${action}/`)
+      .then(() => {
+        addToast(action === 'accept' ? 'Шефство принято' : 'Предложение отклонено', 'success')
+        loadProfile({ quiet: true })
+      })
+      .catch((err) => addToast(apiErrorMessage(err, 'Не удалось ответить на предложение'), 'error'))
+  }
 
   const askEndMentorship = (row: MentorshipRow) => {
     setEndTarget(row)
@@ -742,6 +756,39 @@ export default function Profile() {
                     onClick={() => askEndMentorship(row)}
                   >
                     Завершить
+                  </button>
+                </div>
+              ))}
+              {incomingOffers.map((row) => (
+                <div key={row.id} className="profile-social__row">
+                  <span className="profile-social__label">Предлагает шефство:</span>
+                  <span className="profile-aside__mentee">{agentName(row.mentor)}</span>
+                  <button
+                    type="button"
+                    className="profile-social__action btn-press"
+                    onClick={() => answerMentorship(row, 'accept')}
+                  >
+                    Принять
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-social__action profile-social__action--light btn-press"
+                    onClick={() => answerMentorship(row, 'decline')}
+                  >
+                    Отклонить
+                  </button>
+                </div>
+              ))}
+              {sentOffers.map((row) => (
+                <div key={row.id} className="profile-social__row">
+                  <span className="profile-aside__mentee">{agentName(row.mentee)}</span>
+                  <span className="profile-social__label">ждёт ответа</span>
+                  <button
+                    type="button"
+                    className="profile-social__action profile-social__action--light btn-press"
+                    onClick={() => askEndMentorship(row)}
+                  >
+                    Отозвать
                   </button>
                 </div>
               ))}
@@ -1030,6 +1077,11 @@ export default function Profile() {
           <div className="modal-fixed__content popup--closable" ref={mentorModalRef} role="dialog" aria-modal="true" aria-label="Стать наставником" tabIndex={-1}>
             <DialogClose onClose={mentorModal.hide} />
             <h3 className="popup__title">Стать наставником</h3>
+            <p className="popup__label">
+              Студент получит предложение и должен его принять. Баллы наставник получает за успехи
+              подшефного: 10% от того, что тот заработал за неделю, но не больше 5 баллов в неделю.
+              Нового подшефного можно брать раз в 7 дней.
+            </p>
             <label className="popup__label">Найдите студента по позывному или имени</label>
             <AgentPicker picked={menteeUsername} onPick={(agent) => setMenteeUsername(agent.username)} autoFocus />
             <div className="shop-modal__buttons">
@@ -1044,7 +1096,7 @@ export default function Profile() {
                 }
                 api.post('/api/v1/social/mentorships/', { mentee_username: username })
                   .then(() => {
-                    addToast('Наставничество оформлено!', 'success')
+                    addToast('Предложение отправлено — ждём ответа студента', 'success')
                     mentorModal.hide()
                     setMenteeUsername('')
                     loadProfile({ quiet: true })

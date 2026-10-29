@@ -568,9 +568,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.social.tasks.resolve_duels",
         "schedule": crontab(hour=23, minute=45),
     },
+    # Понедельник после учебного начисления за неделю (05:00): наставник
+    # получает долю от того, что подшефный заработал за прошлую неделю.
     "pay-mentorship-weekly": {
         "task": "apps.social.tasks.pay_mentorship_weekly",
-        "schedule": crontab(hour=20, minute=30, day_of_week="fri"),
+        "schedule": crontab(hour=6, minute=30, day_of_week="mon"),
     },
     # Каждый вечер, а не по воскресеньям: привязавший Telegram во вторник
     # ждал нашивку «На связи» до воскресенья и считал, что она сломана.
