@@ -28,7 +28,7 @@ from .serializers import (
 )
 from .services.quest_conditions import is_manual_complete_allowed, is_report_allowed
 from .services.quest_periods import quests_for_date
-from .services.weekly_focus import FocusNotAllowed, current_period_key, get_focus, set_focus
+from .services.weekly_focus import FocusNotAllowed, current_period_key, focus_options, get_focus, set_focus
 
 
 class ActiveQuestListView(generics.ListAPIView):
@@ -271,6 +271,7 @@ class WeeklyFocusView(views.APIView):
                 "quest_title": focus.quest.title if focus else "",
                 "bonus_coins": int(rewards.get("WEEKLY_FOCUS_BONUS_COINS", 5)),
                 "bonus_rating": int(rewards.get("WEEKLY_FOCUS_BONUS_RATING", 3)),
+                "options": [quest.code for quest in focus_options(request.user)],
             }
         )
 

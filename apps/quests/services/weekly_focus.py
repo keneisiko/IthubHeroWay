@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 
 from django.conf import settings
@@ -33,6 +34,34 @@ def get_focus(user, day: date | None = None) -> WeeklyFocus | None:
     )
 
 
+# Из 12 еженедельных квестов выбор из всех разом был слишком большим:
+# студенту предлагаются три, случайные, но постоянные на всю неделю.
+OPTIONS_PER_WEEK = 3
+
+
+def _shuffle_key(user_id: int, period_key: str, code: str) -> str:
+    return hashlib.sha256(f"{user_id}:{period_key}:{code}".encode()).hexdigest()
+
+
+def focus_options(user, day: date | None = None) -> list[Quest]:
+    """Три квеста недели на выбор. Для студента и недели — всегда одни и те же.
+
+    Порядок задаёт хеш от студента, недели и кода: у разных студентов разные
+    тройки, у одного студента тройка не меняется при перезагрузке. Уже
+    выбранная цель остаётся в списке, даже если в тройку не попала.
+    """
+    period_key = current_period_key(day)
+    quests = list(
+        Quest.objects.filter(is_active=True, quest_type=QuestType.WEEKLY, period_key=period_key)
+    )
+    quests.sort(key=lambda q: _shuffle_key(user.pk, period_key, q.code))
+    picked = quests[:OPTIONS_PER_WEEK]
+    focus = get_focus(user, day)
+    if focus and focus.quest not in picked:
+        picked = [focus.quest, *picked[: OPTIONS_PER_WEEK - 1]]
+    return picked
+
+
 @transaction.atomic
 def set_focus(user, quest_code: str, day: date | None = None) -> WeeklyFocus:
     """Назначить цель недели. Повторный вызов заменяет прежнюю."""
@@ -46,6 +75,8 @@ def set_focus(user, quest_code: str, day: date | None = None) -> WeeklyFocus:
     # неделе бессмысленна, а квест без периода — не еженедельный экземпляр.
     if quest.period_key and quest.period_key != period_key:
         raise FocusNotAllowed("Этот квест относится к другой неделе.")
+    if quest.period_key and quest not in focus_options(user, day):
+        raise FocusNotAllowed("Этого квеста нет среди целей, предложенных на эту неделю.")
 
     focus, _ = WeeklyFocus.objects.update_or_create(
         user=user, period_key=period_key, defaults={"quest": quest}

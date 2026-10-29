@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import override_settings
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -189,3 +189,34 @@ class WeeklyFocusApiTests(APITestCase):
         response = self.client.post(self.url, {}, format="json")
 
         self.assertEqual(response.status_code, 400)
+
+
+class WeeklyFocusOptionsTests(TestCase):
+    """Выбор цели недели — из трёх квестов, постоянных на неделю."""
+
+    def setUp(self):
+        from apps.quests.services.weekly_focus import current_period_key
+
+        self.user = get_user_model().objects.create_user(username="opt", password="x", callsign="opt")
+        period = current_period_key()
+        for i in range(8):
+            Quest.objects.create(
+                code=f"weekly-{i}:{period}", title=f"W{i}", quest_type=QuestType.WEEKLY,
+                is_active=True, period_key=period,
+            )
+
+    def test_three_stable_options(self):
+        from apps.quests.services.weekly_focus import focus_options
+
+        first = [q.code for q in focus_options(self.user)]
+        self.assertEqual(len(first), 3)
+        self.assertEqual(first, [q.code for q in focus_options(self.user)])
+
+    def test_focus_outside_options_is_refused(self):
+        from apps.quests.services.weekly_focus import FocusNotAllowed, focus_options, set_focus
+
+        offered = {q.code for q in focus_options(self.user)}
+        other = Quest.objects.exclude(code__in=offered).filter(quest_type=QuestType.WEEKLY).first()
+        with self.assertRaises(FocusNotAllowed):
+            set_focus(self.user, other.code)
+        self.assertEqual(set_focus(self.user, next(iter(offered))).quest.code in offered, True)

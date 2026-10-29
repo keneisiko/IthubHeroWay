@@ -43,8 +43,8 @@ export default function Quests() {
   // сбрасывался при перезагрузке и ни на что не влиял.
   const [weeklyChoice, setWeeklyChoice] = useState<string | null>(null)
   const [focusBonus, setFocusBonus] = useState<{ coins: number; rating: number }>({ coins: 0, rating: 0 })
-  // Подсветка карточки до нажатия «Выбрать»: сам выбор отправляется явно.
-  const [focusPreview, setFocusPreview] = useState<string | null>(null)
+  // Три квеста недели на выбор — их подбирает сервер, постоянные на всю неделю
+  const [focusOptions, setFocusOptions] = useState<string[]>([])
   const [picking, setPicking] = useState<string | null>(null)
   const pickingRef = useRef(false)
   const [strike, setStrike] = useState<{
@@ -96,6 +96,7 @@ export default function Quests() {
       setRecentActivity(mapRecentRewardActivities(historyRes.data))
       setStrike(dashRes.data?.strike ?? null)
       setWeeklyChoice(focusRes.data?.quest_code || null)
+      setFocusOptions(focusRes.data?.options ?? [])
       setFocusBonus({
         coins: focusRes.data?.bonus_coins ?? 0,
         rating: focusRes.data?.bonus_rating ?? 0,
@@ -168,7 +169,6 @@ export default function Quests() {
     pickingRef.current = true
     const previous = weeklyChoice
     setWeeklyChoice(code)
-    setFocusPreview(code)
     setPicking(code)
     api.post('/api/v1/quests/weekly-focus/', { quest_code: code })
       .then(() => {
@@ -177,7 +177,6 @@ export default function Quests() {
       })
       .catch(() => {
         setWeeklyChoice(previous)
-        setFocusPreview(previous)
         addToast('Не удалось выбрать цель недели', 'error')
       })
       .finally(() => {
@@ -194,8 +193,9 @@ export default function Quests() {
   // Целью недели может стать любой активный еженедельный квест. Раньше
   // в блок попадали первые два по порядку — произвольная пара, а выбранный
   // третий квест не показывался вовсе.
-  const weeklyOptions = quests.filter((q) => !q.completed && q.kind === 'Еженедельный')
-  const focusedWeekly = focusPreview ?? weeklyChoice ?? weeklyOptions[0]?.code ?? null
+  const weeklyOptions = focusOptions
+    .map((code) => quests.find((q) => q.code === code))
+    .filter((q): q is UiQuest => Boolean(q))
 
   if (loading) {
     return (
@@ -367,44 +367,43 @@ export default function Quests() {
 
             </div>
 
-            {weeklyOptions.length > 1 && (
-              <section className="q1__choice">
-                <h3 className="q1__choice-title">Еженедельный выбор</h3>
-                <div className="q1__choice-box">
-                  <p className="q1__choice-lead">
-                    Выбери цель недели{focusBonus.coins || focusBonus.rating
-                      ? `: +${focusBonus.coins} монет и +${focusBonus.rating} рейтинга сверху за неё`
-                      : ''}
-                  </p>
-                  <div className="q1__choice-options">
-                    {weeklyOptions.map((option) => {
-                      const isFocused = option.code === focusedWeekly
-                      return (
-                        <article
-                          key={option.code}
-                          className={`q1__option${isFocused ? ' q1__option--focused' : ''}`}
-                          onClick={() => setFocusPreview(option.code)}
-                        >
-                          {option.code === weeklyChoice && <span className="q1__option-mark" aria-hidden="true" />}
-                          <h4 className="q1__option-title">{option.title}</h4>
-                          <p className="q1__option-task">{option.desc}</p>
-                          <div className="q1__option-reward">{option.reward}</div>
+            {weeklyOptions.length > 0 && (
+              <section className="q1__choice q1__choice--compact">
+                <div className="q1__choice-head">
+                  <h3 className="q1__choice-title">Цель недели</h3>
+                  {focusBonus.coins > 0 && (
+                    <span className="q1__choice-bonus">+{focusBonus.coins} монет сверху</span>
+                  )}
+                </div>
+                <p className="q1__choice-lead">
+                  Выбери один квест из трёх — за его выполнение получишь надбавку. Новые варианты — в понедельник.
+                </p>
+                <div className="q1__choice-list">
+                  {weeklyOptions.map((option) => {
+                    const isCurrent = option.code === weeklyChoice
+                    return (
+                      <article
+                        key={option.code}
+                        className={`q1__goal${isCurrent ? ' q1__goal--current' : ''}${option.completed ? ' q1__goal--done' : ''}`}
+                      >
+                        <div className="q1__goal-text">
+                          <h4 className="q1__goal-title">{option.title}</h4>
+                          <p className="q1__goal-desc">{option.desc}</p>
+                        </div>
+                        <div className="q1__goal-side">
+                          <span className="q1__goal-reward">{option.reward}</span>
                           <button
                             type="button"
-                            className={`q1__option-pick btn-press${
-                              option.code === weeklyChoice ? ' q1__option-pick--current' : ''
-                            }${picking === option.code ? ' q1__option-pick--busy' : ''}`}
+                            className={`q1__goal-pick btn-press${isCurrent ? ' q1__goal-pick--current' : ''}${picking === option.code ? ' q1__option-pick--busy' : ''}`}
                             onClick={() => pickWeeklyFocus(option.code, option.title)}
-                            disabled={picking !== null || option.code === weeklyChoice}
+                            disabled={picking !== null || isCurrent}
                           >
-                            <span key={String(option.code === weeklyChoice)} className="q1__option-pick-label">
-                              {option.code === weeklyChoice ? 'Цель недели' : 'Выбрать'}
-                            </span>
+                            {isCurrent ? '✓ Цель недели' : 'Выбрать'}
                           </button>
-                        </article>
-                      )
-                    })}
-                  </div>
+                        </div>
+                      </article>
+                    )
+                  })}
                 </div>
               </section>
             )}
