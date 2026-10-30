@@ -1,4 +1,6 @@
-/* Страница «Правила»: за что баллы и монеты */
+/* Страница «Правила»: за что баллы и монеты.
+   Баллы — фиолетовый жетон с пиксельным квадратом IThub, монеты — жёлтая
+   монета, как у баланса в шапке. Цифры крупнее подписей: их и ищут. */
 
 .rules {
   display: flex;
@@ -11,71 +13,184 @@
 
 .rules--state { min-height: 60vh; }
 
+/* ---------- жетоны ---------- */
+
+.rt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px 0 8px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rt--pts { background: #9a33f4; color: #fff; }
+.rt--coin { background: #fff4b8; color: #121212; box-shadow: inset 0 0 0 1.5px #ffd900; }
+
+/* пиксель IThub: квадрат в квадрате */
+.rt__px {
+  position: relative;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 2.5px solid currentColor;
+}
+
+.rt__px::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: currentColor;
+}
+
+.rt__coin {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff7a8 0 18%, #ffd900 45%, #e6b800 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(150, 110, 0, 0.35);
+}
+
+.rt__px--big { width: 34px; height: 34px; border-width: 6px; }
+.rt__px--big::after { inset: 5px; }
+.rt__coin--big { width: 38px; height: 38px; box-shadow: inset 0 0 0 3px rgba(150, 110, 0, 0.3), 0 6px 14px -6px rgba(150, 110, 0, 0.7); }
+
+.rt-pair { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---------- шапка ---------- */
+
 .rules-hero {
-  padding: var(--space-20);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px var(--space-20) var(--space-20);
   border-radius: var(--radius-24);
   background: var(--ithub-white);
   box-shadow: var(--card-shadow);
 }
 
 .rules-hero__title {
-  margin: 0 0 16px;
+  margin: 0;
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 44px;
+  line-height: 1;
   color: var(--ithub-black);
 }
 
-.rules-hero__split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.rules-hero__item {
+.rules-hero__lead {
+  margin: -4px 0 0;
+  max-width: 62ch;
   font-family: var(--font-text);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   color: #4a4a4a;
 }
 
-.rules-hero__tag {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 13px;
+.rules-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.rules-hero__tag--rating { background: #9a33f4; color: #fff; }
-.rules-hero__tag--coins { background: #ffd900; color: #121212; }
+.rules-legend__tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 18px;
+}
+
+.rules-legend__tile--pts { background: #9a33f4; color: #fff; }
+.rules-legend__tile--coin { background: #ffd900; color: #121212; }
+.rules-legend__tile .rt__px--big { margin-top: 2px; color: #fff; }
+
+.rules-legend__name {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.rules-legend__text {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: 0.88;
+}
+
+.rules-jump {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.rules-jump::-webkit-scrollbar { display: none; }
+
+.rules-jump__link {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #121212;
+  color: #f5f5f5;
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rules-jump__link:active { transform: scale(0.96); }
+.rules-jump__link:focus-visible { outline: 3px solid #9a33f4; outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .rules-jump__link:hover { background: #9a33f4; }
+}
+
+/* ---------- разделы ---------- */
 
 .rules-slot {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   padding: var(--space-20);
   border-radius: var(--radius-24);
   background: var(--purple-500);
   box-shadow: var(--card-shadow);
+  scroll-margin-top: 120px;
 }
 
 .rules-slot--coins { background: #121212; }
 .rules-slot--minus { background: #4a4a4a; }
 
+.rules-slot__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
 .rules-slot__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--ithub-white);
 }
 
 .rules-slot__hint {
-  margin: -6px 0 0;
+  margin: 0;
   font-family: var(--font-text);
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .rules-grid {
@@ -87,22 +202,49 @@
 .rules-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-  padding: 16px 18px;
+  padding: 18px 20px;
   border-radius: 18px;
   background: var(--ithub-white);
 }
 
+.rules-card--wide { grid-column: 1 / -1; }
+
+/* короткие карточки стопкой, чтобы рядом с длинной не оставалось пустоты */
+.rules-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.rules-stack > .rules-card { flex: 1 0 auto; }
+
 .rules-card__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 19px;
   color: var(--ithub-black);
 }
 
-.rules-card__text,
-.rules-card__note {
+/* маркер заголовка — тот же пиксель IThub */
+.rules-card__title::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: #9a33f4;
+  box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 4px #9a33f4;
+  margin: 0 4px 0 2px;
+}
+
+.rules-slot--coins .rules-card__title::before { background: #ffd900; box-shadow: 0 0 0 2px var(--ithub-white), 0 0 0 4px #121212; }
+
+.rules-card__text {
   margin: 0;
   font-family: var(--font-text);
   font-size: 14px;
@@ -112,87 +254,190 @@
 
 .rules-card__who {
   margin: auto 0 0;
-  padding-top: 8px;
-  border-top: 1px dashed #e3d4f7;
+  padding-top: 10px;
+  border-top: 1px dashed #d9c6f2;
   font-family: var(--font-text);
-  font-size: 12px;
-  color: #848484;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #6b6b6b;
 }
 
-.rules-list {
+/* ---------- строки ---------- */
+
+.rules-rows {
   margin: 0;
   padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
-.rules-list__row {
+.rules-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
+  padding: 7px 0;
+  border-bottom: 1px solid #ece4f6;
   font-family: var(--font-text);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
   color: #121212;
 }
 
-.rules-list__title { min-width: 0; }
+.rules-row:last-child { border-bottom: 0; }
+.rules-row__title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
+.rules-row__value { flex: none; }
 
-.rules-pair {
-  flex-shrink: 0;
-  font-family: var(--font-text);
-  font-size: 14px;
-  white-space: nowrap;
-  color: #4a4a4a;
+.rules-place {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #121212;
+  color: #ffd900;
+  font-family: var(--font-display);
+  font-size: 13px;
 }
 
-.rules-pair b {
+/* крупная цифра с пояснением: шефство */
+.rules-big {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rules-big__num {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 0.9;
   color: #9a33f4;
-  font-size: 15px;
 }
 
-.rules-pair__coins {
-  margin-left: 6px;
-  font-size: 12px;
-  color: #848484;
+.rules-big__text {
+  font-family: var(--font-text);
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: #121212;
 }
+
+.rules-big__text .rt { height: 26px; font-size: 14px; vertical-align: middle; }
+
+/* ---------- таблицы тарифов ---------- */
 
 .rules-table {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-text);
-  font-size: 14px;
 }
 
 .rules-table th,
 .rules-table td {
-  padding: 8px 6px;
+  padding: 10px 8px;
   text-align: left;
-  border-bottom: 1px solid #f0e6fb;
+  vertical-align: middle;
+  border-bottom: 1px solid #ece4f6;
 }
+
+.rules-table tbody tr:last-child > * { border-bottom: 0; }
 
 .rules-table thead th {
-  font-size: 12px;
-  font-weight: 600;
-  color: #848484;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b6b6b;
+  white-space: nowrap;
 }
 
+.rules-table thead .rules-ladder { margin-right: 8px; }
+
 .rules-table tbody th {
+  width: 30%;
+  font-size: 15px;
   font-weight: 600;
   color: #121212;
 }
 
-.rules-table td .rules-pair__coins {
+.rules-table__value { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.rules-table__level { display: none; }
+
+/* лесенка уровня — от колледжа до федерации */
+.rules-ladder {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 15px;
+  vertical-align: -2px;
+}
+
+.rules-ladder i {
   display: block;
-  margin-left: 0;
+  width: 4px;
+  background: #e3d4f7;
+}
+
+.rules-ladder i.is-on { background: #9a33f4; }
+
+@media (hover: hover) and (pointer: fine) {
+  .rules-table tbody tr { transition: background-color 0.2s ease; }
+  .rules-table tbody tr:hover { background: #faf6ff; }
+}
+
+/* ---------- штраф ---------- */
+
+.rules-penalty {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.rules-penalty__main,
+.rules-penalty__cap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: var(--ithub-white);
+}
+
+.rules-penalty__cap { background: #121212; color: #f5f5f5; }
+
+.rules-penalty__num,
+.rules-penalty__cap-num {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 0.85;
+  color: #121212;
+}
+
+.rules-penalty__cap-num { font-size: 44px; color: #f5f5f5; }
+
+.rules-penalty__label {
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.rules-penalty__note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .rules-foot {
   margin: 0;
   font-family: var(--font-text);
   font-size: 13px;
+  line-height: 1.5;
   color: #848484;
 }
 
@@ -203,6 +448,55 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .rules { padding-right: 0; }
+  .rules-grid,
+  .rules-legend,
+  .rules-penalty { grid-template-columns: minmax(0, 1fr); }
+  .rules-hero__title { font-size: 34px; }
+  .rules-slot__title { font-size: 24px; }
+  .rules-slot { padding: 16px; }
+  .rules-card { padding: 16px; }
+  .rules-row { align-items: flex-start; }
+  .rules-penalty__num { font-size: 52px; }
+  .rules-big { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .rules-big__num { font-size: 44px; }
+
+  /* Таблица тарифов на телефоне: роль — заголовок, под ней уровни строками */
+  .rules-table thead { display: none; }
+  .rules-table,
+  .rules-table tbody,
+  .rules-table tr,
+  .rules-table th,
+  .rules-table td { display: block; width: 100%; }
+  .rules-table tr { padding: 10px 0; border-bottom: 1px solid #ece4f6; }
+  .rules-table tbody tr:last-child { border-bottom: 0; }
+  .rules-table th,
+  .rules-table td { border: 0; padding: 4px 0; }
+  .rules-table tbody th { width: 100%; font-size: 16px; padding-bottom: 6px; }
+  .rules-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .rules-table__level {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #4a4a4a;
+  }
+  .rules-table__value { justify-content: flex-end; }
+}
+
+@media (max-width: 420px) {
+  .rt { height: 28px; padding: 0 9px 0 7px; font-size: 15px; }
+  .rules-row { flex-direction: column; gap: 6px; }
+  .rules-row__value { align-self: flex-start; }
+  .rt-pair { justify-content: flex-start; }
 }
 
 /* Ссылка «За что даются баллы?» на других страницах */
@@ -217,36 +511,6 @@
 }
 
 .rules-link:hover { color: #7b1fe0; }
-
-@media (max-width: 900px) {
-  .rules { padding-right: 0; }
-  .rules-grid,
-  .rules-hero__split { grid-template-columns: minmax(0, 1fr); }
-  .rules-hero__title { font-size: 28px; }
-  .rules-slot__title { font-size: 22px; }
-
-  /* Таблица тарифов на телефоне: каждая строка — карточка «уровень — значение» */
-  .rules-table thead { display: none; }
-  .rules-table,
-  .rules-table tbody,
-  .rules-table tr,
-  .rules-table th,
-  .rules-table td { display: block; width: 100%; }
-  .rules-table tr { padding: 8px 0; border-bottom: 1px solid #f0e6fb; }
-  .rules-table th,
-  .rules-table td { border: 0; padding: 3px 0; }
-  .rules-table tbody th { font-size: 15px; padding-bottom: 6px; }
-  .rules-table td {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .rules-table td::before {
-    content: attr(data-label);
-    color: #848484;
-  }
-  .rules-table td .rules-pair__coins { display: inline; margin-left: 6px; }
-}
 
 .q1__rules-link {
   display: block;

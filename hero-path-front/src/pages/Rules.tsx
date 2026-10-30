@@ -10,6 +10,8 @@ import '../styles/rules.css'
  * «Правила»: за что даются баллы и монеты. Цифры приходят с сервера —
  * из тех же настроек, по которым идут начисления, поэтому страница не
  * расходится с тем, что студент получает на самом деле.
+ * Баллы и монеты везде показаны одинаковыми жетонами: фиолетовый
+ * пиксель — рейтинг, жёлтая монета — кошелёк.
  */
 
 interface Reward { title: string; rating: number; coins: number }
@@ -44,41 +46,91 @@ interface RulesData {
 }
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '').replace('.', ','))
-const coins = (n: number) => `${fmt(n)} ${plural(n, ['монета', 'монеты', 'монет'])}`
-const points = (n: number) => `${fmt(n)} ${plural(n, ['балл', 'балла', 'баллов'])}`
+const coinsWord = (n: number) => plural(n, ['монета', 'монеты', 'монет'])
+const pointsWord = (n: number) => plural(n, ['балл', 'балла', 'баллов'])
 const range = (a: number, b: number) => (a === b ? fmt(a) : `${fmt(a)}–${fmt(b)}`)
 
-function Pair({ cell }: { cell: Cell }) {
+const SECTIONS = [
+  { id: 'rules-points', label: 'Баллы и монеты' },
+  { id: 'rules-coins', label: 'Только монеты' },
+  { id: 'rules-minus', label: 'Что снимают' },
+]
+
+/** Жетон рейтинга: фиолетовый, с пиксельным квадратом IThub. */
+function Pts({ value, max, sign = '' }: { value: number; max?: boolean; sign?: string }) {
   return (
-    <span className="rules-pair">
-      <b>{fmt(cell.rating)}</b>
-      <span className="rules-pair__coins">{fmt(cell.coins)} мон.</span>
+    <span className="rt rt--pts" aria-label={`${max ? 'до ' : ''}${sign}${fmt(value)} ${pointsWord(value)}`}>
+      <i className="rt__px" aria-hidden="true" />
+      <span aria-hidden="true">{max ? 'до ' : ''}{sign}{fmt(value)}</span>
     </span>
+  )
+}
+
+/** Жетон монет: жёлтая монета, как в шапке у баланса. */
+function Coins({ text, count, max }: { text?: string; count: number; max?: boolean }) {
+  const shown = text ?? fmt(count)
+  return (
+    <span className="rt rt--coin" aria-label={`${max ? 'до ' : ''}${shown} ${coinsWord(count)}`}>
+      <i className="rt__coin" aria-hidden="true" />
+      <span aria-hidden="true">{max ? 'до ' : ''}{shown}</span>
+    </span>
+  )
+}
+
+function Pair({ cell, max }: { cell: Cell; max?: boolean }) {
+  return (
+    <span className="rt-pair">
+      <Pts value={cell.rating} max={max} />
+      <Coins count={cell.coins} max={max} />
+    </span>
+  )
+}
+
+function Row({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <li className="rules-row">
+      <span className="rules-row__title">{title}</span>
+      <span className="rules-row__value">{children}</span>
+    </li>
   )
 }
 
 function RewardList({ items }: { items: Reward[] }) {
   return (
-    <ul className="rules-list">
+    <ul className="rules-rows">
       {items.map((item) => (
-        <li key={item.title} className="rules-list__row">
-          <span className="rules-list__title">{item.title}</span>
-          <Pair cell={item} />
-        </li>
+        <Row key={item.title} title={item.title}><Pair cell={item} /></Row>
       ))}
     </ul>
   )
 }
 
-/** Таблица «роль × уровень». На телефоне каждая строка — отдельный список. */
+/** Лесенка уровня: от колледжа до федерации — от одной клетки до четырёх. */
+function Ladder({ step, of }: { step: number; of: number }) {
+  return (
+    <span className="rules-ladder" aria-hidden="true">
+      {Array.from({ length: of }, (_, i) => (
+        <i key={i} className={i <= step ? 'is-on' : ''} style={{ height: `${6 + i * 3}px` }} />
+      ))}
+    </span>
+  )
+}
+
+/** Таблица «роль × уровень». На телефоне каждая роль — отдельный список уровней. */
 function MatrixTable({ data, caption }: { data: Matrix; caption: string }) {
+  const of = data.columns.length
   return (
     <table className="rules-table">
       <caption className="visually-hidden">{caption}</caption>
       <thead>
         <tr>
-          <th scope="col" />
-          {data.columns.map((col) => <th key={col} scope="col">{col}</th>)}
+          <th scope="col"><span className="visually-hidden">Роль</span></th>
+          {data.columns.map((col, i) => (
+            <th key={col} scope="col">
+              <Ladder step={i} of={of} />
+              {col}
+            </th>
+          ))}
         </tr>
       </thead>
       <tbody>
@@ -86,8 +138,16 @@ function MatrixTable({ data, caption }: { data: Matrix; caption: string }) {
           <tr key={row.title}>
             <th scope="row">{row.title}</th>
             {row.cells.map((cell, i) => (
-              <td key={data.columns[i]} data-label={data.columns[i]}>
-                <Pair cell={cell} />
+              <td key={data.columns[i]}>
+                <span className="rules-table__level" aria-hidden="true">
+                  <Ladder step={i} of={of} />
+                  {data.columns[i]}
+                </span>
+                <span className="visually-hidden">{data.columns[i]}: </span>
+                <span className="rules-table__value">
+                  <Pts value={cell.rating} />
+                  <Coins count={cell.coins} />
+                </span>
               </td>
             ))}
           </tr>
@@ -97,9 +157,9 @@ function MatrixTable({ data, caption }: { data: Matrix; caption: string }) {
   )
 }
 
-function Card({ title, who, children }: { title: string; who?: string; children: React.ReactNode }) {
+function Card({ title, who, wide, children }: { title: string; who?: string; wide?: boolean; children: React.ReactNode }) {
   return (
-    <article className="rules-card">
+    <article className={`rules-card${wide ? ' rules-card--wide' : ''}`}>
       <h3 className="rules-card__title">{title}</h3>
       {children}
       {who && <p className="rules-card__who">{who}</p>}
@@ -135,129 +195,132 @@ export default function Rules() {
     <div className="rules page-enter">
       <section className="rules-hero">
         <h1 className="rules-hero__title"><PixelText text="Правила" /></h1>
-        <div className="rules-hero__split">
-          <div className="rules-hero__item">
-            <span className="rules-hero__tag rules-hero__tag--rating">Баллы</span>
-            Это рейтинг: твоё место в топе, статус и сравнение с другими. Растут за учёбу и активность.
+        <p className="rules-hero__lead">За что начисляют и за что снимают. Цифры здесь те же, по которым идут начисления.</p>
+        <div className="rules-legend">
+          <div className="rules-legend__tile rules-legend__tile--pts">
+            <i className="rt__px rt__px--big" aria-hidden="true" />
+            <div>
+              <b className="rules-legend__name">Баллы</b>
+              <p className="rules-legend__text">Рейтинг: место в топе, статус и сравнение с другими. Растут за учёбу и активность.</p>
+            </div>
           </div>
-          <div className="rules-hero__item">
-            <span className="rules-hero__tag rules-hero__tag--coins">Монеты</span>
-            Это кошелёк для магазина. За учёбу их дают столько же, сколько баллов, а за квесты и нашивки — только монеты.
+          <div className="rules-legend__tile rules-legend__tile--coin">
+            <i className="rt__coin rt__coin--big" aria-hidden="true" />
+            <div>
+              <b className="rules-legend__name">Монеты</b>
+              <p className="rules-legend__text">Кошелёк для магазина. За учёбу их столько же, сколько баллов, за квесты и нашивки — только монеты.</p>
+            </div>
           </div>
         </div>
+        <nav className="rules-jump" aria-label="Разделы правил">
+          {SECTIONS.map((s) => (
+            <a key={s.id} href={`#${s.id}`} className="rules-jump__link">{s.label}</a>
+          ))}
+        </nav>
       </section>
 
-      <section className="rules-slot">
-        <h2 className="rules-slot__title">За что дают баллы</h2>
-        <p className="rules-slot__hint">В таблицах: <b>баллы</b> и монеты за одно начисление.</p>
+      <section id="rules-points" className="rules-slot rules-slot--points">
+        <header className="rules-slot__head">
+          <h2 className="rules-slot__title">Баллы и монеты</h2>
+          <p className="rules-slot__hint">Каждое начисление растит рейтинг и пополняет кошелёк.</p>
+        </header>
         <div className="rules-grid">
-          <Card title="Учёба — каждую неделю" who="Считается сама по данным LXP, начисляется в понедельник за прошлую неделю.">
-            <ul className="rules-list">
-              <li className="rules-list__row">
-                <span className="rules-list__title">Контрольные точки</span>
-                <span className="rules-pair"><b>до {fmt(academic.ct_weekly_max)}</b></span>
-              </li>
-              <li className="rules-list__row">
-                <span className="rules-list__title">Посещаемость пар</span>
-                <span className="rules-pair"><b>до {fmt(academic.attendance_weekly_max)}</b></span>
-              </li>
-            </ul>
-            <p className="rules-card__note">Монет — столько же, сколько баллов.</p>
-          </Card>
+          <div className="rules-stack">
+            <Card title="Учёба, каждую неделю" who="Считается сама по данным LXP, приходит в понедельник за прошлую неделю.">
+              <ul className="rules-rows">
+                <Row title="Контрольные точки"><Pair cell={{ rating: academic.ct_weekly_max, coins: academic.ct_weekly_max }} max /></Row>
+                <Row title="Посещаемость пар"><Pair cell={{ rating: academic.attendance_weekly_max, coins: academic.attendance_weekly_max }} max /></Row>
+              </ul>
+            </Card>
 
-          <Card title="Регулярные роли — каждую неделю" who="Роль назначает администрация. За неполную неделю — пропорционально дням.">
+            <Card title="Проекты" who="Начисляет руководитель проекта после приёмки. Одна работа — одно начисление.">
+              <RewardList items={data.projects} />
+            </Card>
+          </div>
+
+          <Card title="Роли, каждую неделю" who="Роль назначает администрация. За неполную неделю — пропорционально дням.">
             <RewardList items={data.roles} />
           </Card>
 
-          <Card title="Проекты" who="Начисляет руководитель проекта после приёмки работы. Одна работа — один раз.">
-            <RewardList items={data.projects} />
+          <Card wide title="Шефство" who="Каждый понедельник, автоматически.">
+            <div className="rules-big">
+              <span className="rules-big__num">{mentorship.share_percent}%</span>
+              <span className="rules-big__text">
+                от баллов, которые подшефный заработал сам за неделю, — но не больше{' '}
+                <Pts value={mentorship.cap_per_mentee} /> за одного подшефного.
+              </span>
+            </div>
+            <p className="rules-card__text">Шефство начинается, когда подшефный принял предложение.</p>
           </Card>
 
-          <Card title="Шефство" who="Каждый понедельник, автоматически.">
-            <p className="rules-card__text">
-              Наставник получает {mentorship.share_percent}% от баллов, которые подшефный заработал сам за неделю,
-              но не больше {points(mentorship.cap_per_mentee)} за одного подшефного. Шефство начинается, когда
-              подшефный принял предложение.
-            </p>
+          <Card wide title="Мероприятия" who="Подтверждает ответственный за мероприятия. За одно мероприятие засчитывается одна роль — самая высокая.">
+            <MatrixTable data={data.events} caption="Баллы и монеты за мероприятия по уровням" />
+          </Card>
+
+          <Card wide title="Олимпиады" who="Подтверждает ответственный. Если после участия засчитали победу, доплачивается разница.">
+            <MatrixTable data={data.olympiads} caption="Баллы и монеты за олимпиады по уровням" />
           </Card>
         </div>
-
-        <Card title="Мероприятия" who="Подтверждает ответственный за мероприятия. За одно мероприятие — одна, наивысшая роль.">
-          <MatrixTable data={data.events} caption="Баллы и монеты за мероприятия" />
-        </Card>
-        <Card title="Олимпиады" who="Подтверждает ответственный. Победа после засчитанного участия доплачивается разницей.">
-          <MatrixTable data={data.olympiads} caption="Баллы и монеты за олимпиады" />
-        </Card>
       </section>
 
-      <section className="rules-slot rules-slot--coins">
-        <h2 className="rules-slot__title">За что дают только монеты</h2>
+      <section id="rules-coins" className="rules-slot rules-slot--coins">
+        <header className="rules-slot__head">
+          <h2 className="rules-slot__title">Только монеты</h2>
+          <p className="rules-slot__hint">Рейтинг от этого не меняется — только кошелёк.</p>
+        </header>
         <div className="rules-grid">
-          <Card title="Квесты" who={`За квесты — не больше ${coins(co.max_daily_quest_coins)} в день.`}>
-            <ul className="rules-list">
-              {co.quests.map((q) => (
-                <li key={q.title} className="rules-list__row">
-                  <span className="rules-list__title">{q.title}</span>
-                  <span className="rules-pair"><b>{range(q.coins_min, q.coins_max)}</b> мон.</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
+          <div className="rules-stack">
+            <Card title="Квесты" who={`За квесты — не больше ${co.max_daily_quest_coins} ${coinsWord(co.max_daily_quest_coins)} в день.`}>
+              <ul className="rules-rows">
+                {co.quests.map((q) => (
+                  <Row key={q.title} title={q.title}><Coins text={range(q.coins_min, q.coins_max)} count={q.coins_max} /></Row>
+                ))}
+              </ul>
+            </Card>
+
+            <Card title="Остальное">
+              <ul className="rules-rows">
+                {co.badges.coins_max > 0 && (
+                  <Row title="Нашивка"><Coins text={range(co.badges.coins_min, co.badges.coins_max)} count={co.badges.coins_max} /></Row>
+                )}
+                <Row title="Получил респект"><Coins count={co.respect_coins} /></Row>
+                <Row title="Выиграл дуэль — ставка соперника"><Coins count={co.duel_bet} /></Row>
+              </ul>
+            </Card>
+          </div>
+
           <Card title="Царь горы" who="Начисляется каждый вечер по рейтингу на сайте.">
-            <ul className="rules-list">
+            <ul className="rules-rows">
               {king.top.map((c, i) => (
-                <li key={i} className="rules-list__row">
-                  <span className="rules-list__title">{i + 1}-е место в общем рейтинге — в день</span>
-                  <span className="rules-pair"><b>{fmt(c)}</b> мон.</span>
-                </li>
+                <Row key={i} title={<><span className="rules-place">{i + 1}</span>место в общем рейтинге, за день</>}>
+                  <Coins count={c} />
+                </Row>
               ))}
-              <li className="rules-list__row">
-                <span className="rules-list__title">1-е место на своём курсе — в день</span>
-                <span className="rules-pair"><b>{fmt(king.course_leader)}</b> мон.</span>
-              </li>
-              <li className="rules-list__row">
-                <span className="rules-list__title">{king.streak_days} дней подряд первым — и нашивка «Царь горы»</span>
-                <span className="rules-pair"><b>{fmt(king.streak_reward)}</b> мон.</span>
-              </li>
-              <li className="rules-list__row">
-                <span className="rules-list__title">Сместил вчерашнего лидера</span>
-                <span className="rules-pair"><b>{fmt(king.dethrone)}</b> мон.</span>
-              </li>
-              <li className="rules-list__row">
-                <span className="rules-list__title">Твой отряд — лидер недели</span>
-                <span className="rules-pair"><b>{fmt(king.squad_leader)}</b> мон.</span>
-              </li>
-            </ul>
-          </Card>
-          <Card title="Остальное">
-            <ul className="rules-list">
-              {co.badges.coins_max > 0 && (
-                <li className="rules-list__row">
-                  <span className="rules-list__title">Нашивки</span>
-                  <span className="rules-pair"><b>{range(co.badges.coins_min, co.badges.coins_max)}</b> мон.</span>
-                </li>
-              )}
-              <li className="rules-list__row">
-                <span className="rules-list__title">Получил респект</span>
-                <span className="rules-pair"><b>{fmt(co.respect_coins)}</b> мон.</span>
-              </li>
-              <li className="rules-list__row">
-                <span className="rules-list__title">Выиграл дуэль — ставка соперника</span>
-                <span className="rules-pair"><b>{fmt(co.duel_bet)}</b> мон.</span>
-              </li>
+              <Row title="Первый на своём курсе, за день"><Coins count={king.course_leader} /></Row>
+              <Row title={`${king.streak_days} дней подряд первым — и нашивка «Царь горы»`}><Coins count={king.streak_reward} /></Row>
+              <Row title="Сместил вчерашнего лидера"><Coins count={king.dethrone} /></Row>
+              <Row title="Твой отряд — лидер недели"><Coins count={king.squad_leader} /></Row>
             </ul>
           </Card>
         </div>
       </section>
 
-      <section className="rules-slot rules-slot--minus">
-        <h2 className="rules-slot__title">За что снимают</h2>
-        <Card title="Пропуск пары" who="Только рейтинг, монеты не списываются.">
-          <p className="rules-card__text">
-            −{points(penalties.per_missed_lesson)} за каждую пропущенную пару, но не больше −{points(penalties.daily_max)} в день.
-            Опоздания баллы не снимают — только мешают квестам «без опозданий».
-          </p>
-        </Card>
+      <section id="rules-minus" className="rules-slot rules-slot--minus">
+        <header className="rules-slot__head">
+          <h2 className="rules-slot__title">Что снимают</h2>
+          <p className="rules-slot__hint">Только рейтинг — монеты не списываются.</p>
+        </header>
+        <div className="rules-penalty">
+          <div className="rules-penalty__main">
+            <span className="rules-penalty__num">−{fmt(penalties.per_missed_lesson)}</span>
+            <span className="rules-penalty__label">{pointsWord(penalties.per_missed_lesson)} за каждую пропущенную пару</span>
+          </div>
+          <div className="rules-penalty__cap">
+            <span className="rules-penalty__cap-num">−{fmt(penalties.daily_max)}</span>
+            <span className="rules-penalty__label">не больше за день</span>
+          </div>
+          <p className="rules-penalty__note">Опоздания баллы не снимают — только мешают квестам «без опозданий».</p>
+        </div>
       </section>
 
       <p className="rules-foot">
