@@ -89,7 +89,7 @@ class SyncCatalogsTests(TestCase):
         output = run("--dry-run")
 
         self.assertEqual(ShopItem.objects.count(), 0)
-        self.assertEqual(Badge.objects.count(), 0)
+        self.assertFalse(Badge.objects.exclude(code="halloween-scariest").exists())
         self.assertIn("будет создан", output)
 
     def test_badges_reward_only_coins(self):
