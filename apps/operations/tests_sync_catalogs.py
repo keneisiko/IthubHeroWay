@@ -29,7 +29,8 @@ class SyncCatalogsTests(TestCase):
         run()
 
         self.assertEqual(ShopItem.objects.count(), len(SHOP_ITEMS))
-        self.assertEqual(Badge.objects.count(), len(BADGES))
+        # «Самый страшный» заводит миграция, а не каталог
+        self.assertEqual(Badge.objects.exclude(code="halloween-scariest").count(), len(BADGES))
 
     @override_settings(ENVIRONMENT_NAME="production", DEBUG=False)
     def test_works_in_production(self):

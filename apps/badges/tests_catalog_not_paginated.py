@@ -33,7 +33,9 @@ class FullListsTests(TestCase):
 
         codes = [row["code"] for row in self.client.get("/api/v1/badges/").json()]
 
-        self.assertEqual(len(codes), 26)
+        # сезонные нашивки заводятся миграциями — считаем всё активное в базе
+        self.assertEqual(len(codes), Badge.objects.filter(is_active=True).count())
+        self.assertGreaterEqual(len(codes), 26)
         self.assertIn(newest.code, codes)
 
     def test_all_earned_badges_are_listed(self):
