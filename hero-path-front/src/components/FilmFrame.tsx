@@ -1,12 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { CROSS, DOT, LONG, PLUS, RING, THICK, TONES, paintShape, type Cell } from '../lib/pixelStars'
-
-interface Rect {
-  x: number
-  y: number
-  w: number
-  h: number
-}
+import { outline, type Rect } from '../lib/pixelFrame'
 
 // пылинка свечения: клетка вокруг фото со своим ритмом мерцания
 interface Mote {
@@ -42,22 +36,6 @@ const SPARK_TONES = [1, 2, 3, 2, 1]
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
-
-// контур вокруг фото по часовой стрелке; углы срезаны ступенькой
-function outline(o: number, s: number, u: number): Rect[] {
-  const n = Math.max(1, Math.round(s / u))
-  const at = (i: number) => o + Math.round((i * s) / n)
-  const cells: Rect[] = []
-  for (let i = 0; i < n; i++) cells.push({ x: at(i), y: o - u, w: at(i + 1) - at(i), h: u })
-  cells.push({ x: o + s - u, y: o, w: u, h: u })
-  for (let i = 0; i < n; i++) cells.push({ x: o + s, y: at(i), w: u, h: at(i + 1) - at(i) })
-  cells.push({ x: o + s - u, y: o + s - u, w: u, h: u })
-  for (let i = n - 1; i >= 0; i--) cells.push({ x: at(i), y: o + s, w: at(i + 1) - at(i), h: u })
-  cells.push({ x: o, y: o + s - u, w: u, h: u })
-  for (let i = n - 1; i >= 0; i--) cells.push({ x: o - u, y: at(i), w: u, h: at(i + 1) - at(i) })
-  cells.push({ x: o, y: o, w: u, h: u })
-  return cells
-}
 
 /**
  * Рамка аватара в теме «Плёнка» — пиксельная, как звёзды на фоне. Фото

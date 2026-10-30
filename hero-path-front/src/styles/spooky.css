@@ -1,0 +1,784 @@
+/* =========================
+   ТЕМА «САМЫЙ СТРАШНЫЙ» — профиль владельца хэллоуинской нашивки
+   Пиксельная ночь на кладбище (SpookySky), фото в каменной рамке с
+   пиксельном склепе с черепом, свечой, вороном и тыквами (SpookyFrame). Карточки — тёмно-фиолетовые, свет —
+   от свечей: оранжевый снизу, паутина по углам, заголовки пиксельным
+   шрифтом. Вход — удар молнии, карточки поднимаются из темноты.
+   ========================= */
+
+.profile--spooky,
+body:has(.profile--spooky) {
+  --sp-pumpkin: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 9' shape-rendering='crispEdges'%3E%3Crect x='5' y='0' width='1' height='1' fill='%234f8a3a'/%3E%3Crect x='6' y='0' width='1' height='1' fill='%234f8a3a'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='1' width='1' height='1' fill='%234f8a3a'/%3E%3Crect x='6' y='1' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='7' y='1' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='8' y='1' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='9' y='1' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='6' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='7' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='8' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='9' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='0' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='4' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='6' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='7' y='3' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='8' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='9' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='10' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='0' y='4' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='4' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='3' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='5' y='4' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='6' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='7' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='8' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='9' y='4' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='10' y='4' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='0' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='4' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='5' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='6' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='7' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='8' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='9' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='10' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='0' y='6' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='6' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='6' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='3' y='6' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='4' y='6' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='5' y='6' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='6' y='6' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='7' y='6' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='8' y='6' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='9' y='6' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='10' y='6' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='7' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='7' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='7' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='4' y='7' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='5' y='7' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='6' y='7' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='7' y='7' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='8' y='7' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='9' y='7' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='8' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='3' y='8' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='4' y='8' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='8' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='6' y='8' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='7' y='8' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='8' y='8' width='1' height='1' fill='%23b8480c'/%3E%3C/svg%3E");
+  --sp-pumpkin-off: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 9' shape-rendering='crispEdges'%3E%3Crect x='5' y='0' width='1' height='1' fill='%233c3550'/%3E%3Crect x='6' y='0' width='1' height='1' fill='%233c3550'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%23352c4a'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%23352c4a'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='5' y='1' width='1' height='1' fill='%233c3550'/%3E%3Crect x='6' y='1' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='7' y='1' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='8' y='1' width='1' height='1' fill='%23352c4a'/%3E%3Crect x='9' y='1' width='1' height='1' fill='%23352c4a'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='5' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='6' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='7' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='8' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='9' y='2' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='0' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%232a2140'/%3E%3Crect x='4' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='5' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='6' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='7' y='3' width='1' height='1' fill='%232a2140'/%3E%3Crect x='8' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='9' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='10' y='3' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='0' y='4' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='1' y='4' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%232a2140'/%3E%3Crect x='3' y='4' width='1' height='1' fill='%232a2140'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%232a2140'/%3E%3Crect x='5' y='4' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='6' y='4' width='1' height='1' fill='%232a2140'/%3E%3Crect x='7' y='4' width='1' height='1' fill='%232a2140'/%3E%3Crect x='8' y='4' width='1' height='1' fill='%232a2140'/%3E%3Crect x='9' y='4' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='10' y='4' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='0' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='1' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='2' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='3' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='4' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='5' y='5' width='1' height='1' fill='%232a2140'/%3E%3Crect x='6' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='7' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='8' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='9' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='10' y='5' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='0' y='6' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='1' y='6' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='2' y='6' width='1' height='1' fill='%232a2140'/%3E%3Crect x='3' y='6' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='4' y='6' width='1' height='1' fill='%232a2140'/%3E%3Crect x='5' y='6' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='6' y='6' width='1' height='1' fill='%232a2140'/%3E%3Crect x='7' y='6' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='8' y='6' width='1' height='1' fill='%232a2140'/%3E%3Crect x='9' y='6' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='10' y='6' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='1' y='7' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='2' y='7' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='3' y='7' width='1' height='1' fill='%232a2140'/%3E%3Crect x='4' y='7' width='1' height='1' fill='%232a2140'/%3E%3Crect x='5' y='7' width='1' height='1' fill='%232a2140'/%3E%3Crect x='6' y='7' width='1' height='1' fill='%232a2140'/%3E%3Crect x='7' y='7' width='1' height='1' fill='%232a2140'/%3E%3Crect x='8' y='7' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='9' y='7' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='2' y='8' width='1' height='1' fill='%23352c4a'/%3E%3Crect x='3' y='8' width='1' height='1' fill='%23352c4a'/%3E%3Crect x='4' y='8' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='5' y='8' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='6' y='8' width='1' height='1' fill='%234a3f63'/%3E%3Crect x='7' y='8' width='1' height='1' fill='%23352c4a'/%3E%3Crect x='8' y='8' width='1' height='1' fill='%23352c4a'/%3E%3C/svg%3E");
+  --sp-tomb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10' shape-rendering='crispEdges'%3E%3Crect x='2' y='0' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='0' width='1' height='1' fill='%235b5075'/%3E%3Crect x='4' y='0' width='1' height='1' fill='%235b5075'/%3E%3Crect x='5' y='0' width='1' height='1' fill='%235b5075'/%3E%3Crect x='6' y='0' width='1' height='1' fill='%235b5075'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%235b5075'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%235b5075'/%3E%3Crect x='5' y='1' width='1' height='1' fill='%235b5075'/%3E%3Crect x='6' y='1' width='1' height='1' fill='%235b5075'/%3E%3Crect x='7' y='1' width='1' height='1' fill='%235b5075'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%235b5075'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%233a3150'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%235b5075'/%3E%3Crect x='5' y='2' width='1' height='1' fill='%233a3150'/%3E%3Crect x='6' y='2' width='1' height='1' fill='%235b5075'/%3E%3Crect x='7' y='2' width='1' height='1' fill='%235b5075'/%3E%3Crect x='8' y='2' width='1' height='1' fill='%235b5075'/%3E%3Crect x='0' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='4' y='3' width='1' height='1' fill='%233a3150'/%3E%3Crect x='5' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='6' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='7' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='8' y='3' width='1' height='1' fill='%235b5075'/%3E%3Crect x='0' y='4' width='1' height='1' fill='%235b5075'/%3E%3Crect x='1' y='4' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%233a3150'/%3E%3Crect x='3' y='4' width='1' height='1' fill='%233a3150'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%233a3150'/%3E%3Crect x='5' y='4' width='1' height='1' fill='%233a3150'/%3E%3Crect x='6' y='4' width='1' height='1' fill='%233a3150'/%3E%3Crect x='7' y='4' width='1' height='1' fill='%235b5075'/%3E%3Crect x='8' y='4' width='1' height='1' fill='%235b5075'/%3E%3Crect x='0' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='1' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='4' y='5' width='1' height='1' fill='%233a3150'/%3E%3Crect x='5' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='6' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='7' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='8' y='5' width='1' height='1' fill='%235b5075'/%3E%3Crect x='0' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='1' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='4' y='6' width='1' height='1' fill='%233a3150'/%3E%3Crect x='5' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='6' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='7' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='8' y='6' width='1' height='1' fill='%235b5075'/%3E%3Crect x='0' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='1' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='4' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='5' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='6' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='7' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='8' y='7' width='1' height='1' fill='%235b5075'/%3E%3Crect x='0' y='8' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='1' y='8' width='1' height='1' fill='%235b5075'/%3E%3Crect x='2' y='8' width='1' height='1' fill='%235b5075'/%3E%3Crect x='3' y='8' width='1' height='1' fill='%235b5075'/%3E%3Crect x='4' y='8' width='1' height='1' fill='%235b5075'/%3E%3Crect x='5' y='8' width='1' height='1' fill='%235b5075'/%3E%3Crect x='6' y='8' width='1' height='1' fill='%235b5075'/%3E%3Crect x='7' y='8' width='1' height='1' fill='%235b5075'/%3E%3Crect x='8' y='8' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='0' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='1' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='2' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='3' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='4' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='5' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='6' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='7' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3Crect x='8' y='9' width='1' height='1' fill='%232f5a2a'/%3E%3C/svg%3E");
+  --sp-web: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' shape-rendering='crispEdges' fill='none' stroke='rgba%28226%2C218%2C245%2C0.42%29' stroke-width='0.5'%3E%3Cpath d='M24 0L4 0M24 0L8 10M24 0L16 16M24 0L22 20M24 0L24 24'/%3E%3Cpath d='M14 0L13 5L17 9L20 12L24 13'/%3E%3Cpath d='M8 0L6 6L11 13L18 18L24 20'/%3E%3C/svg%3E");
+  --sp-night: #0b0614;
+  --sp-card: rgba(20, 11, 32, 0.86);
+  --sp-line: rgba(186, 150, 255, 0.16);
+  --sp-line-hi: rgba(255, 140, 60, 0.42);
+  --sp-bone: #efe6d8;
+  --sp-dim: #a99bc4;
+  --sp-orange: #ff7a1a;
+  --sp-candle: #ffc23d;
+  --sp-slime: #9cff7a;
+  --sp-display: 'Rubik Wet Paint', var(--font-display);
+  --sp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile--spooky { color: var(--sp-bone); }
+
+/* ---------- фон ---------- */
+
+.spooky-sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #050309;
+}
+
+.spooky-sky__scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  image-rendering: pixelated;
+}
+
+.spooky-sky__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(130% 100% at 50% 40%, transparent 55%, rgba(5, 3, 9, 0.7) 100%),
+    linear-gradient(180deg, rgba(5, 3, 9, 0.35), transparent 22%);
+}
+
+@media (max-width: 700px) {
+  .spooky-sky__scene { object-position: 22% 50%; }
+}
+
+/* ---------- карточки ---------- */
+
+.profile--spooky :is(.profile-card, .profile-card--map, .profile-card--aside, .profile-path, .profile-radar) {
+  background:
+    var(--sp-web) right 0 top 0 / 64px 64px no-repeat,
+    radial-gradient(120% 70% at 50% 120%, rgba(255, 122, 26, 0.16), transparent 60%),
+    radial-gradient(90% 80% at 0% 0%, rgba(186, 150, 255, 0.08), transparent 55%),
+    var(--sp-card);
+  border: 1px solid var(--sp-line);
+  border-radius: 14px;
+  color: var(--sp-bone);
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 122, 26, 0.28),
+    0 30px 60px -30px #000;
+}
+
+.profile--spooky .profile-card--primary,
+.profile--spooky .profile-card--primary.profile-card--banner {
+  border-color: rgba(255, 140, 60, 0.32);
+  text-shadow: none;
+}
+
+.profile--spooky .profile-card--banner::before,
+.profile--spooky .profile-card--banner::after { display: none; }
+
+/* вход: карточки поднимаются из темноты сразу после удара молнии */
+.profile--spooky .card-entrance {
+  animation: spookyRise 1s cubic-bezier(0.2, 1.25, 0.4, 1) both;
+}
+
+.profile--spooky .profile-card--primary { animation-delay: 0.42s !important; }
+.profile--spooky .profile-card--map { animation-delay: 0.52s !important; }
+.profile--spooky .profile-card--aside { animation-delay: 0.6s !important; }
+.profile--spooky .profile-radar { animation-delay: 0.7s !important; }
+.profile--spooky .profile-path { animation-delay: 0.8s !important; }
+
+@keyframes spookyRise {
+  0% { opacity: 0; transform: translateY(34px) rotate(-0.6deg); filter: brightness(0.2); }
+  60% { opacity: 1; filter: brightness(1.15); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+/* ---------- заголовки ---------- */
+
+.profile--spooky :is(.profile-map__title, .profile-aside__title, .profile-achievements__title) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--sp-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--sp-bone);
+}
+
+/* перед заголовком — тыквенный фонарик, свеча внутри дрожит */
+.profile--spooky :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before {
+  content: '';
+  flex: none;
+  width: 22px;
+  height: 18px;
+  background: var(--sp-pumpkin) center / contain no-repeat;
+  image-rendering: pixelated;
+  animation: spookyCandle 2.2s steps(1, end) infinite;
+}
+
+@keyframes spookyCandle {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 140, 40, 0.7)); }
+  23% { filter: drop-shadow(0 0 7px rgba(255, 160, 50, 0.95)); }
+  41% { filter: drop-shadow(0 0 3px rgba(255, 120, 30, 0.5)); }
+  68% { filter: drop-shadow(0 0 6px rgba(255, 150, 40, 0.85)); }
+}
+
+/* ---------- главная карточка ---------- */
+
+/* позывной горит, как надпись свечой: пламя то вспыхнет, то просядет */
+.profile--spooky .profile-card__nickname {
+  background: rgba(10, 5, 16, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 140, 60, 0.35);
+  border-radius: 8px;
+  font-family: var(--sp-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--sp-candle);
+  text-shadow: 0 0 10px rgba(255, 122, 26, 0.65), 0 0 2px #ff7a1a;
+  animation: spookyFlame 3.4s steps(1, end) infinite;
+}
+
+@keyframes spookyFlame {
+  0%, 100% { text-shadow: 0 0 10px rgba(255, 122, 26, 0.65), 0 0 2px #ff7a1a; }
+  17% { text-shadow: 0 0 14px rgba(255, 140, 40, 0.85), 0 0 3px #ff9a3a; }
+  29% { text-shadow: 0 0 7px rgba(255, 110, 20, 0.5), 0 0 1px #ff7a1a; }
+  58% { text-shadow: 0 0 12px rgba(255, 130, 30, 0.75), 0 0 2px #ff8a2a; }
+}
+
+.profile--spooky .profile-card__fio {
+  background: var(--sp-bone);
+  color: #1a0f2e;
+  border-radius: 8px;
+}
+
+.profile--spooky .profile-row__label { color: var(--sp-bone); }
+
+.profile--spooky .profile-row__chip--dark {
+  background: var(--sp-orange);
+  color: #1a0f2e;
+  border-radius: 8px;
+}
+
+.profile--spooky .profile-row__chip--light {
+  background: var(--sp-bone);
+  color: #1a0f2e;
+  border-radius: 8px;
+}
+
+/* аватар в склепе (SpookyFrame): холст выходит за края фото, сверху —
+   свеча, череп и ворон, слева — призрак из тумана, снизу — плашка нашивки */
+.profile--spooky .profile-card__avatar {
+  z-index: 0;
+  border-color: #1a0f2e;
+  background: #1a0f2e;
+  color: var(--sp-bone);
+}
+
+.profile--spooky :is(.profile-card__names, .profile-card__rows) { position: relative; z-index: 1; }
+.profile--spooky .profile-card__header { height: auto; gap: 48px; padding: 58px 0 44px 48px; }
+
+@media (max-width: 768px) {
+  .profile--spooky .profile-card__header { gap: 36px; padding: 58px 0 44px 30px; }
+}
+
+@media (min-width: 769px) {
+  .profile--spooky .profile-card__avatar { width: 136px; height: 136px; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--spooky .profile-card__avatar:hover { box-shadow: none; }
+}
+
+/* ---------- боковая карточка ---------- */
+
+.profile--spooky .profile-aside__divider { border-top: 1px dashed rgba(186, 150, 255, 0.3); }
+
+.profile--spooky .profile-aside__pill {
+  background: rgba(186, 150, 255, 0.07);
+  color: var(--sp-dim);
+  border: 1px solid var(--sp-line);
+  border-radius: 8px;
+}
+
+.profile--spooky .profile-aside__pill strong { color: var(--sp-candle); }
+
+.profile--spooky :is(.profile-aside__btn, .profile-aside__mentor-btn) {
+  background: var(--sp-orange);
+  color: #1a0f2e;
+  border: 1px solid #ff9a4a;
+  border-radius: 8px;
+  box-shadow: 0 0 0 0 rgba(255, 122, 26, 0);
+  transition: box-shadow 0.35s var(--sp-ease), transform 0.2s var(--sp-ease), background-color 0.25s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--spooky :is(.profile-aside__btn, .profile-aside__mentor-btn):hover:not(:disabled) {
+    background: #ff8c33;
+    box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.16), 0 0 30px rgba(255, 122, 26, 0.45);
+  }
+}
+
+.profile--spooky .profile-aside__mentor-btn:disabled {
+  background: transparent;
+  color: var(--sp-dim);
+  border-color: var(--sp-line);
+}
+
+.profile--spooky .profile-aside__mentee {
+  background: transparent;
+  color: var(--sp-bone);
+  border: 1px solid var(--sp-line-hi);
+  border-radius: 8px;
+}
+
+.profile--spooky :is(.profile-social__empty, .profile-social__label, .profile-social__status) { color: var(--sp-bone); }
+.profile--spooky .profile-social__hint { color: var(--sp-dim); }
+.profile--spooky .profile-social__action { background: var(--sp-orange); border-color: var(--sp-orange); color: #1a0f2e; }
+.profile--spooky .profile-social__action--light { background: transparent; border-color: var(--sp-line-hi); color: var(--sp-bone); }
+
+/* ---------- карта пути: тыквы и надгробия ----------
+   Пройденные вехи — зажжённые тыквы, текущая — большая тыква со
+   вспыхивающей свечой, впереди — надгробия. Тропа — пиксельный пунктир. */
+
+.profile--spooky .profile-map__line { height: 3px; border-radius: 0; }
+
+.profile--spooky .profile-map__line--done {
+  background: repeating-linear-gradient(90deg, var(--sp-orange) 0 6px, transparent 6px 10px);
+  box-shadow: 0 0 8px rgba(255, 122, 26, 0.45);
+  animation: spookyMarch 1.2s steps(5, end) infinite;
+}
+
+@keyframes spookyMarch {
+  from { background-position: 0 0; }
+  to { background-position: 10px 0; }
+}
+
+.profile--spooky .profile-map__line--idle { background: repeating-linear-gradient(90deg, rgba(186, 150, 255, 0.35) 0 3px, transparent 3px 9px); }
+.profile--spooky .profile-map__turn { border-width: 3px; border-style: dashed; }
+.profile--spooky .profile-map__turn--done { border-color: var(--sp-orange); }
+.profile--spooky .profile-map__turn--idle { border-color: rgba(186, 150, 255, 0.3); }
+
+.profile--spooky .profile-map__node {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--sp-pumpkin) center / 30px auto no-repeat;
+  image-rendering: pixelated;
+  overflow: visible;
+  filter: drop-shadow(0 0 6px rgba(255, 122, 26, 0.6));
+}
+
+.profile--spooky .profile-map__node--current {
+  background-size: 40px auto;
+  animation: spookyCandle 1.8s steps(1, end) infinite;
+}
+
+/* над текущей вехой кружит призрачный огонёк */
+.profile--spooky .profile-map__node--current::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  background: var(--sp-slime);
+  box-shadow: 0 0 8px var(--sp-slime);
+  animation: spookyWisp 3.6s linear infinite;
+}
+
+@keyframes spookyWisp {
+  from { transform: rotate(0deg) translateX(26px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(26px) rotate(-360deg); }
+}
+
+.profile--spooky :is(.profile-map__node--idle, .profile-map__node--pending) {
+  background: var(--sp-tomb) center / 22px auto no-repeat;
+  filter: none;
+}
+
+.profile--spooky .profile-map__node--pending { outline: 1.5px dashed rgba(255, 140, 60, 0.5); outline-offset: 1px; }
+.profile--spooky .profile-map__hint { color: var(--sp-dim); }
+.profile--spooky .profile-map__labels--top { color: var(--sp-bone); }
+.profile--spooky .profile-map__labels--bottom { color: var(--sp-dim); }
+
+/* ---------- пятиугольник ---------- */
+
+.profile--spooky .radar-hud__aura-shape {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 160, 60, 0.42), rgba(255, 122, 26, 0.16) 55%, rgba(156, 255, 122, 0.06));
+}
+
+.profile--spooky .profile-radar__axis { color: var(--sp-bone); }
+.profile--spooky .profile-radar__axis-icon { background-image: linear-gradient(var(--sp-candle), var(--sp-candle)); }
+.profile--spooky .profile-radar__axis-icon::before,
+.profile--spooky .profile-radar__axis-icon::after { background: var(--sp-candle); }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--spooky .profile-radar__axis:hover { background: rgba(255, 122, 26, 0.12); }
+}
+
+.profile--spooky .profile-radar__axis--active {
+  background: var(--sp-orange) !important;
+  color: #1a0f2e !important;
+  box-shadow: 0 0 22px rgba(255, 122, 26, 0.5);
+}
+
+.profile--spooky .profile-radar__axis--active .profile-radar__axis-icon { background-image: linear-gradient(#1a0f2e, #1a0f2e); }
+.profile--spooky .profile-radar__axis--active .profile-radar__axis-icon::before,
+.profile--spooky .profile-radar__axis--active .profile-radar__axis-icon::after { background: #1a0f2e; }
+
+.profile--spooky .profile-radar__value { background: var(--sp-orange); color: #1a0f2e; border-radius: 6px; }
+.profile--spooky .profile-radar__value--inner { background: #1a0f2e; color: var(--sp-bone); box-shadow: 0 0 0 1px var(--sp-line-hi); }
+.profile--spooky .profile-radar__value--inner.profile-radar__value--focus { background: var(--sp-orange); color: #1a0f2e; }
+.profile--spooky .profile-radar__beam line { stroke: var(--sp-candle); }
+
+.profile--spooky .axis-tip { background: rgba(20, 11, 32, 0.95); color: var(--sp-bone); box-shadow: 0 0 0 1px var(--sp-line-hi), 0 18px 40px -16px #000; }
+.profile--spooky :is(.axis-tip__num, .axis-tip__peak) { color: var(--sp-dim); }
+.profile--spooky .axis-tip__num b { color: var(--sp-candle); }
+.profile--spooky .axis-tip__bar { background: rgba(186, 150, 255, 0.14); }
+.profile--spooky .axis-tip__bar i { background: linear-gradient(90deg, #b8480c, var(--sp-orange)); }
+.profile--spooky .axis-tip__bar em { background: var(--sp-candle); }
+
+.profile--spooky .skill-sum__fact { color: var(--sp-dim); }
+.profile--spooky .skill-sum__fact b { color: var(--sp-bone); }
+.profile--spooky .skill-sum__tag { background: transparent; color: var(--sp-bone); box-shadow: inset 0 0 0 1px var(--sp-line-hi); }
+.profile--spooky .skill-sum__tag--best { background: var(--sp-orange); color: #1a0f2e; box-shadow: none; }
+.profile--spooky .skill-sum__name { color: var(--sp-bone); }
+.profile--spooky .skill-sum__value { color: var(--sp-candle); }
+.profile--spooky .skill-sum__bar i { background: rgba(186, 150, 255, 0.12); }
+.profile--spooky .skill-sum__bar i.is-on { background: var(--sp-orange); }
+.profile--spooky .skill-sum__bar i.is-peak { background: transparent; box-shadow: inset 0 0 0 1.5px var(--sp-slime); }
+.profile--spooky .is-best .skill-sum__bar i.is-on { background: var(--sp-candle); box-shadow: 0 0 8px rgba(255, 194, 61, 0.6); }
+.profile--spooky button.skill-sum__row:focus-visible { outline-color: var(--sp-orange); }
+
+.profile--spooky .skill-history { background: #160c24; color: var(--sp-bone); box-shadow: 0 0 0 1px var(--sp-line-hi), 0 30px 60px -30px #000; }
+.profile--spooky .skill-history__close { background: rgba(186, 150, 255, 0.1); }
+.profile--spooky .skill-history__dot { fill: var(--sp-orange); stroke: #160c24; }
+.profile--spooky .skill-history__delta.is-up { background: var(--sp-orange); color: #1a0f2e; }
+
+/* ---------- достижения ---------- */
+
+.profile--spooky :is(.ach__icon, .path-card__icon) {
+  background: radial-gradient(circle at 50% 70%, rgba(255, 122, 26, 0.18), transparent 70%), #160c24;
+  border: 1px solid var(--sp-line);
+  box-shadow: 0 16px 30px -16px #000;
+}
+
+.profile--spooky :is(.ach__name, .path-card__name) { color: var(--sp-bone); }
+.profile--spooky :is(.ach__rarity, .path-card__chip) { background: transparent; color: var(--sp-candle); box-shadow: inset 0 0 0 1px var(--sp-line-hi); }
+.profile--spooky .path-card__icon--locked { background: transparent; border: 1px dashed rgba(186, 150, 255, 0.22); box-shadow: none; }
+.profile--spooky .path-card__icon--locked > * { opacity: 0.35; filter: grayscale(1); }
+.profile--spooky .path-card__locked { color: var(--sp-dim); }
+.profile--spooky .profile-path__tab { color: var(--sp-dim); font-family: var(--sp-display); font-weight: 400; }
+.profile--spooky .profile-path__tab--active { color: var(--sp-candle); }
+
+@media (hover: hover) and (pointer: fine) {
+  .profile--spooky .profile-path__tab:not(.profile-path__tab--active):hover { color: var(--sp-bone); }
+}
+
+.profile--spooky .profile-path__underline::after { background: var(--sp-line); }
+.profile--spooky .profile-path__indicator { background: var(--sp-orange); box-shadow: 0 0 12px rgba(255, 122, 26, 0.7); }
+.profile--spooky .loading-text { color: var(--sp-dim); }
+
+.profile--spooky .ach--glow :is(.ach__icon, .path-card__icon) {
+  border-color: var(--sp-orange);
+  animation: spookyGlow 2.6s steps(1, end) infinite;
+}
+
+.profile--spooky .ach--glow :is(.ach__icon, .path-card__icon) .emblem { animation: none; }
+
+@keyframes spookyGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 122, 26, 0.5), 0 0 16px rgba(255, 122, 26, 0.35); }
+  31% { box-shadow: 0 0 0 1px var(--sp-orange), 0 0 26px rgba(255, 140, 40, 0.6); }
+  57% { box-shadow: 0 0 0 1px rgba(255, 122, 26, 0.4), 0 0 12px rgba(255, 110, 20, 0.3); }
+}
+
+/* =========================
+   ОБОЛОЧКА НА ПРОФИЛЕ «САМЫЙ СТРАШНЫЙ»
+   ========================= */
+
+body:has(.profile--spooky) { background-color: #050309; }
+body:has(.profile--spooky) .atmo { display: none; }
+
+body:has(.profile--spooky) :is(.top-header, .right-sidebar, .bottom-nav) {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(186, 150, 255, 0.1), transparent 60%),
+    rgba(16, 9, 26, 0.92) !important;
+  border: 1px solid var(--sp-line);
+  box-shadow: inset 0 -1px 0 rgba(255, 122, 26, 0.25), 0 24px 50px -26px #000;
+}
+
+body:has(.profile--spooky) .top-header { position: relative; }
+body:has(.profile--spooky) :is(.top-header__title, .top-header__username) { color: var(--sp-bone); }
+body:has(.profile--spooky) .top-header__title { font-family: var(--sp-display); font-weight: 400; }
+body:has(.profile--spooky) .top-header__divider { border-color: var(--sp-line); }
+body:has(.profile--spooky) .top-header__money { color: var(--sp-candle); }
+
+body:has(.profile--spooky) .header-user-menu {
+  background: #140b21 !important;
+  border: 1px solid var(--sp-line-hi);
+  z-index: 120;
+  box-shadow: 0 24px 50px -16px #000;
+}
+
+body:has(.profile--spooky) .header-user-menu__item { color: var(--sp-bone); }
+body:has(.profile--spooky) .header-user-menu__item svg [fill]:not([fill='none']) { fill: var(--sp-bone); }
+body:has(.profile--spooky) .header-user-menu__item svg [stroke] { stroke: var(--sp-bone); }
+body:has(.profile--spooky) .header-user-menu__divider { background: var(--sp-line); border-color: var(--sp-line); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--spooky) .header-user-menu__item:hover { background: rgba(255, 122, 26, 0.12); }
+}
+
+body:has(.profile--spooky) .right-sidebar__item { color: var(--sp-dim); }
+body:has(.profile--spooky) .right-sidebar__item svg :is([fill]:not([fill='none'])) { fill: var(--sp-dim); transition: fill 0.3s ease, stroke 0.3s ease; }
+body:has(.profile--spooky) .right-sidebar__item svg [stroke] { stroke: var(--sp-dim); }
+body:has(.profile--spooky) .right-sidebar__item--active {
+  color: var(--sp-candle);
+  background: linear-gradient(270deg, transparent 0%, rgba(255, 122, 26, 0.16) 50%, transparent 100%) top center / 100% 52px no-repeat;
+}
+body:has(.profile--spooky) .right-sidebar__item--active svg :is([fill]:not([fill='none'])) { fill: var(--sp-orange); }
+body:has(.profile--spooky) .right-sidebar__item--active svg [stroke] { stroke: var(--sp-orange); }
+body:has(.profile--spooky) .right-sidebar__item--active span { color: var(--sp-candle); }
+body:has(.profile--spooky) .right-sidebar__item--active .right-sidebar__icon { filter: drop-shadow(0 0 6px rgba(255, 122, 26, 0.8)) !important; }
+body:has(.profile--spooky) .right-sidebar__pulse { background: radial-gradient(ellipse at center, rgba(255, 122, 26, 0.12) 0%, transparent 70%) !important; }
+body:has(.profile--spooky) .right-sidebar__marker { background: var(--sp-orange) !important; box-shadow: 0 0 14px 2px rgba(255, 122, 26, 0.7) !important; }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--spooky) .right-sidebar__item:hover { color: var(--sp-bone); }
+  body:has(.profile--spooky) .right-sidebar__item:hover svg :is([fill]:not([fill='none'])) { fill: var(--sp-bone); }
+  body:has(.profile--spooky) .right-sidebar__item:hover svg [stroke] { stroke: var(--sp-bone); }
+}
+
+body:has(.profile--spooky) .bottom-nav { border-bottom: 0; }
+body:has(.profile--spooky) .bottom-nav__item svg :is([fill]:not([fill='none'])) { fill: var(--sp-dim); }
+body:has(.profile--spooky) .bottom-nav__item svg [stroke] { stroke: var(--sp-dim); }
+body:has(.profile--spooky) .bottom-nav__item--active svg :is([fill]:not([fill='none'])) { fill: #1a0f2e; }
+body:has(.profile--spooky) .bottom-nav__item--active svg [stroke] { stroke: #1a0f2e; }
+body:has(.profile--spooky) .bottom-nav__pill,
+body:has(.profile--spooky) .bottom-nav:not(.bottom-nav--measured) .bottom-nav__item--active { background: var(--sp-orange); box-shadow: 0 0 18px rgba(255, 122, 26, 0.5); }
+
+body:has(.profile--spooky) .scroll-top { background: var(--sp-orange); color: #1a0f2e; border-color: #ff9a4a; box-shadow: 0 0 20px rgba(255, 122, 26, 0.45); }
+
+/* шторка нашивки */
+body:has(.profile--spooky) .bd-sheet__scrim { background: rgba(5, 3, 9, 0.8); }
+body:has(.profile--spooky) .bd-sheet__panel { background: #140b21; border: 1px solid var(--sp-line-hi); box-shadow: 0 40px 80px -30px #000, 0 0 60px -24px rgba(255, 122, 26, 0.35); }
+body:has(.profile--spooky) .bd-sheet__stage {
+  background:
+    radial-gradient(40% 60% at 50% 110%, rgba(255, 122, 26, 0.3), transparent 70%),
+    radial-gradient(18% 30% at 20% 18%, rgba(255, 236, 190, 0.35), transparent 70%),
+    linear-gradient(180deg, #1a0f2e, #0b0614);
+  border-bottom: 1px solid var(--sp-line);
+}
+body:has(.profile--spooky) .bd-sheet__close { background: rgba(186, 150, 255, 0.12); color: var(--sp-bone); }
+body:has(.profile--spooky) .bd-sheet__title { font-family: var(--sp-display); font-weight: 400; color: var(--sp-bone); }
+body:has(.profile--spooky) .bd-sheet__desc { color: var(--sp-dim); }
+body:has(.profile--spooky) .bd-sheet__status { color: var(--sp-candle); }
+body:has(.profile--spooky) .bd-sheet__status--locked { color: var(--sp-dim); }
+body:has(.profile--spooky) .bd-sheet .bd-chip { background: transparent; color: var(--sp-bone); border-color: var(--sp-line-hi); box-shadow: inset 0 0 0 1px var(--sp-line-hi); }
+body:has(.profile--spooky) .bd-sheet .bd-chip:first-child { background: var(--sp-orange); color: #1a0f2e; box-shadow: none; }
+body:has(.profile--spooky) .bd-sheet__action { background: var(--sp-orange); color: #1a0f2e; border: 1px solid #ff9a4a; }
+body:has(.profile--spooky) .bd-sheet__action--ghost { background: transparent; color: var(--sp-bone); border-color: var(--sp-line-hi); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--spooky) .bd-sheet__action:hover:not(:disabled) { box-shadow: 0 0 26px rgba(255, 122, 26, 0.45); }
+  body:has(.profile--spooky) .bd-sheet__close:hover { background: rgba(186, 150, 255, 0.22); }
+}
+
+body:has(.profile--spooky) .bd-holders { border-top-color: var(--sp-line); }
+body:has(.profile--spooky) .bd-holders__toggle { background: rgba(186, 150, 255, 0.08); color: var(--sp-bone); }
+body:has(.profile--spooky) .bd-holders__name { color: var(--sp-bone); }
+body:has(.profile--spooky) :is(.bd-holders__squad, .bd-holders__when, .bd-holders__more) { color: var(--sp-dim); }
+body:has(.profile--spooky) .bd-holders__first { background: var(--sp-orange); color: #1a0f2e; }
+
+/* окна профиля */
+body:has(.profile--spooky) .modal-fixed { background: rgba(5, 3, 9, 0.78); -webkit-backdrop-filter: none; backdrop-filter: none; }
+body:has(.profile--spooky) .modal-fixed__content {
+  position: relative;
+  background: var(--sp-web) right 0 top 0 / 72px 72px no-repeat, radial-gradient(120% 70% at 50% 120%, rgba(255, 122, 26, 0.14), transparent 60%), #140b21;
+  border: 1px solid var(--sp-line-hi);
+  box-shadow: 0 40px 80px -30px #000;
+  color: var(--sp-bone);
+}
+body:has(.profile--spooky) .modal-fixed__content .popup__title { font-family: var(--sp-display); font-weight: 400; color: var(--sp-bone); padding-right: 48px; }
+body:has(.profile--spooky) .modal-fixed__content .popup__label { color: var(--sp-dim); }
+body:has(.profile--spooky) .modal-fixed__content .popup__input { background: rgba(186, 150, 255, 0.06); color: var(--sp-bone); border: 1px solid var(--sp-line-hi); caret-color: var(--sp-orange); }
+body:has(.profile--spooky) .modal-fixed__content .popup__input::placeholder { color: rgba(169, 155, 196, 0.7); }
+body:has(.profile--spooky) .modal-fixed__content .popup__input:focus { border-color: var(--sp-orange); box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.16); }
+body:has(.profile--spooky) .modal-fixed__content .popup__input:focus-visible { outline: none; }
+body:has(.profile--spooky) .modal-fixed__content .popup__close { background: rgba(186, 150, 255, 0.1); color: var(--sp-bone); }
+body:has(.profile--spooky) .modal-fixed__content .shop-modal__btn--primary { background: var(--sp-orange); color: #1a0f2e; border: 1px solid #ff9a4a; box-shadow: none; }
+body:has(.profile--spooky) .modal-fixed__content .shop-modal__btn--secondary { background: transparent; color: var(--sp-bone); border: 1px solid var(--sp-line-hi); }
+body:has(.profile--spooky) .modal-fixed__content .shop-modal__btn:disabled { opacity: 0.45; }
+body:has(.profile--spooky) .modal-fixed__content :is(p, .profile-social__hint) { color: var(--sp-dim); }
+body:has(.profile--spooky) .agent-picker__row { background: rgba(186, 150, 255, 0.05); border: 1px solid transparent; }
+body:has(.profile--spooky) .agent-picker__name { color: var(--sp-bone); }
+body:has(.profile--spooky) :is(.agent-picker__meta, .agent-picker__hint) { color: var(--sp-dim); }
+body:has(.profile--spooky) .agent-picker__row--picked { background: rgba(255, 122, 26, 0.14); border-color: var(--sp-orange); }
+
+@media (hover: hover) and (pointer: fine) {
+  body:has(.profile--spooky) .modal-fixed__content .shop-modal__btn--primary:hover:not(:disabled) { box-shadow: 0 0 26px -4px rgba(255, 122, 26, 0.6); }
+  body:has(.profile--spooky) .modal-fixed__content .shop-modal__btn--secondary:hover { background: rgba(186, 150, 255, 0.1); }
+  body:has(.profile--spooky) .agent-picker__row:hover { background: rgba(186, 150, 255, 0.1); }
+}
+
+/* скроллбар — тыквенный ползунок с пиксельными краями */
+html:has(.profile--spooky) { scrollbar-color: var(--sp-orange, #ff7a1a) #0b0614; scrollbar-width: thin; }
+html:has(.profile--spooky)::-webkit-scrollbar { width: 10px; background: #0b0614; }
+html:has(.profile--spooky)::-webkit-scrollbar-thumb { border: 2px solid #0b0614; border-radius: 0; background: linear-gradient(180deg, #ffb35a, #ff7a1a 40%, #b8480c); }
+
+body:has(.profile--spooky) :is(.agent-picker, .bd-sheet__panel, .bd-holders__list, .profile-path__tabs-scroll, .modal-fixed__content) { scrollbar-color: rgba(255, 122, 26, 0.6) transparent; scrollbar-width: thin; }
+body:has(.profile--spooky) ::selection { background: var(--sp-orange); color: #1a0f2e; }
+body:has(.profile--spooky) :is(.profile--spooky, .top-header, .right-sidebar, .bottom-nav, .bd-sheet, .modal-fixed) :focus-visible { outline-color: var(--sp-orange); }
+
+
+@media (prefers-reduced-motion: reduce) {
+  .profile--spooky .card-entrance,
+  .profile--spooky .profile-card__nickname,
+  .profile--spooky .profile-map__line--done,
+  .profile--spooky .profile-map__node,
+  .profile--spooky .profile-map__node::after,
+  .profile--spooky .ach--glow :is(.ach__icon, .path-card__icon),
+  .profile--spooky :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before { animation: none; }
+}
+
+/* строки на значке «Правила» — прорезь цвета панели, а не той же заливкой */
+body:has(.profile--spooky) :is(.right-sidebar__item, .bottom-nav__item) svg .ico-cut[fill] { fill: #10091a; }
+body:has(.profile--spooky) .bottom-nav__item--active svg .ico-cut[fill] { fill: #ff7a1a; }
+
+/* ---------- живность карточек (CardHaunt) ---------- */
+
+.profile--spooky :is(.profile-card, .profile-card--map, .profile-card--aside, .profile-path) {
+  position: relative;
+  isolation: isolate;
+}
+
+.haunt {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  container-type: size;
+}
+
+/* свет свечи снизу вздрагивает неровно */
+.haunt__glow {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -40%;
+  height: 80%;
+  background: radial-gradient(closest-side, rgba(255, 122, 26, 0.22), transparent);
+  animation: hauntCandle 2.6s steps(1, end) infinite;
+}
+
+/* пиксельный туман ползёт по дну карточки, два слоя навстречу */
+.haunt__fog {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 80px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='2' y='0' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='1' y='1' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='0' y='2' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='3' y='3' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3C/svg%3E") 0 0 / 16px 16px, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='2' y='0' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='1' y='1' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='0' y='2' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3Crect x='3' y='3' width='1' height='1' fill='rgba%28170%2C150%2C225%2C0.55%29'/%3E%3C/svg%3E") 5px 3px / 24px 24px;
+  image-rendering: pixelated;
+  -webkit-mask-image: linear-gradient(to top, #000, transparent);
+  mask-image: linear-gradient(to top, #000, transparent);
+  opacity: 0.7;
+  animation: hauntFog 14s steps(56, end) infinite;
+}
+
+/* гирлянда из тыкв-фонариков провисает вдоль верхнего края: нитка —
+   пунктир по дуге, фонарики качаются, огоньки внутри дрожат */
+.haunt__garland {
+  position: absolute;
+  left: 12%;
+  right: 16%;
+  top: -2px;
+  height: 34px;
+}
+
+.haunt__rope {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.haunt__rope path {
+  fill: none;
+  stroke: rgba(226, 218, 245, 0.45);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.haunt__lantern {
+  position: absolute;
+  width: 21px;
+  height: 22px;
+  margin-left: -10.5px;
+  background: linear-gradient(rgba(226, 218, 245, 0.45), rgba(226, 218, 245, 0.45)) 50% 0 / 1.5px 5px no-repeat, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 6' shape-rendering='crispEdges'%3E%3Crect x='3' y='0' width='1' height='1' fill='%234f8a3a'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%234f8a3a'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='1' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='2' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='6' y='2' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='0' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='4' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='6' y='3' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='0' y='4' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='3' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='5' y='4' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='6' y='4' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='1' y='5' width='1' height='1' fill='%23b8480c'/%3E%3Crect x='2' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='3' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='4' y='5' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='5' width='1' height='1' fill='%23b8480c'/%3E%3C/svg%3E") 50% 4px / 21px 18px no-repeat;
+  image-rendering: pixelated;
+  transform-origin: 50% 0;
+  filter: drop-shadow(0 2px 5px rgba(255, 140, 40, 0.55));
+  animation: hauntSwing 3.4s cubic-bezier(0.45, 0, 0.55, 1) var(--d) infinite alternate, hauntLantern 1.9s steps(1, end) var(--d) infinite;
+}
+
+/* спящая летучая мышь висит вниз головой и иногда вздрагивает крыльями */
+.haunt__bat {
+  position: absolute;
+  top: 0;
+  width: 21px;
+  height: 18px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 6' shape-rendering='crispEdges'%3E%3Crect x='3' y='0' width='1' height='1' fill='%235c4f6e'/%3E%3Crect x='0' y='1' width='1' height='1' fill='%230c0612'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%235c4f6e'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%230c0612'/%3E%3Crect x='6' y='1' width='1' height='1' fill='%230c0612'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='5' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='6' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%230c0612'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%230c0612'/%3E%3Crect x='4' y='3' width='1' height='1' fill='%230c0612'/%3E%3Crect x='5' y='3' width='1' height='1' fill='%230c0612'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='4' width='1' height='1' fill='%23ff4d2e'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='5' width='1' height='1' fill='%230c0612'/%3E%3C/svg%3E") center / contain no-repeat;
+  image-rendering: pixelated;
+  transform-origin: 50% 0;
+  animation: hauntBat 9s steps(1, end) var(--d) infinite;
+}
+
+/* паук под паутиной спускается на нитке и поднимается обратно */
+.haunt__spider {
+  position: absolute;
+  right: 30px;
+  top: 0;
+  width: 25px;
+  height: 30px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 6' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1' fill='%230c0612'/%3E%3Crect x='4' y='0' width='1' height='1' fill='%230c0612'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%230c0612'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%230c0612'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%230c0612'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%23ff4d2e'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%230c0612'/%3E%3Crect x='0' y='4' width='1' height='1' fill='%230c0612'/%3E%3Crect x='1' y='4' width='1' height='1' fill='%230c0612'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%230c0612'/%3E%3Crect x='3' y='4' width='1' height='1' fill='%230c0612'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%230c0612'/%3E%3Crect x='0' y='5' width='1' height='1' fill='%230c0612'/%3E%3Crect x='4' y='5' width='1' height='1' fill='%230c0612'/%3E%3C/svg%3E") center / contain no-repeat;
+  image-rendering: pixelated;
+  transform: translateY(-24px);
+  animation: hauntSpider 11s cubic-bezier(0.45, 0, 0.55, 1) var(--d) infinite;
+}
+
+.haunt__spider::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  bottom: 100%;
+  width: 1px;
+  height: 220px;
+  background: rgba(226, 218, 245, 0.45);
+}
+
+/* полупрозрачный призрак проплывает сквозь карточку за содержимым */
+.haunt__ghost {
+  position: absolute;
+  top: 30%;
+  left: 0;
+  width: 54px;
+  height: 66px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 11' shape-rendering='crispEdges'%3E%3Crect x='3' y='0' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='0' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='0' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='1' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='6' y='1' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='7' y='1' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='6' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='7' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='2' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='3' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='3' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='3' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='6' y='3' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='7' y='3' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='3' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='4' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='4' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='2' y='4' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='3' y='4' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='4' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='4' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='6' y='4' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='7' y='4' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='4' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='6' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='7' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='5' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='6' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='6' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='6' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='6' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='4' y='6' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='5' y='6' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='6' y='6' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='7' y='6' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='6' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='7' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='7' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='7' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='7' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='4' y='7' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='5' y='7' width='1' height='1' fill='%231a0f2e'/%3E%3Crect x='6' y='7' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='7' y='7' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='7' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='6' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='7' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='8' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='1' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='4' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='6' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='7' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='9' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='0' y='10' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='2' y='10' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='3' y='10' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='5' y='10' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='6' y='10' width='1' height='1' fill='%23e3dccb'/%3E%3Crect x='8' y='10' width='1' height='1' fill='%23e3dccb'/%3E%3C/svg%3E") center / contain no-repeat;
+  image-rendering: pixelated;
+  opacity: 0;
+  animation: hauntGhost 19s linear var(--d) infinite;
+}
+
+@keyframes hauntGhost {
+  0% { opacity: 0; transform: translate(-80px, 0); }
+  4% { opacity: 0.32; }
+  12% { transform: translate(30cqw, -14px); }
+  20% { transform: translate(60cqw, 6px); }
+  27% { opacity: 0.32; }
+  30%, 100% { opacity: 0; transform: translate(calc(100cqw + 40px), -8px); }
+}
+
+/* в тёмном углу загораются глаза, моргают и гаснут */
+.haunt__eyes {
+  position: absolute;
+  left: 22px;
+  bottom: 20px;
+  width: 35px;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 2' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='1' y='0' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='5' y='0' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='6' y='0' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='0' y='1' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%23ff7a1a'/%3E%3Crect x='5' y='1' width='1' height='1' fill='%23ffd23f'/%3E%3Crect x='6' y='1' width='1' height='1' fill='%23ff7a1a'/%3E%3C/svg%3E") center / contain no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 4px rgba(255, 140, 40, 0.8));
+  opacity: 0;
+  animation: hauntEyes 13s steps(1, end) var(--d) infinite;
+}
+
+@keyframes hauntCandle {
+  0%, 100% { opacity: 0.8; }
+  21% { opacity: 1; }
+  33% { opacity: 0.62; }
+  52% { opacity: 0.94; }
+  70% { opacity: 0.7; }
+}
+
+@keyframes hauntFog {
+  from { background-position: 0 0, 5px 3px; }
+  to { background-position: 168px 0, -247px 3px; }
+}
+
+@keyframes hauntSwing {
+  from { transform: rotate(-7deg); }
+  to { transform: rotate(7deg); }
+}
+
+@keyframes hauntLantern {
+  0%, 100% { filter: drop-shadow(0 2px 5px rgba(255, 140, 40, 0.55)); }
+  27% { filter: drop-shadow(0 2px 8px rgba(255, 160, 50, 0.85)); }
+  49% { filter: drop-shadow(0 2px 3px rgba(255, 120, 30, 0.4)); }
+  73% { filter: drop-shadow(0 2px 7px rgba(255, 150, 40, 0.75)); }
+}
+
+@keyframes hauntBat {
+  0%, 78%, 100% { transform: rotate(0deg) scaleX(1); }
+  80% { transform: rotate(-8deg) scaleX(1.25); }
+  82% { transform: rotate(6deg) scaleX(0.8); }
+  84% { transform: rotate(-4deg) scaleX(1.2); }
+  86% { transform: rotate(0deg) scaleX(1); }
+}
+
+@keyframes hauntSpider {
+  0%, 12% { transform: translateY(-24px); }
+  38%, 55% { transform: translateY(96px); }
+  62% { transform: translateY(84px); }
+  68% { transform: translateY(96px); }
+  92%, 100% { transform: translateY(-24px); }
+}
+
+@keyframes hauntEyes {
+  0%, 70% { opacity: 0; transform: none; }
+  72% { opacity: 1; transform: none; }
+  80% { opacity: 1; transform: scaleY(0.15); }
+  81% { opacity: 1; transform: none; }
+  88% { opacity: 1; transform: translateX(3px); }
+  92%, 100% { opacity: 0; transform: none; }
+}
+
+/* кнопки вздрагивают, как от сквозняка, и разгораются */
+@media (hover: hover) and (pointer: fine) {
+  .profile--spooky :is(.profile-aside__btn, .profile-aside__mentor-btn, .profile-social__action):hover:not(:disabled) {
+    animation: spookyShiver 0.36s steps(3, end);
+  }
+}
+
+@keyframes spookyShiver {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(-1px, 1px) rotate(-0.6deg); }
+  66% { transform: translate(1px, -1px) rotate(0.6deg); }
+  100% { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .haunt__glow,
+  .haunt__fog,
+  .haunt__lantern,
+  .haunt__bat,
+  .haunt__spider,
+  .haunt__eyes,
+  .haunt__ghost { animation: none; }
+  .haunt__eyes,
+  .haunt__ghost { display: none; }
+}

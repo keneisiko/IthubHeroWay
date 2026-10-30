@@ -3,6 +3,8 @@ import api from '../api'
 import LoadError from '../components/LoadError'
 import BrandLoader from '../components/BrandLoader'
 import BadgeEmblem from '../components/BadgeEmblem'
+import ThemeSticker from '../components/ThemeSticker'
+import { FRAME_THEMES } from '../lib/profileThemes'
 import BadgeSheet from '../components/BadgeSheet'
 import PixelText from '../components/PixelText'
 import RollNumber from '../components/RollNumber'
@@ -270,6 +272,9 @@ export default function Badges() {
                   >
                     <span className="bd-card__emblem">
                       <BadgeEmblem code={badge.code} rarity={badge.rarity} locked={!isEarned} size={76} />
+                      {badge.avatar_frame && FRAME_THEMES[badge.avatar_frame] && (
+                        <ThemeSticker kind={FRAME_THEMES[badge.avatar_frame].sticker} className="bd-card__sticker" />
+                      )}
                       {row?.is_pinned && <span className="bd-card__pin">В профиле</span>}
                     </span>
                     <span className="bd-card__text">

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import DevFrameArt from './DevFrameArt'
+import SpookyFrame from './SpookyFrame'
 
 interface AvatarProps {
   src?: string | null
@@ -68,6 +69,7 @@ export default function Avatar({ src, name, className, frame }: AvatarProps) {
         )}
       </span>
       {frame === 'developer' && <DevFrameArt />}
+      {frame === 'halloween' && <SpookyFrame />}
     </span>
   )
 }

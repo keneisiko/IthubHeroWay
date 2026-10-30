@@ -20,9 +20,13 @@ import DevAura from '../components/DevAura'
 import CosmosSky from '../components/CosmosSky'
 import FilmSky from '../components/FilmSky'
 import FilmFrame from '../components/FilmFrame'
+import SpookySky from '../components/SpookySky'
+import SpookyFrame from '../components/SpookyFrame'
+import CardHaunt from '../components/CardHaunt'
 import { personalTheme } from '../lib/profileThemes'
 import '../styles/cosmos.css'
 import '../styles/film.css'
+import '../styles/spooky.css'
 import RollNumber from '../components/RollNumber'
 import DialogClose from '../components/DialogClose'
 import { useModal } from '../useModal'
@@ -582,14 +586,18 @@ export default function Profile() {
   // «Разработчик» получает весь профиль в теме космоса
   const film = personalTheme(profile.username) === 'film'
   const cosmos = !film && profile.avatar_frame === 'developer'
+  // нашивка «Самый страшный»: профиль превращается в ночь на кладбище
+  const spooky = !film && profile.avatar_frame === 'halloween'
 
   return (
-    <div className={`profile page-enter${cosmos ? ' profile--cosmos' : ''}${film ? ' profile--film' : ''}`}>
+    <div className={`profile page-enter${cosmos ? ' profile--cosmos' : ''}${film ? ' profile--film' : ''}${spooky ? ' profile--spooky' : ''}`}>
       {cosmos && <CosmosSky key={profile.username} />}
       {film && <FilmSky key={profile.username} />}
+      {spooky && <SpookySky key={profile.username} />}
       <div className="profile__top">
         <div className="profile__left">
           <section className={`profile-card profile-card--primary card-entrance${banner ? ` profile-card--banner banner--${banner}` : ''}`}>
+            {spooky && <CardHaunt variant={0} />}
             <div className="profile-card__header">
               <div
                 className={`profile-card__avatar${isOwnProfile ? ' profile-card__avatar--editable' : ''}${profile.avatar_frame ? ` profile-card__avatar--${profile.avatar_frame}` : ''}`}
@@ -616,6 +624,15 @@ export default function Profile() {
                 />
                 {isOwnProfile && <span className="profile-card__avatar-edit" aria-hidden="true">Сменить</span>}
                 {film && <FilmFrame />}
+                {spooky && (
+                  <>
+                    <SpookyFrame key={profile.username} large intro />
+                    <span className="hw-frame__tag" aria-hidden="true">
+                      <span className="hw-frame__tag-icon" />
+                      Самый страшный
+                    </span>
+                  </>
+                )}
                 {frameReady && <DevFrame key={profile.username} />}
               </div>
               <div className="profile-card__names">
@@ -644,6 +661,7 @@ export default function Profile() {
           </section>
 
           <section className="profile-card profile-card--map card-entrance" style={{ animationDelay: '0.1s' }}>
+            {spooky && <CardHaunt variant={1} />}
             <h3 className="profile-map__title"><PixelText text="Карта пути:" /></h3>
             <div className="profile-map__body">
               <div className="profile-map__row">
@@ -689,6 +707,7 @@ export default function Profile() {
         </div>
 
         <section className="profile-card profile-card--aside card-entrance" style={{ animationDelay: '0.2s' }}>
+          {spooky && <CardHaunt variant={2} />}
           {isOwnProfile && (
             <>
               <button className="profile-aside__btn btn-press" onClick={editModal.show}>Настроить профиль</button>
@@ -887,12 +906,13 @@ export default function Profile() {
 
       <CharacteristicsRadar
         characteristics={characteristics}
-        tone={film ? 'film' : cosmos ? 'cosmos' : 'brand'}
+        tone={film ? 'film' : spooky ? 'spooky' : cosmos ? 'cosmos' : 'brand'}
         className="card-entrance"
         style={{ animationDelay: '0.3s' }}
       />
 
       <section className="profile-path profile-card card-entrance" style={{ animationDelay: '0.4s' }}>
+        {spooky && <CardHaunt variant={3} />}
         <h3 className="profile-achievements__title"><PixelText text="Достижения:" /></h3>
         <div className="profile-achievements__row">
           {pinnedBadges.length === 0 ? (

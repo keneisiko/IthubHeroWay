@@ -29,6 +29,15 @@ const PALETTE: Record<Rarity, { fill: string; ink: string; stitch: string }> = {
 
 const LOCKED = { fill: '#e6e6e6', ink: '#c4c4c4', stitch: '#c9c9c9' }
 
+// Сезонные нашивки рисуются своим знаком и цветом, а не знаком из кода:
+// «Самый страшный» — рожица тыквенного фонаря на оранжевом.
+const SPECIAL: Record<string, { cells: boolean[][]; colors: typeof LOCKED }> = {
+  'halloween-scariest': {
+    cells: ['X...X', 'XX.XX', '..X..', 'X.X.X', '.XXX.'].map((r) => Array.from(r, (ch) => ch === 'X')),
+    colors: { fill: '#ff7a1a', ink: '#1a0f2e', stitch: 'rgba(26, 15, 46, 0.55)' },
+  },
+}
+
 function hash(text: string): number {
   let h = 2166136261
   for (let i = 0; i < text.length; i++) {
@@ -75,8 +84,9 @@ interface Props {
 
 export default function BadgeEmblem({ code, rarity, locked = false, size = 72, className = '' }: Props) {
   const r = normalizeRarity(rarity)
-  const colors = locked ? LOCKED : PALETTE[r]
-  const cells = useMemo(() => sigil(code), [code])
+  const special = SPECIAL[code]
+  const colors = locked ? LOCKED : special?.colors ?? PALETTE[r]
+  const cells = useMemo(() => SPECIAL[code]?.cells ?? sigil(code), [code])
   const clipId = `emblem-${useId().replace(/:/g, '')}`
   const shape = SHAPES[r]
   const cell = 8

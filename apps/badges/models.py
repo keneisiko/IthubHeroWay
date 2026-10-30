@@ -19,6 +19,7 @@ class BadgeRarity(models.TextChoices):
 class AvatarFrame(models.TextChoices):
     NONE = "", "Без рамки"
     DEVELOPER = "developer", "Рамка разработчика"
+    HALLOWEEN = "halloween", "Хэллоуин: склеп «Самый страшный»"
 
 
 class Badge(models.Model):
@@ -40,7 +41,7 @@ class Badge(models.Model):
         choices=AvatarFrame.choices,
         default=AvatarFrame.NONE,
         blank=True,
-        help_text="Владелец нашивки получает особую рамку аватара на всём сайте.",
+        help_text="Владелец нашивки получает особую рамку аватара на всём сайте и тему профиля, пока нашивка закреплена.",
     )
     created_at = models.DateTimeField("Создан", auto_now_add=True)
 

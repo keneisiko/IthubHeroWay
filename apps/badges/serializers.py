@@ -28,6 +28,7 @@ class BadgeSerializer(serializers.ModelSerializer):
             "reward_coins",
             "is_active",
             "owners_percent",
+            "avatar_frame",
         ]
 
     def get_owners_percent(self, obj: Badge) -> float | None:

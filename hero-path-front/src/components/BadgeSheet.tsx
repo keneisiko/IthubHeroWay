@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import BadgeEmblem from './BadgeEmblem'
 import BadgeHolders from './BadgeHolders'
+import ThemeSticker from './ThemeSticker'
+import { FRAME_THEMES } from '../lib/profileThemes'
 import { RARITY_LABELS, formatDateRu } from '../lib/apiData'
 import { CATEGORY_LABELS, ownersLabel, tiltHandlers, type Badge, type EarnedBadge } from '../lib/badges'
 import '../styles/badges.css'
@@ -77,6 +79,7 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
   if (!shown) return null
   const isEarned = Boolean(earned)
   const rarityLabel = RARITY_LABELS[shown.rarity] ?? shown.rarity
+  const theme = shown.avatar_frame ? FRAME_THEMES[shown.avatar_frame] : undefined
 
   return (
     <div
@@ -113,6 +116,7 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
               size={168}
               className="bd-sheet__emblem"
             />
+            {theme && <ThemeSticker kind={theme.sticker} className="bd-sheet__sticker" />}
           </span>
         </div>
 
@@ -128,6 +132,16 @@ export default function BadgeSheet({ stamp = 0, badge, earned, isNew = false, pi
           </div>
           <h2 id="bd-sheet-title" className="bd-sheet__title">{shown.title}</h2>
           <p className="bd-sheet__desc">{shown.description || 'Условие уточняется'}</p>
+          {theme && (
+            <div className="bd-perk">
+              <ThemeSticker kind={theme.sticker} className="bd-perk__sticker" />
+              <div className="bd-perk__text">
+                <p className="bd-perk__title">Меняет оформление профиля — тема «{theme.name}»</p>
+                <p className="bd-perk__desc">{theme.text}</p>
+                <p className="bd-perk__note">Работает, пока нашивка закреплена в профиле. Открепишь — профиль вернётся к обычному.</p>
+              </div>
+            </div>
+          )}
           {BADGE_LINKS[shown.code] && !isEarned && (
             <a
               className="bd-sheet__link btn-press"

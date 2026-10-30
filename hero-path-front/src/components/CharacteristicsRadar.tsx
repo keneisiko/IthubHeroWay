@@ -107,6 +107,14 @@ const TONES = {
     peakFill: 'rgba(255, 255, 255, 0.04)',
     peakLine: 'rgba(255, 255, 255, 0.5)',
   },
+  spooky: {
+    grid: 'rgba(186, 150, 255, 0.24)',
+    fill: 'rgba(255, 122, 26, 0.2)',
+    line: '#ff7a1a',
+    point: '#1a0f2e',
+    peakFill: 'rgba(156, 255, 122, 0.05)',
+    peakLine: 'rgba(156, 255, 122, 0.55)',
+  },
   film: {
     grid: 'rgba(255, 255, 255, 0.16)',
     fill: 'rgba(192, 192, 192, 0.16)',
