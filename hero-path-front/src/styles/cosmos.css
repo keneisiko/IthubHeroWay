@@ -956,3 +956,7 @@ body:has(.profile--cosmos) ::selection { background: #fff; color: #050507; }
 body:has(.profile--cosmos) :is(.profile--cosmos, .top-header, .right-sidebar, .bottom-nav, .bd-sheet, .modal-fixed) :focus-visible {
   outline-color: #fff;
 }
+
+/* строки на значке «Правила» — прорезь цвета панели, а не той же заливкой */
+body:has(.profile--cosmos) :is(.right-sidebar__item, .bottom-nav__item) svg .ico-cut[fill] { fill: #0c0c11; }
+body:has(.profile--cosmos) .bottom-nav__item--active svg .ico-cut[fill] { fill: #fff; }

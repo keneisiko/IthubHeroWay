@@ -780,3 +780,7 @@ body:has(.profile--film) :is(.profile--film, .top-header, .right-sidebar, .botto
   .profile--film .ach--glow :is(.ach__icon, .path-card__icon),
   .profile--film :is(.profile-map__title, .profile-aside__title, .profile-achievements__title)::before { animation: none; }
 }
+
+/* строки на значке «Правила» — прорезь цвета панели, а не той же заливкой */
+body:has(.profile--film) :is(.right-sidebar__item, .bottom-nav__item) svg .ico-cut[fill] { fill: #080808; }
+body:has(.profile--film) .bottom-nav__item--active svg .ico-cut[fill] { fill: #fff; }
