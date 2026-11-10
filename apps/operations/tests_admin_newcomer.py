@@ -417,17 +417,18 @@ class FrequentActionsTests(AdminTestCase):
 
     users_url = reverse("admin:accounts_user_changelist")
 
-    def test_any_list_exports_to_excel(self):
+    def test_export_returns_placeholder_only(self):
         alice = self.student("alice")
 
         response = self.client.post(
             self.users_url, {"action": "export_selected_csv", ACTION_CHECKBOX_NAME: [alice.pk]}
         )
 
-        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
-        body = response.content.decode("utf-8-sig")
-        self.assertIn("alice", body)
-        self.assertIn(";", body.splitlines()[0], "разделитель для русского Excel")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        self.assertEqual(response["Content-Disposition"], 'attachment; filename="export.txt"')
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertEqual(response.content.decode("utf-8"), "КЛОУН")
 
     def test_students_move_to_another_squad(self):
         alice, bob = self.student("alice"), self.student("bob")

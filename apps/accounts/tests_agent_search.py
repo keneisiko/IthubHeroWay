@@ -52,7 +52,7 @@ class AgentSearchTests(APITestCase):
         self.other_squad = Squad.objects.create(code="beta", name="Отряд Бета", course=2)
         self.me = make_agent("me", callsign="Я", squad=self.squad)
         self.mate = make_agent("mate", callsign="Барс", squad=self.squad, last_name="Иванов")
-        self.stranger = make_agent("stranger", callsign="Ветер", squad=self.other_squad)
+        self.stranger = make_agent("stranger", callsign="Ветер", squad=self.other_squad, last_name="Сидоров")
         self.client.force_authenticate(self.me)
         self.url = reverse("agents-search")
 
@@ -76,10 +76,19 @@ class AgentSearchTests(APITestCase):
 
         self.assertEqual(self._usernames(response), {"mate"})
 
-    def test_search_finds_by_username(self):
-        response = self.client.get(self.url, {"q": "strang"})
+    def test_search_finds_squadmate_by_username(self):
+        response = self.client.get(self.url, {"q": "mate"})
 
-        self.assertEqual(self._usernames(response), {"stranger"})
+        self.assertEqual(self._usernames(response), {"mate"})
+
+    def test_search_hides_private_fields_across_squads(self):
+        for query in ("strang", "Сидоров"):
+            with self.subTest(query=query):
+                self.assertEqual(self._usernames(self.client.get(self.url, {"q": query})), set())
+
+        row = self.client.get(self.url, {"q": "Ветер"}).json()[0]
+        self.assertEqual(row["full_name"], "")
+        self.assertIsNone(row["rating_current"])
 
     def test_self_is_never_suggested(self):
         """Самонаставничество и дуэль с собой запрещены — незачем и предлагать."""
@@ -126,3 +135,4 @@ class AgentSearchTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertIn(response.status_code, (401, 403))
+        self.assertEqual(response.json()["placeholder"], "КЛОУН")

@@ -1,6 +1,17 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-STAFF_ROLES = {"curator", "tutor", "admin", "hq"}
+from .models import User
+
+GLOBAL_RATING_ROLES = {"tutor", "admin", "hq"}
+STAFF_ROLES = {"curator", *GLOBAL_RATING_ROLES}
+
+
+def can_view_exact_rating(viewer: User, subject: User) -> bool:
+    return (
+        viewer.pk == subject.pk
+        or viewer.role in GLOBAL_RATING_ROLES
+        or (viewer.role == "curator" and viewer.squad_id is not None and viewer.squad_id == subject.squad_id)
+    )
 
 
 class IsStaffRole(BasePermission):

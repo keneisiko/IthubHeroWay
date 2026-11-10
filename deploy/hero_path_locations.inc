@@ -4,6 +4,11 @@
 # проверка ходит по http на 127.0.0.1, и этот include в блок 80 не
 # подключается — там только подтверждение домена и редирект на https.
 
+location ~* ^/(?:backups|[.]git|[.]env(?:[.][^/]*)?)(?:/|$) {
+    error_page 404 =404 /download-placeholder.jpg;
+    return 404;
+}
+
 location /static/ {
     alias /var/www/static/;
     access_log off;
@@ -13,10 +18,31 @@ location /static/ {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 }
 
-location /media/ {
-    alias /var/www/media/;
+location ~* ^/media/(avatars/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|bmp|ico))$ {
+    alias /var/www/media/$1;
+    disable_symlinks on from=/var/www/media/;
+    error_page 403 404 =404 /download-placeholder.jpg;
     access_log off;
     expires 7d;
+    include /etc/nginx/conf.d/hero_path_security_headers.inc;
+}
+
+location = /media {
+    error_page 404 =404 /download-placeholder.jpg;
+    return 404;
+}
+
+location /media/ {
+    error_page 404 =404 /download-placeholder.jpg;
+    return 404;
+}
+
+location = /download-placeholder.jpg {
+    internal;
+    alias /usr/share/nginx/html/nginx-error-image.jpg;
+    add_header Content-Disposition 'attachment; filename="download-placeholder.jpg"' always;
+    add_header Cache-Control "private, no-store" always;
+    include /etc/nginx/conf.d/hero_path_security_headers.inc;
 }
 
 # Прометей-метрики раскрывают внутреннее устройство и объём базы —
@@ -31,7 +57,16 @@ location ~ ^/metrics/?$ {
 
 # Всё, что обслуживает Django. Перечислены явно, потому что корень отдаёт
 # одностраничное приложение.
-location ~ ^/(api|admin|swagger|schema|health|ready)/ {
+# Документация и OpenAPI-схема закрыты на публичном сервере.
+location ~ ^/(swagger|schema|redoc)(/|$) {
+    return 404;
+}
+
+location ~ ^/(health|ready|live)(/|$) {
+    return 404;
+}
+
+location ~ ^/(api|admin)/ {
     proxy_pass http://hero_path_web;
     include /etc/nginx/conf.d/hero_path_proxy.inc;
 }

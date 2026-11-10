@@ -1,10 +1,12 @@
 import logging
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from apps.accounts.activation import is_unused_lxp_import
 from apps.integrations.services.lxp_auth import verify_lxp_credentials
@@ -63,3 +65,13 @@ class LoginSerializer(TokenObtainPairSerializer):
         data["user"] = AuthUserSerializer(user).data
         return data
 
+
+
+class RotatingRefreshSerializer(TokenRefreshSerializer):
+    @transaction.atomic
+    def validate(self, attrs):
+        token = self.token_class(attrs["refresh"])
+        outstanding, _ = token.outstand()
+        # Hold the token row until SimpleJWT finishes checking and blacklisting it.
+        OutstandingToken.objects.select_for_update().get(pk=outstanding.pk)
+        return super().validate(attrs)

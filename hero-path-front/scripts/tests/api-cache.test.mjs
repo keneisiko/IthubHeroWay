@@ -37,6 +37,7 @@ async function fixture(t, handler) {
     ['refresh_token', 'valid-refresh-token'],
   ])
   const visibilityListeners = []
+  let lockQueue = Promise.resolve()
   const globals = {
     localStorage: {
       getItem: (key) => storage.get(key) ?? null,
@@ -50,6 +51,15 @@ async function fixture(t, handler) {
       },
     },
     window: { location: { pathname: '/dashboard' } },
+    navigator: {
+      locks: {
+        request(_name, run) {
+          const task = lockQueue.then(run)
+          lockQueue = task.catch(() => {})
+          return task
+        },
+      },
+    },
   }
   for (const [key, value] of Object.entries(globals)) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, key)
@@ -66,9 +76,13 @@ async function fixture(t, handler) {
     .replace("from 'react-hot-toast'", `from '${import.meta.resolve('react-hot-toast')}'`)
     .replace("from './auth'", `from '${authUrl}'`)
     .replace('import.meta.env.VITE_API_URL', JSON.stringify(baseURL))
-  const { default: api } = await import(moduleUrl(`${transpile(source)}\n// fixture-${fixtureId++}`))
+  const newTab = async () => {
+    const { default: api } = await import(moduleUrl(`${transpile(source)}\n// fixture-${fixtureId++}`))
+    return api
+  }
   return {
-    api,
+    api: await newTab(),
+    newTab,
     storage,
     visibility(state) {
       globals.document.visibilityState = state
@@ -85,7 +99,7 @@ test('deduplicated 401 consumers both retry after one token refresh', { timeout:
   const { api, storage } = await fixture(t, async (request, response) => {
     if (request.url === '/api/v1/auth/jwt/refresh/' && request.method === 'POST') {
       refreshRequests++
-      response.end('{"access":"fresh-access-token"}')
+      response.end('{"access":"fresh-access-token","refresh":"rotated-refresh-token"}')
       return
     }
     profileRequests++
@@ -113,7 +127,10 @@ test('deduplicated 401 consumers both retry after one token refresh', { timeout:
   ])
   assert.equal(refreshRequests, 1)
   assert.equal(profileRequests, 2)
-  assert.equal(storage.get('access_token'), 'fresh-access-token')
+  const session = JSON.parse(storage.get('hero-path-session'))
+  assert.equal(session.access, 'fresh-access-token')
+  assert.equal(session.refresh, 'rotated-refresh-token')
+  assert.equal(storage.has('access_token'), false)
 })
 
 test('deduplicated HTTP failures preserve each consumer config and Axios metadata', { timeout: 5_000 }, async (t) => {
@@ -247,4 +264,62 @@ test('visibility invalidation detaches old GETs without removing the replacement
   assert.deepEqual(responses.map((response) => response.data.value), [1, 1])
   assert.equal((await api.get('/value')).data.value, 1)
   assert.equal(reads, 2)
+})
+
+
+test('two tabs share a rotation and both retry with the new access token', { timeout: 5_000 }, async (t) => {
+  const expiredRequests = deferred()
+  const releaseRefresh = deferred()
+  let expiredReads = 0
+  let refreshRequests = 0
+  const { api, newTab } = await fixture(t, async (request, response) => {
+    if (request.url === '/api/v1/auth/jwt/refresh/') {
+      refreshRequests++
+      await releaseRefresh.promise
+      response.end('{"access":"fresh-access-token","refresh":"rotated-refresh-token"}')
+      return
+    }
+    if (request.headers.authorization === 'Bearer expired-access-token') {
+      if (++expiredReads === 2) expiredRequests.resolve()
+      response.statusCode = 401
+      response.end('{}')
+      return
+    }
+    response.end(JSON.stringify({ bearer: request.headers.authorization }))
+  })
+
+  const otherTab = await newTab()
+  const results = Promise.all([api.get('/profile'), otherTab.get('/profile')])
+  await expiredRequests.promise
+  releaseRefresh.resolve()
+  assert.deepEqual((await results).map(({ data }) => data.bearer), [
+    'Bearer fresh-access-token',
+    'Bearer fresh-access-token',
+  ])
+  assert.equal(refreshRequests, 1)
+})
+
+test('a delayed 401 cannot retry a mutation after an account switch', { timeout: 5_000 }, async (t) => {
+  const started = deferred()
+  const release = deferred()
+  let requests = 0
+  const { api, storage } = await fixture(t, async (_request, response) => {
+    requests++
+    started.resolve()
+    await release.promise
+    response.statusCode = 401
+    response.end('{}')
+  })
+
+  const result = assert.rejects(api.post('/mutation', {}), { status: 401 })
+  await started.promise
+  storage.set('hero-path-session', JSON.stringify({
+    id: 'other-account',
+    access: 'other-access',
+    refresh: 'other-refresh',
+  }))
+  release.resolve()
+  await result
+  assert.equal(requests, 1)
+  assert.equal(JSON.parse(storage.get('hero-path-session')).id, 'other-account')
 })

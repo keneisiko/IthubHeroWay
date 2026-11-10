@@ -10,6 +10,7 @@ from apps.social.services.rewards import respects_received_count
 
 from .frames import avatar_frame_for
 from .models import User
+from .permissions import can_view_exact_rating
 
 
 class MeProfileSerializer(serializers.ModelSerializer):
@@ -162,18 +163,9 @@ class PublicProfileSerializer(serializers.ModelSerializer):
         return rating_status_label(obj.rating_current)
 
     def get_rating_current(self, obj: User):
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return None
-        viewer: User = request.user
-        if viewer.pk == obj.pk:
+        viewer = getattr(self.context.get("request"), "user", None)
+        if viewer and viewer.is_authenticated and can_view_exact_rating(viewer, obj):
             return obj.rating_current
-        # Extended visibility: curator for own squad, tutor/admin/hq globally.
-        if viewer.role in {"tutor", "admin", "hq"}:
-            return obj.rating_current
-        if viewer.role == "curator" and viewer.squad_id and viewer.squad_id == obj.squad_id:
-            return obj.rating_current
-        # Public mode: no exact rating.
         return None
 
 
@@ -184,6 +176,7 @@ class AgentSearchSerializer(serializers.ModelSerializer):
     track = serializers.CharField(source="track.name", read_only=True, default="")
     full_name = serializers.SerializerMethodField()
     avatar_frame = serializers.SerializerMethodField()
+    rating_current = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -192,5 +185,14 @@ class AgentSearchSerializer(serializers.ModelSerializer):
     def get_avatar_frame(self, obj: User) -> str:
         return avatar_frame_for(obj)
 
+    def get_rating_current(self, obj: User) -> str | None:
+        viewer = self.context["request"].user
+        if can_view_exact_rating(viewer, obj):
+            return str(obj.rating_current)
+        return None
+
     def get_full_name(self, obj: User) -> str:
-        return f"{obj.last_name} {obj.first_name}".strip()
+        viewer = self.context["request"].user
+        if can_view_exact_rating(viewer, obj) or (viewer.squad_id and viewer.squad_id == obj.squad_id):
+            return f"{obj.last_name} {obj.first_name}".strip()
+        return ""

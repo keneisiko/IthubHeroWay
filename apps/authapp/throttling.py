@@ -25,6 +25,10 @@ class LoginIPThrottle(SimpleRateThrottle):
         }
 
 
+class RefreshIPThrottle(LoginIPThrottle):
+    scope = "refresh"
+
+
 class LoginIdentifierThrottle(SimpleRateThrottle):
     """Ограничение по конкретному логину, независимо от адреса запроса."""
 

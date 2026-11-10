@@ -31,7 +31,8 @@ export default function NotFound() {
         <rect x="241" y="0" width="27" height="100" />
       </svg>
 
-      <h1 className="error-page__label">Error</h1>
+      <h1 className="error-page__label">Страница не найдена</h1>
+      <img src="/nginx-error-image.jpg" width={240} alt="Клоун" style={{ maxWidth: '100%', height: 'auto' }} />
 
       <button type="button" className="error-page__btn btn-press" onClick={() => navigate('/dashboard')}>
         Вернуться на главную

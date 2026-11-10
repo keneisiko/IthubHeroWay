@@ -1,8 +1,19 @@
 from django.contrib import admin, messages
 
-from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_hq
+from apps.operations.admin_rbac import ManagedRoleAdminMixin, is_admin, is_superadmin
 
 from .models import ExternalEvent, HikEvent, HikImportRun, HikSnapshot, LXPSnapshot, TelegramAccountLink
+
+
+class IntegrationAdmin(ManagedRoleAdminMixin):
+    def has_module_permission(self, request):
+        return self.has_view_permission(request)
+
+    def has_view_permission(self, request, obj=None):
+        return is_superadmin(request.user) or is_admin(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return self.has_view_permission(request, obj)
 
 
 class ExternalEventTypeFilter(admin.SimpleListFilter):
@@ -24,7 +35,7 @@ class ExternalEventTypeFilter(admin.SimpleListFilter):
 
 
 @admin.register(ExternalEvent)
-class ExternalEventAdmin(ManagedRoleAdminMixin):
+class ExternalEventAdmin(IntegrationAdmin):
     list_display = ("source", "external_event_id", "event_type_display", "processed_at")
     list_filter = ("source", ExternalEventTypeFilter, "processed_at")
     search_fields = ("external_event_id", "source")
@@ -40,12 +51,9 @@ class ExternalEventAdmin(ManagedRoleAdminMixin):
     def has_change_permission(self, request, obj=None):
         return request.user.is_superuser
 
-    def has_module_permission(self, request):
-        return super().has_module_permission(request) and not is_hq(request.user)
-
 
 @admin.register(HikEvent)
-class HikEventAdmin(ManagedRoleAdminMixin):
+class HikEventAdmin(IntegrationAdmin):
     list_display = ("event_time", "student_code", "event_type", "door_name", "processed", "unmatched")
     list_filter = ("processed", "unmatched")
     search_fields = ("event_id", "student_code", "door_name")
@@ -64,17 +72,14 @@ class HikEventAdmin(ManagedRoleAdminMixin):
     def has_add_permission(self, request):
         return False
 
-    def has_module_permission(self, request):
-        return super().has_module_permission(request) and not is_hq(request.user)
-
-    @admin.action(description="Снять признак «обработано» (повторная обработка)")
+    @admin.action(description="Снять признак «обработано» (повторная обработка)", permissions=("change",))
     def mark_unprocessed(self, request, queryset):
         queryset.update(processed=False, unmatched=False)
         self.message_user(request, f"Снят признак «обработано» для {queryset.count()} записей.", level=messages.WARNING)
 
 
 @admin.register(HikSnapshot)
-class HikSnapshotAdmin(ManagedRoleAdminMixin):
+class HikSnapshotAdmin(IntegrationAdmin):
     list_display = ("date", "events_count", "source_display", "created_at")
     readonly_fields = ("date", "data", "created_at")
     actions = ("apply_snapshot",)
@@ -95,16 +100,10 @@ class HikSnapshotAdmin(ManagedRoleAdminMixin):
     def has_add_permission(self, request):
         return False
 
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser or request.user.role == "admin"
-
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
 
-    def has_module_permission(self, request):
-        return super().has_module_permission(request) and not is_hq(request.user)
-
-    @admin.action(description="Импортировать снимок → HikEvent → ExternalEvent")
+    @admin.action(description="Импортировать снимок → HikEvent → ExternalEvent", permissions=("change",))
     def apply_snapshot(self, request, queryset):
         # В фоне: в запросе обработка до 50 000 событий упиралась в таймаут
         # gunicorn, и страница падала с 502 посреди работы.
@@ -122,7 +121,7 @@ class HikSnapshotAdmin(ManagedRoleAdminMixin):
 
 
 @admin.register(LXPSnapshot)
-class LXPSnapshotAdmin(ManagedRoleAdminMixin):
+class LXPSnapshotAdmin(IntegrationAdmin):
     list_display = ("date", "created_at")
     readonly_fields = ("date", "data", "created_at")
     actions = ("apply_snapshot",)
@@ -130,16 +129,10 @@ class LXPSnapshotAdmin(ManagedRoleAdminMixin):
     def has_add_permission(self, request):
         return False
 
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser or request.user.role == "admin"
-
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
 
-    def has_module_permission(self, request):
-        return super().has_module_permission(request) and not is_hq(request.user)
-
-    @admin.action(description="Применить снимок вручную (пересчитать рейтинг)")
+    @admin.action(description="Применить снимок вручную (пересчитать рейтинг)", permissions=("change",))
     def apply_snapshot(self, request, queryset):
         from apps.progress.tasks import recalculate_rating_for_date
 
@@ -149,7 +142,7 @@ class LXPSnapshotAdmin(ManagedRoleAdminMixin):
 
 
 @admin.register(HikImportRun)
-class HikImportRunAdmin(ManagedRoleAdminMixin):
+class HikImportRunAdmin(IntegrationAdmin):
     """Журнал импортов: по нему видно, работает интеграция или молчит."""
 
     list_display = (
@@ -180,7 +173,7 @@ class HikImportRunAdmin(ManagedRoleAdminMixin):
 
 
 @admin.register(TelegramAccountLink)
-class TelegramAccountLinkAdmin(ManagedRoleAdminMixin):
+class TelegramAccountLinkAdmin(IntegrationAdmin):
     """Кто из студентов привязал Telegram.
 
     Раньше этого экрана не было: на вопрос «почему я не вижу себя в отряде»
@@ -207,6 +200,3 @@ class TelegramAccountLinkAdmin(ManagedRoleAdminMixin):
         count = queryset.count()
         queryset.delete()
         self.message_user(request, f"Отвязано: {count}. Студенты могут снова отправить боту /activate.")
-
-    def has_module_permission(self, request):
-        return super().has_module_permission(request) and not is_hq(request.user)

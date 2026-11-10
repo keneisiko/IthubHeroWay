@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import ithubLogo from '../assets/other/лого-26 1.svg'
 import api from '../api'
-import { clearAuthTokens, extractLoginError } from '../auth'
+import { extractLoginError, isAuthenticated, startAuthSession } from '../auth'
 import PixelField from '../components/PixelField'
 import { pixelBurst } from '../lib/pixelBurst'
 import { markEntered } from '../lib/enterFlag'
@@ -188,12 +188,11 @@ export default function Login() {
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (!token) return
+    if (!isAuthenticated()) return
 
     api.get('/api/v1/profile/me/')
       .then(() => navigate(redirectTo, { replace: true }))
-      .catch(() => clearAuthTokens())
+      .catch(() => {})
   }, [navigate, redirectTo])
 
   const validate = () => {
@@ -226,8 +225,7 @@ export default function Login() {
     setError('')
     try {
       const res = await api.post('/api/v1/auth/login/', { login: username.trim(), password })
-      localStorage.setItem('access_token', res.data.access)
-      localStorage.setItem('refresh_token', res.data.refresh)
+      startAuthSession(res.data.access, res.data.refresh)
       setPhase('success')
       burstFrom(buttonRef.current, 1, 'coin')
 

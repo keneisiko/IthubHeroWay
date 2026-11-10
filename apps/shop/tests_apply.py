@@ -127,6 +127,7 @@ class ApplyPurchaseApiTests(APITestCase):
         response = self.client.post(self._url(other.pk))
 
         self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["placeholder"], "КЛОУН")
 
     def test_my_purchases_expose_applied_state(self):
         apply_purchase(self.user, self.purchase.pk)

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -52,7 +53,8 @@ class BlockedAccountTokenTests(APITestCase):
 
         for name in ("auth-refresh", "jwt-refresh"):
             with self.subTest(endpoint=name):
-                response = self.client.post(reverse(name), {"refresh": self.refresh}, format="json")
+                refresh = str(RefreshToken.for_user(self.user))
+                response = self.client.post(reverse(name), {"refresh": refresh}, format="json")
                 self.assertEqual(response.status_code, 200)
                 self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.json()['access']}")
                 self.assertEqual(self.client.get(reverse("profile-me")).status_code, 200)
@@ -85,8 +87,48 @@ class BlockedAccountTokenTests(APITestCase):
         self.client.credentials()
         for name in ("auth-refresh", "jwt-refresh"):
             with self.subTest(unblocked_endpoint=name):
-                response = self.client.post(reverse(name), {"refresh": self.refresh}, format="json")
+                refresh = str(RefreshToken.for_user(self.user))
+                response = self.client.post(reverse(name), {"refresh": refresh}, format="json")
                 self.assertEqual(response.status_code, 200)
                 self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.json()['access']}")
                 self.assertEqual(self.client.get(reverse("profile-me")).status_code, 200)
                 self.client.credentials()
+
+    def test_rotation_revokes_previous_refresh_on_both_routes(self):
+        response = self.client.post(reverse("auth-refresh"), {"refresh": self.refresh}, format="json")
+        self.assertEqual(response.status_code, 200)
+        rotated = response.json()["refresh"]
+        self.assertNotEqual(rotated, self.refresh)
+
+        response = self.client.post(reverse("jwt-refresh"), {"refresh": self.refresh}, format="json")
+        self.assertEqual(response.status_code, 401)
+        response = self.client.post(reverse("jwt-refresh"), {"refresh": rotated}, format="json")
+        self.assertEqual(response.status_code, 200)
+
+
+class BlockedAdminSessionTests(TestCase):
+    def setUp(self):
+        self.password = "admin-test-password"
+        self.user = User.objects.create_user(
+            username="blocked-staff",
+            password=self.password,
+            role="admin",
+            is_staff=True,
+            is_active=True,
+        )
+
+    def test_password_login_rejects_blocked_staff(self):
+        User.objects.filter(pk=self.user.pk).update(login_blocked=True)
+        self.assertFalse(self.client.login(username=self.user.username, password=self.password))
+
+    def test_blocking_staff_revokes_existing_admin_session(self):
+        self.assertTrue(self.client.login(username=self.user.username, password=self.password))
+        admin_url = reverse("admin:index")
+        self.assertEqual(self.client.get(admin_url).status_code, 200)
+
+        User.objects.filter(pk=self.user.pk).update(login_blocked=True)
+        self.assertRedirects(
+            self.client.get(admin_url),
+            f"{reverse('admin:login')}?next={admin_url}",
+            fetch_redirect_response=False,
+        )

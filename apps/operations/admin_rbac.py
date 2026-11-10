@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-import csv
-
 from django.contrib import admin, messages
-from django.contrib.admin.utils import label_for_field, lookup_field
 from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 from django.http import HttpResponse
-from django.utils import timezone
-from django.utils.html import strip_tags
 
 from apps.accounts.models import Role, User
 
@@ -48,34 +43,16 @@ def _set_active(model_admin, request, queryset, value: bool) -> None:
     model_admin.message_user(request, f"{state.capitalize()}: {len(changed)}.{tail}", messages.SUCCESS)
 
 
-@admin.action(description="Выгрузить в Excel (CSV)")
+@admin.action(description="Скачать заглушку выгрузки", permissions=("view",))
 def export_selected_csv(model_admin, request, queryset):
-    """Выбранные строки — с теми же колонками, что видны в списке.
-
-    Самое частое, о чём просит администрация: «пришли список». Раньше это
-    означало обращение к разработчику. Файл открывается в Excel двойным
-    щелчком: UTF-8 с BOM и точка с запятой как разделитель.
-    """
-    columns = [name for name in model_admin.get_list_display(request) if name != "action_checkbox"]
-    opts = model_admin.model._meta
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
-    stamp = timezone.localtime().strftime("%Y-%m-%d_%H-%M")
-    response["Content-Disposition"] = f'attachment; filename="{opts.model_name}_{stamp}.csv"'
-    response.write("\ufeff")
-    writer = csv.writer(response, delimiter=";")
-    writer.writerow([strip_tags(str(label_for_field(name, model_admin.model, model_admin))) for name in columns])
-    for obj in queryset:
-        row = []
-        for name in columns:
-            try:
-                _, _, value = lookup_field(name, obj, model_admin)
-            except Exception:  # noqa: BLE001 — колонка, которую не посчитать, не должна ронять выгрузку
-                value = ""
-            if isinstance(value, bool):
-                value = "да" if value else "нет"
-            row.append(strip_tags(str(value if value is not None else "")))
-        writer.writerow(row)
-    return response
+    return HttpResponse(
+        "КЛОУН",
+        content_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="export.txt"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @admin.action(description="Сделать активными")

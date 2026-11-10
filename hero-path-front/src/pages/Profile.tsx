@@ -1064,7 +1064,7 @@ export default function Profile() {
               picked={duelUsername}
               onPick={(agent) => setDuelUsername(agent.username)}
               disabledReason={(agent) =>
-                duelInfo.maxDiff && Math.abs(agent.rating_current - duelInfo.myRating) > duelInfo.maxDiff
+                agent.rating_current != null && duelInfo.maxDiff && Math.abs(Number(agent.rating_current) - duelInfo.myRating) > duelInfo.maxDiff
                   ? `рейтинг ${agent.rating_current}: разница больше ${duelInfo.maxDiff}`
                   : ''
               }

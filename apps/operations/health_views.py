@@ -3,9 +3,14 @@ from celery import current_app
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
+from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 from rest_framework import permissions, views
 from rest_framework.response import Response
+
+
+def live(request: HttpRequest) -> HttpResponse:
+    return HttpResponse("ok\n", content_type="text/plain")
 
 
 def _db_ok() -> bool:

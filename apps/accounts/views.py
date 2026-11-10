@@ -16,7 +16,7 @@ from apps.quests.models import QuestRewardTransaction, UserQuestProgress
 from apps.quests.services.quest_periods import quests_for_date
 
 from .models import Role, User
-from .permissions import IsKnownRole
+from .permissions import GLOBAL_RATING_ROLES, IsKnownRole
 from .serializers import AgentSearchSerializer, MeProfileSerializer, PublicProfileSerializer
 
 
@@ -201,6 +201,7 @@ class AgentSearchView(generics.ListAPIView):
 
     permission_classes = [IsKnownRole]
     serializer_class = AgentSearchSerializer
+    throttle_scope = "agent_search"
     pagination_class = None
 
     def get_queryset(self):
@@ -214,14 +215,16 @@ class AgentSearchView(generics.ListAPIView):
             .select_related("squad", "track")
         )
         if query:
-            queryset = queryset.filter(
-                Q(callsign__icontains=query)
-                | Q(username__icontains=query)
-                | Q(first_name__icontains=query)
-                | Q(last_name__icontains=query)
-            )
+            viewer = self.request.user
+            visible_identity = Q(squad_id=viewer.squad_id) if viewer.squad_id else Q(pk__in=[])
+            if viewer.role in GLOBAL_RATING_ROLES:
+                visible_identity = Q()
+            identity_match = Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query)
+            queryset = queryset.filter(Q(callsign__icontains=query) | (visible_identity & identity_match))
         elif self.request.user.squad_id:
             # Без запроса показываем одногруппников: чаще всего берут в подшефные
             # и вызывают на дуэль именно их.
             queryset = queryset.filter(squad_id=self.request.user.squad_id)
+        elif self.request.user.role not in GLOBAL_RATING_ROLES:
+            return queryset.none()
         return queryset.order_by("callsign", "id")[:20]

@@ -7,7 +7,7 @@ export interface AgentSuggestion {
   callsign: string
   full_name: string
   squad: string
-  rating_current: number
+  rating_current: string | null
   avatar?: string | null
   avatar_frame?: string
 }

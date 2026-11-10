@@ -260,7 +260,10 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related("squad", "track")
-        if is_superadmin(request.user) or is_admin(request.user):
+        if is_superadmin(request.user):
+            return qs
+        qs = qs.filter(is_superuser=False)
+        if is_admin(request.user):
             return qs
         if is_curator(request.user):
             if request.user.squad_id:
@@ -269,6 +272,19 @@ class UserAdmin(ManagedRoleAdminMixin, BaseUserAdmin):
         if is_tutor(request.user):
             return qs.filter(squad__course__gte=2, squad__course__lte=4)
         return qs.none()
+
+    def has_add_permission(self, request):
+        return is_superadmin(request.user) or is_admin(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.is_superuser:
+            return is_superadmin(request.user)
+        return super().has_delete_permission(request, obj)
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and obj.is_superuser:
+            return is_superadmin(request.user)
+        return super().has_change_permission(request, obj)
 
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))

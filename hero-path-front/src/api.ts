@@ -1,20 +1,21 @@
 import axios, { type AxiosResponse } from 'axios'
 import toast from 'react-hot-toast'
-import { clearAuthTokens, isAuthApiPath } from './auth'
+import { clearAuthTokens, isAuthApiPath, readAuthSession, saveAuthSession } from './auth'
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    _heroSessionId?: string | null
+    _retry?: boolean
+    _transientRetry?: number
+  }
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
+  timeout: 30_000,
   headers: {
     'Content-Type': 'application/json',
   },
-})
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
 })
 
 /*
@@ -48,15 +49,24 @@ if (typeof document !== 'undefined') {
 }
 
 api.interceptors.request.use((config) => {
+  const isAuth = isAuthApiPath(config.url)
+  const session = isAuth ? null : readAuthSession()
+  const sessionId = session?.id ?? null
+  if (config._heroSessionId !== undefined && config._heroSessionId !== sessionId) {
+    throw new axios.CanceledError('Session changed')
+  }
+  config._heroSessionId = sessionId
+  if (session) config.headers.Authorization = `Bearer ${session.access}`
+  else config.headers.delete('Authorization')
+
   const method = (config.method ?? 'get').toLowerCase()
   if (method !== 'get') {
     clearApiCache()
     return config
   }
-  if (isAuthApiPath(config.url)) return config
+  if (isAuth || config.signal) return config
 
-  const token = localStorage.getItem('access_token') ?? ''
-  const key = `${token.slice(-16)} ${config.url} ${JSON.stringify(config.params ?? {})}`
+  const key = `${sessionId ?? ''} ${session?.access.slice(-16) ?? ''} ${config.url} ${JSON.stringify(config.params ?? {})}`
   const hit = responseCache.get(key)
   if (hit && Date.now() - hit.at < CACHE_TTL) {
     config.adapter = async () => ({ ...hit.response, data: copy(hit.response.data), config })
@@ -93,20 +103,35 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-let isRefreshing = false
-let failedQueue: { resolve: (v: unknown) => void; reject: (e: unknown) => void }[] = []
+let pendingRefresh: { sessionId: string; task: Promise<void> } | undefined
 
-function processQueue(error: unknown, token: string | null = null) {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error)
-    else resolve(token)
-  })
-  failedQueue = []
+async function refreshSession(sessionId: string, failedBearer: unknown): Promise<void> {
+  const current = readAuthSession()
+  if (!current || current.id !== sessionId) throw new axios.CanceledError('Session changed')
+  if (`Bearer ${current.access}` !== failedBearer) return
+
+  try {
+    const { data } = await api.post<{ access: string; refresh?: string }>(
+      '/api/v1/auth/jwt/refresh/', { refresh: current.refresh },
+    )
+    const latest = readAuthSession()
+    if (latest?.id !== sessionId || latest.refresh !== current.refresh) {
+      throw new axios.CanceledError('Session changed')
+    }
+    saveAuthSession({ id: sessionId, access: data.access, refresh: data.refresh ?? current.refresh })
+  } catch (error) {
+    const latest = readAuthSession()
+    if (latest?.id === sessionId && latest.access !== current.access) return
+    if (axios.isAxiosError(error) && error.response?.status === 401 &&
+        latest?.id === sessionId && latest.refresh === current.refresh) {
+      clearAuthTokens()
+      if (window.location.pathname !== '/login') window.location.href = '/login'
+    }
+    throw error
+  }
 }
 
-// Повторы чтения при кратком сбое сервера: ~1,5 + 3 + 4,5 с — дольше
-// длится только настоящий простой.
-const TRANSIENT_RETRIES = 3
+const TRANSIENT_RETRIES = 2
 const TRANSIENT_DELAY_MS = 1500
 
 api.interceptors.response.use(
@@ -124,46 +149,25 @@ api.interceptors.response.use(
       !originalRequest._retry &&
       !isAuthApiPath(requestUrl)
     ) {
-      const refreshToken = localStorage.getItem('refresh_token')
-
-      if (!refreshToken) {
-        clearAuthTokens()
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
-        return Promise.reject(error)
-      }
-
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`
-          return api(originalRequest)
-        }).catch((err) => Promise.reject(err))
-      }
+      const sessionId = originalRequest._heroSessionId
+      if (!sessionId || readAuthSession()?.id !== sessionId) throw error
 
       originalRequest._retry = true
-      isRefreshing = true
-
-      try {
-        const res = await api.post('/api/v1/auth/jwt/refresh/', { refresh: refreshToken })
-        const newAccess = res.data.access
-        localStorage.setItem('access_token', newAccess)
-        api.defaults.headers.common['Authorization'] = `Bearer ${newAccess}`
-        processQueue(null, newAccess)
-        originalRequest.headers.Authorization = `Bearer ${newAccess}`
-        return api(originalRequest)
-      } catch (refreshError) {
-        processQueue(refreshError, null)
-        clearAuthTokens()
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
+      const existingRefresh = pendingRefresh
+      let refreshTask = existingRefresh && existingRefresh.sessionId === sessionId ? existingRefresh.task : undefined
+      if (!refreshTask) {
+        const refresh = () => refreshSession(sessionId, originalRequest.headers.Authorization)
+        const task = navigator.locks
+          ? navigator.locks.request('hero-path-token-refresh', refresh)
+          : refresh()
+        refreshTask = task
+        pendingRefresh = { sessionId, task }
+        void task.finally(() => {
+          if (pendingRefresh?.task === task) pendingRefresh = undefined
+        }).catch(() => {})
       }
+      await refreshTask
+      return api(originalRequest)
     }
 
     const status = error.response?.status
@@ -172,13 +176,14 @@ api.interceptors.response.use(
     // (или не отвечает вовсе). Чтение тихо повторяем с паузой — иначе
     // открытая в эти секунды страница сдавалась с «Не удалось загрузить».
     // Изменения (POST и т. п.) не повторяем: их нельзя отправить дважды.
-    const transient = !error.response || status === 502 || status === 503 || status === 504
+    const transient = !axios.isCancel(error) &&
+      (!error.response || status === 502 || status === 503 || status === 504)
     const isRead = (originalRequest?.method ?? 'get').toLowerCase() === 'get'
     if (originalRequest && transient && isRead) {
       const attempt = (originalRequest._transientRetry ?? 0) + 1
       if (attempt <= TRANSIENT_RETRIES) {
         originalRequest._transientRetry = attempt
-        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_DELAY_MS * attempt))
+        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_DELAY_MS * attempt * (0.75 + Math.random() * 0.5)))
         return api(originalRequest)
       }
     }

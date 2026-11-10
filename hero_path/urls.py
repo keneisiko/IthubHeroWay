@@ -6,7 +6,7 @@ from django_prometheus import exports
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.operations.admin_views import curator_dashboard, hq_dashboard, my_dashboard, tutor_dashboard
-from apps.operations.health_views import HealthView, ReadyView
+from apps.operations.health_views import HealthView, ReadyView, live
 from hero_path.admin_site import setup_admin_site
 
 # Подписи админки проставляются до того, как admin.site.urls попадёт в маршруты.
@@ -20,6 +20,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("live/", live, name="live"),
     path("health/", HealthView.as_view(), name="health"),
     path("ready/", ReadyView.as_view(), name="ready"),
     path("", include("django_prometheus.urls")),

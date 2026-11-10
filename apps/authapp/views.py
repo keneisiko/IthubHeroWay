@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .serializers import AuthUserSerializer, LoginSerializer
-from .throttling import LoginIdentifierThrottle, LoginIPThrottle
+from .serializers import AuthUserSerializer, LoginSerializer, RotatingRefreshSerializer
+from .throttling import LoginIdentifierThrottle, LoginIPThrottle, RefreshIPThrottle
 
 
 class LoginView(TokenObtainPairView):
@@ -16,8 +16,9 @@ class LoginView(TokenObtainPairView):
 
 
 class RefreshView(TokenRefreshView):
+    serializer_class = RotatingRefreshSerializer
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [LoginIPThrottle]
+    throttle_classes = [RefreshIPThrottle]
 
 
 class MeView(APIView):
